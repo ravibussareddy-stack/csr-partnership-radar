@@ -39,8 +39,12 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
 
   const sourceNames = new Map(cfg.sources.map((s) => [s.id, s.name]));
   let pool: GeminiPool | null = null;
-  if (loadKeys().length > 0) pool = new GeminiPool();
-  else console.warn("classify: no Gemini keys set; all items stay unclassified (rules-only scoring)");
+  try {
+    if (loadKeys().length > 0) pool = new GeminiPool();
+    else console.warn("classify: no Gemini keys set; all items stay unclassified (rules-only scoring)");
+  } catch (err) {
+    console.warn(`classify: Gemini not configured (${(err as Error).message}); rules-only scoring`);
+  }
 
   let stop = !pool;
   for (const item of queue) {

@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Weekly CSR intelligence digest: who to call this week.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>

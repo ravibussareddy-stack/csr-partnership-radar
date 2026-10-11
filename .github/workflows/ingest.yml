@@ -29,7 +29,7 @@ jobs:
         run: npm run ingest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
           GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
