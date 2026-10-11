@@ -12,7 +12,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "ingest": "tsx scripts/ingest/index.ts",
     "eval": "tsx evals/run.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sources:check": "tsx scripts/check-sources.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

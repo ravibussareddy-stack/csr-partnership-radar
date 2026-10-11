@@ -34,6 +34,11 @@ export interface SourceConfig {
   /** Every item is CSR-related, so the pre-filter skips the CSR-keyword check. */
   csrFocused: boolean;
   enabled: boolean;
+  /**
+   * WordPress feeds only show the newest ~10 posts. pages > 1 also fetches
+   * ?paged=2..pages so a daily run covers the full day (or a backlog on first run).
+   */
+  pages?: number;
 }
 
 export interface AppConfig {
@@ -155,7 +160,9 @@ export const DEFAULT_CONFIG: AppConfig = {
       ],
     },
   },
-  // Verified reachable and allowed by robots.txt on 2026-10-11.
+  // Verified with `npm run sources:check` on 2026-10-11 (reachable, robots.txt allows, fresh).
+  // Rejected: Google News RSS (robots.txt), Business Standard + PIB (403), thecsrupdates.com
+  // (timeout), education-news feeds (no CSR items pass the pre-filter).
   sources: [
     {
       id: "indiacsr",
@@ -165,6 +172,8 @@ export const DEFAULT_CONFIG: AppConfig = {
       weight: 6,
       csrFocused: true,
       enabled: true,
+      // ~17 posts/day but the feed shows only 10.
+      pages: 5,
     },
     {
       id: "thecsrjournal",
@@ -173,6 +182,25 @@ export const DEFAULT_CONFIG: AppConfig = {
       url: "https://thecsrjournal.in/category/corporate-social-responsibility/feed/",
       type: "rss",
       weight: 6,
+      csrFocused: true,
+      enabled: true,
+      pages: 2,
+    },
+    {
+      id: "csrmandate",
+      name: "CSR Mandate",
+      url: "https://csrmandate.org/feed/",
+      type: "rss",
+      weight: 6,
+      csrFocused: true,
+      enabled: true,
+    },
+    {
+      id: "csrtimes",
+      name: "CSR Times",
+      url: "https://www.csrtimes.org/feed/",
+      type: "rss",
+      weight: 5,
       csrFocused: true,
       enabled: true,
     },
