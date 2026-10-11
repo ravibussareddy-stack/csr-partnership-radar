@@ -79,6 +79,26 @@ export interface AppConfig {
     activelyPartneringBonus: number;
     /** Items older than this are not re-scored and do not appear in the digest window. */
     lookbackDays: number;
+    /** Warm list: companies with focus-sector CSR activity in the last `days` days. */
+    warm: {
+      days: number;
+      maxItems: number;
+      /** points by age of the latest focus-sector announcement; first match wins */
+      recency: { maxAgeDays: number; points: number }[];
+      perAnnouncement: number;
+      maxAnnouncementsCounted: number;
+      partnerSearchDays: number;
+      partnerSearch: number;
+      /** announcement window starting within this many days (or already open) */
+      windowSoonDays: number;
+      windowCompany: number;
+      windowSectorPattern: number;
+      maharashtraFocusSpend: number;
+      puneSpend: number;
+      /** companies added from portal spend even without recent news (top N by Maharashtra focus spend) */
+      spendCandidates: number;
+      thresholds: { callThisWeek: number; watch: number };
+    };
   };
 }
 
@@ -277,5 +297,26 @@ export const DEFAULT_CONFIG: AppConfig = {
     outsideSectorMaxTier: "watch",
     activelyPartneringBonus: 10,
     lookbackDays: 14,
+    warm: {
+      days: 365,
+      maxItems: 40,
+      recency: [
+        { maxAgeDays: 30, points: 30 },
+        { maxAgeDays: 90, points: 20 },
+        { maxAgeDays: 180, points: 10 },
+        { maxAgeDays: 365, points: 5 },
+      ],
+      perAnnouncement: 5,
+      maxAnnouncementsCounted: 4,
+      partnerSearchDays: 180,
+      partnerSearch: 25,
+      windowSoonDays: 30,
+      windowCompany: 20,
+      windowSectorPattern: 5,
+      maharashtraFocusSpend: 15,
+      puneSpend: 10,
+      spendCandidates: 30,
+      thresholds: { callThisWeek: 60, watch: 35 },
+    },
   },
 };

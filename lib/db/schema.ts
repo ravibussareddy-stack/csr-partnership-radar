@@ -138,6 +138,24 @@ export const companyNews = pgTable(
   (t) => [uniqueIndex("company_news_company_url_idx").on(t.companyId, t.url)],
 );
 
+/**
+ * Every headline from the CSR news archives in the warm window (last ~12 months), fetched by
+ * date rather than by company. Gemini (batched) names the company, kind and sector; resolved
+ * company headlines are then copied into company_news.
+ */
+export const archiveHeadlines = pgTable("archive_headlines", {
+  id: serial("id").primaryKey(),
+  source: text("source").notNull(),
+  url: text("url").notNull().unique(),
+  title: text("title").notNull(),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+  company: text("company"),
+  companyId: integer("company_id").references(() => companies.id, { onDelete: "set null" }),
+  kind: text("kind").$type<HeadlineKind>(),
+  sector: text("sector"),
+  model: text("model"),
+});
+
 /** Precomputed per-company history + predictions (scripts/history/stats.ts). Read by the app. */
 export const companyStats = pgTable(
   "company_stats",

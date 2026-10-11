@@ -59,6 +59,7 @@ npm run dev          # http://localhost:3000
 | `npm run history:aliases` | Set company short names (manual list in `config/aliases.ts` + Gemini proposals, collision-checked). |
 | `npm run history:news` | Backfill dated CSR headlines per company from CSR news archives (`-- --aliases-only` to search only aliases). |
 | `npm run history:classify-news` | Batch-classify those headlines with Gemini (80 per call). |
+| `npm run history:recent` | Crawl the last 12 months of CSR news archives by date and classify headlines (company, kind, sector) for the warm list. Incremental. |
 | `npm run history:stats` | Recompute company history, forecasts and announcement timing. |
 | `npm run db:generate` | Generate a new migration after editing `lib/db/schema.ts`. |
 | `npm run db:migrate` | Apply migrations. |

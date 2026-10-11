@@ -185,3 +185,9 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .filters a.on { background: var(--text); color: var(--bg); border-color: var(--text); }
 .filters form { margin-left: auto; }
 .filters input { font: inherit; font-size: 0.85rem; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+
+/* warm list */
+.warm { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
+.warm-head { border-color: var(--accent); }
+.warm-group { margin: 18px 0 8px; }
+.warm-tier { font-size: 1rem; margin: 0 0 8px; }

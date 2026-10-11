@@ -19,7 +19,8 @@
     "history:news": "tsx scripts/history/news.ts",
     "history:classify-news": "tsx scripts/history/classify-news.ts",
     "history:aliases": "tsx scripts/history/aliases.ts",
-    "db:copy": "tsx scripts/db-copy.ts"
+    "db:copy": "tsx scripts/db-copy.ts",
+    "history:recent": "tsx scripts/history/recent.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

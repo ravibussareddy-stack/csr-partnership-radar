@@ -6,6 +6,7 @@ import { connection } from "next/server";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { TIERS, type Tier } from "@/lib/db/schema";
 import { DIGEST_WINDOW_DAYS, loadDigest, type DigestItem } from "@/lib/digest";
+import { loadWarmList, type WarmItem } from "@/lib/warm";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 import { OTHER_SECTORS } from "@/prompts/classify";
 
@@ -39,8 +40,8 @@ export default function Page() {
         <p className="eyebrow">CSR Partnership Radar</p>
         <h1>Monday digest</h1>
         <p className="sub">
-          CSR signals from the last {DIGEST_WINDOW_DAYS} days in education, skill development, digital literacy and
-          youth employment, each with a decision.
+          New CSR signals from the last {DIGEST_WINDOW_DAYS} days in education, skill development, digital literacy and youth
+          employment, then a warm list of companies active in those sectors over the last 12 months. Each item ends in a decision.
         </p>
       </header>
       <Suspense fallback={<p className="muted">Loading this week&rsquo;s signals…</p>}>
@@ -53,7 +54,7 @@ export default function Page() {
 async function Digest() {
   await connection(); // always read fresh from the DB at request time
   const now = new Date();
-  const data = await loadDigest(now);
+  const [data, warm] = await Promise.all([loadDigest(now), loadWarmList(now).catch(() => null)]);
 
   if (data.status === "no_database") {
     return <Notice title="No database configured">Set <code>DATABASE_URL</code> and run <code>npm run ingest</code>.</Notice>;
@@ -112,7 +113,63 @@ async function Digest() {
           </section>
         ))
       )}
+
+      {warm && warm.length > 0 && <WarmList items={warm} />}
     </>
+  );
+}
+
+const KIND_LABELS: Record<string, string> = {
+  new_initiative: "new initiative",
+  partnership: "partnership",
+  allocation_or_spend: "spend / allocation",
+  partner_search: "partner search",
+};
+
+function WarmList({ items }: { items: WarmItem[] }) {
+  return (
+    <section className="warm" aria-labelledby="h-warm">
+      <div className="tier-head warm-head">
+        <h2 id="h-warm">
+          Warm list <span className="muted">({items.length})</span>
+        </h2>
+        <p className="muted small">
+          Companies active in your sectors in the last 12 months, from CSR news archives and National CSR Portal spend. A company
+          that hasn&rsquo;t touched education CSR in years is a long conversation; these are not.
+        </p>
+      </div>
+      {TIERS.map((t) => {
+        const group = items.filter((i) => i.tier === t);
+        if (group.length === 0) return null;
+        return (
+          <div key={t} className={`warm-group tier-${t}`}>
+            <h3 className="warm-tier">
+              {TIER_LABELS[t]} <span className="muted">({group.length})</span>
+            </h3>
+            <ol className="items">
+              {group.map((w) => (
+                <li key={w.companyId} className="item">
+                  <div className="item-top">
+                    <span className="company">
+                      <Link className="company-link" href={`/companies/${w.companyId}`}>{w.company}</Link>
+                    </span>
+                    {w.activity.last && <span className="chip">{KIND_LABELS[w.activity.last.kind] ?? w.activity.last.kind}</span>}
+                  </div>
+                  {w.activity.last && (
+                    <a className="title" href={w.activity.last.url} target="_blank" rel="noopener noreferrer">
+                      {w.activity.last.title}
+                    </a>
+                  )}
+                  <p className="reason">
+                    <span className="label">Why this tier:</span> {w.reason}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        );
+      })}
+    </section>
   );
 }
 

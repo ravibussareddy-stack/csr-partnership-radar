@@ -49,3 +49,35 @@ sector: the main CSR area, one of: ${sectors}. Use "other" if none fits or kind 
 Return one object per headline with its index i. Headlines (index, company, headline):
 ${lines}`;
 }
+
+/** Archive variant: no company is known up front, so the model also names it. */
+export function archiveHeadlineResponseSchema(cfg: AppConfig) {
+  const base = headlineResponseSchema(cfg);
+  return {
+    ...base,
+    items: {
+      ...base.items,
+      properties: { ...base.items.properties, company: { type: "STRING" } },
+      required: [...base.items.required, "company"],
+      propertyOrdering: ["i", "company", "kind", "sector"],
+    },
+  };
+}
+
+export function archiveHeadlineSchema(cfg: AppConfig) {
+  return z.array(
+    z.object({ i: z.number().int(), company: z.string().trim().max(120), kind: z.enum(HEADLINE_KINDS), sector: z.enum(sectorIds(cfg)) }),
+  );
+}
+
+export function buildArchiveHeadlinePrompt(items: { i: number; title: string }[], cfg: AppConfig): string {
+  const lines = items.map((x) => `${x.i}\t${x.title}`).join("\n");
+  return buildHeadlinePrompt([], cfg)
+    .replace(
+      "Return one object per headline with its index i. Headlines (index, company, headline):\n",
+      `company: the company or corporate foundation whose CSR the headline is about, as named (e.g. "HDFC Bank Parivartan" → "HDFC Bank"). Empty string if it is not about a company's CSR (NGO-only, government-only, or not CSR).
+
+Return one object per headline with its index i. Headlines (index, headline):
+${lines}`,
+    );
+}

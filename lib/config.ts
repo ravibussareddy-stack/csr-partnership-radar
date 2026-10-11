@@ -25,6 +25,7 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
       ...d.scoringWeights,
       ...row.scoringWeights,
       signalType: { ...d.scoringWeights.signalType, ...row.scoringWeights.signalType },
+      warm: { ...d.scoringWeights.warm, ...row.scoringWeights.warm },
     },
   };
 }
