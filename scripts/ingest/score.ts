@@ -1,7 +1,7 @@
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
-import { classifications, companies, rawItems, signals } from "@/lib/db/schema";
+import { classifications, companies, companyNews, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
 import { baseKey, nameKey } from "@/lib/companies";
 import { scoreItem } from "@/lib/scoring";
 
@@ -48,6 +48,13 @@ async function resolveCompany(db: DB, name: string, idx: CompanyIndex): Promise<
   idx.byKey.set(key, row.id);
   return row.id;
 }
+
+const HEADLINE_KIND: Partial<Record<SignalType, HeadlineKind>> = {
+  new_initiative: "new_initiative",
+  allocation_increase: "allocation_or_spend",
+  partner_search: "partner_search",
+  ongoing_programme: "ongoing_activity",
+};
 
 /** Re-scores every pre-filtered item in the lookback window (so recency stays current). */
 export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Promise<ScoreStats> {
@@ -99,6 +106,23 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       now,
     );
     const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
+    // Feed the company's dated-news history (announcement timing) from the live pipeline.
+    const kind = cls ? HEADLINE_KIND[cls.signalType] : undefined;
+    if (companyId && cls && kind) {
+      await db
+        .insert(companyNews)
+        .values({
+          companyId,
+          source: item.source,
+          url: item.url,
+          title: item.title,
+          publishedAt: item.publishedAt ?? item.fetchedAt,
+          kind,
+          sector: cls.sectors[0] ?? cls.otherSectors[0] ?? "other",
+          model: cls.model,
+        })
+        .onConflictDoNothing();
+    }
     const values = {
       itemId: item.id,
       companyId,

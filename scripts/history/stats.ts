@@ -8,7 +8,7 @@ import { and, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import { loadConfig } from "@/lib/config";
 import { closeDb, getDb, type DB } from "@/lib/db/client";
-import { companies, companyNews, companyStats, csrSpend, signals } from "@/lib/db/schema";
+import { ANNOUNCEMENT_KINDS, companies, companyNews, companyStats, csrSpend, signals } from "@/lib/db/schema";
 import { forecastAmount, round, sectorOdds, timingFrom } from "@/lib/history/predict";
 import type { CompanyStatsData, YearRow } from "@/lib/history/types";
 
@@ -51,8 +51,10 @@ async function main() {
   console.log(`stats: last reported FY ${lastFy}, ${ids.length} companies (≥ ₹${MIN_RECENT_CR} cr since FY${recentFrom} or in digest)`);
 
   // Sector-wide announcement seasonality from all dated news (fallback for sparse companies).
-  const allNews = await db.select({ m: sql<number>`extract(month from ${companyNews.publishedAt})`, n: sql<number>`count(*)` })
+  const allNews = await db
+    .select({ m: sql<number>`extract(month from ${companyNews.publishedAt})`, n: sql<number>`count(*)` })
     .from(companyNews)
+    .where(inArray(companyNews.kind, ANNOUNCEMENT_KINDS))
     .groupBy(sql`1`);
   const sectorMonths = new Array(12).fill(0);
   for (const r of allNews) sectorMonths[Number(r.m) - 1] = Number(r.n);
@@ -75,7 +77,7 @@ async function main() {
         .where(inArray(csrSpend.companyId, page))
         .groupBy(csrSpend.companyId, csrSpend.fyStart, csrSpend.sector, csrSpend.state, csrSpend.district),
       db
-        .select({ companyId: companyNews.companyId, at: companyNews.publishedAt })
+        .select({ companyId: companyNews.companyId, at: companyNews.publishedAt, kind: companyNews.kind })
         .from(companyNews)
         .where(and(inArray(companyNews.companyId, page), lte(companyNews.publishedAt, now))),
       db.select({ id: companies.id, isPsu: companies.isPsu }).from(companies).where(inArray(companies.id, page)),
@@ -83,8 +85,14 @@ async function main() {
     const psu = new Map(meta.map((m) => [m.id, m.isPsu]));
     const byCo = new Map<number, typeof spend>();
     for (const r of spend) (byCo.get(r.companyId) ?? byCo.set(r.companyId, []).get(r.companyId)!).push(r);
-    const newsBy = new Map<number, Date[]>();
-    for (const n of news) (newsBy.get(n.companyId) ?? newsBy.set(n.companyId, []).get(n.companyId)!).push(n.at);
+    // Timing counts announcements once headlines are classified; until then, every headline.
+    const newsBy = new Map<number, { all: Date[]; ann: Date[]; classified: boolean }>();
+    for (const n of news) {
+      const e = newsBy.get(n.companyId) ?? newsBy.set(n.companyId, { all: [], ann: [], classified: false }).get(n.companyId)!;
+      e.all.push(n.at);
+      if (n.kind) e.classified = true;
+      if (n.kind && ANNOUNCEMENT_KINDS.includes(n.kind)) e.ann.push(n.at);
+    }
 
     const values = page.map((companyId) => {
       const rows = byCo.get(companyId) ?? [];
@@ -146,7 +154,11 @@ async function main() {
           method:
             "Weighted average of the last 3 reported FYs (20/30/50) adjusted by their growth rate (capped ±25%); range = lowest–highest of those 3 years, widened to include the estimate.",
         },
-        timing: timingFrom(newsBy.get(companyId) ?? [], sectorMonths, now),
+        timing: (() => {
+          const e = newsBy.get(companyId);
+          if (!e) return timingFrom([], sectorMonths, now);
+          return e.classified ? timingFrom(e.ann, sectorMonths, now, "announcements") : timingFrom(e.all, sectorMonths, now, "all_headlines");
+        })(),
       };
       const last = years.get(lastFy);
       return {

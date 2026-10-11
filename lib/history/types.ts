@@ -26,6 +26,10 @@ export interface Timing {
   /** ISO date of the next start of the window */
   nextWindowStart: string | null;
   lastEvent: string | null;
+  /** "clear" ≥ 45% of events in the window, "mild" ≥ 33%, else "none" (uniform would be 25%) */
+  strength: "clear" | "mild" | "none";
+  /** which headlines were counted */
+  counted: "announcements" | "all_headlines";
 }
 
 export interface CompanyStatsData {

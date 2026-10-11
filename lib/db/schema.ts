@@ -27,6 +27,18 @@ export type SignalType = (typeof SIGNAL_TYPES)[number];
 export const TIERS = ["call_this_week", "watch", "background"] as const;
 export type Tier = (typeof TIERS)[number];
 
+export const HEADLINE_KINDS = [
+  "new_initiative",
+  "partnership",
+  "allocation_or_spend",
+  "partner_search",
+  "ongoing_activity",
+  "not_csr",
+] as const;
+export type HeadlineKind = (typeof HEADLINE_KINDS)[number];
+/** Headline kinds that count as an "announcement" for timing. */
+export const ANNOUNCEMENT_KINDS: HeadlineKind[] = ["new_initiative", "partnership", "allocation_or_spend", "partner_search"];
+
 export type ClassifyStatus = "pending" | "filtered_out" | "classified" | "unclassified";
 
 export const rawItems = pgTable("raw_items", {
@@ -118,6 +130,10 @@ export const companyNews = pgTable(
     url: text("url").notNull(),
     title: text("title").notNull(),
     publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+    // Headline classification (prompts/headlines.ts); null = not classified yet.
+    kind: text("kind").$type<HeadlineKind>(),
+    sector: text("sector"),
+    model: text("model"),
   },
   (t) => [uniqueIndex("company_news_company_url_idx").on(t.companyId, t.url)],
 );

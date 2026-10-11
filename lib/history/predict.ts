@@ -55,10 +55,15 @@ export function nextWindowStart(startMonth: number, now: Date): string {
   return new Date(Date.UTC(year, startMonth, 1)).toISOString().slice(0, 10);
 }
 
+function strengthOf(share: number): Timing["strength"] {
+  return share >= 0.45 ? "clear" : share >= 0.33 ? "mild" : "none";
+}
+
 export function timingFrom(
   companyDates: Date[],
   sectorMonths: number[] | null,
   now: Date,
+  counted: Timing["counted"] = "announcements",
 ): Timing {
   const months = new Array(12).fill(0);
   for (const d of companyDates) months[d.getUTCMonth()]++;
@@ -74,18 +79,21 @@ export function timingFrom(
     hist = sectorMonths;
   }
   if (basis === "none") {
-    return { basis, events: companyDates.length, months, window: null, windowShare: 0, nextWindowStart: null, lastEvent };
+    return { basis, events: companyDates.length, months, window: null, windowShare: 0, nextWindowStart: null, lastEvent, strength: "none", counted };
   }
   const total = hist.reduce((a, b) => a + b, 0);
   const w = bestWindow(hist);
+  const share = total ? round(w.count / total, 2) : 0;
   return {
     basis,
     events: companyDates.length,
     months,
     window: windowLabel(w.start),
-    windowShare: total ? round(w.count / total, 2) : 0,
+    windowShare: share,
     nextWindowStart: nextWindowStart(w.start, now),
     lastEvent,
+    strength: strengthOf(share),
+    counted,
   };
 }
 
