@@ -7,6 +7,7 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { TIERS, type Tier } from "@/lib/db/schema";
 import { DIGEST_WINDOW_DAYS, loadDigest, type DigestItem } from "@/lib/digest";
 import { loadWarmList, type WarmItem } from "@/lib/warm";
+import { Hero, Icon } from "@/app/components/illustrations";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 import { OTHER_SECTORS } from "@/prompts/classify";
 
@@ -36,14 +37,10 @@ function weekOf(now: Date): string {
 export default function Page() {
   return (
     <main className="wrap">
-      <header className="masthead">
-        <p className="eyebrow">CSR Partnership Radar</p>
-        <h1>Monday digest</h1>
-        <p className="sub">
-          New CSR signals from the last {DIGEST_WINDOW_DAYS} days in education, skill development, digital literacy and youth
-          employment, then a warm list of companies active in those sectors over the last 12 months. Each item ends in a decision.
-        </p>
-      </header>
+      <Hero eyebrow="Every Monday, before outreach" title="Monday digest" variant="digest">
+        New CSR signals from the last {DIGEST_WINDOW_DAYS} days in education, skilling, digital literacy and youth employment, then the
+        companies that stayed warm all year. Every item ends in a decision.
+      </Hero>
       <Suspense fallback={<p className="muted">Loading this week&rsquo;s signals…</p>}>
         <Digest />
       </Suspense>
@@ -69,6 +66,7 @@ async function Digest() {
   return (
     <>
       <section className="summary" aria-label="Summary">
+        <h2 className="section-title"><Icon name="spark" /> This week</h2>
         <p>
           <strong>Week of {weekOf(now)}</strong>
           {data.lastUpdated && <> · data updated {fmtDateTime.format(data.lastUpdated)}</>}
@@ -96,6 +94,7 @@ async function Digest() {
         TIERS.map((t) => (
           <section key={t} className={`tier tier-${t}`} aria-labelledby={`h-${t}`}>
             <div className="tier-head">
+              <span className="tier-dot" aria-hidden="true" />
               <h2 id={`h-${t}`}>
                 {TIER_LABELS[t]} <span className="muted">({byTier[t].length})</span>
               </h2>
@@ -104,7 +103,7 @@ async function Digest() {
             {byTier[t].length === 0 ? (
               <p className="muted small empty">Nothing in this tier this week.</p>
             ) : (
-              <ol className="items">
+              <ol className="items rise">
                 {byTier[t].map((item) => (
                   <Item key={item.id} item={item} />
                 ))}
@@ -129,23 +128,24 @@ const KIND_LABELS: Record<string, string> = {
 function WarmList({ items }: { items: WarmItem[] }) {
   return (
     <section className="warm" aria-labelledby="h-warm">
-      <div className="tier-head warm-head">
-        <h2 id="h-warm">
-          Warm list <span className="muted">({items.length})</span>
-        </h2>
-        <p className="muted small">
-          Companies active in your sectors in the last 12 months, from CSR news archives and National CSR Portal spend. A company
-          that hasn&rsquo;t touched education CSR in years is a long conversation; these are not.
-        </p>
-      </div>
+      <h2 id="h-warm" className="section-title">
+        <Icon name="people" /> Warm list <span className="muted">({items.length})</span>
+      </h2>
+      <p className="muted small warm-intro">
+        Companies active in your sectors in the last 12 months, from CSR news archives and National CSR Portal spend. A company that
+        hasn&rsquo;t touched education CSR in years is a long conversation; these are not.
+      </p>
       {TIERS.map((t) => {
         const group = items.filter((i) => i.tier === t);
         if (group.length === 0) return null;
         return (
           <div key={t} className={`warm-group tier-${t}`}>
-            <h3 className="warm-tier">
-              {TIER_LABELS[t]} <span className="muted">({group.length})</span>
-            </h3>
+            <div className="tier-head">
+              <span className="tier-dot" aria-hidden="true" />
+              <h3>
+                {TIER_LABELS[t]} <span className="muted">({group.length})</span>
+              </h3>
+            </div>
             <ol className="items">
               {group.map((w) => (
                 <li key={w.companyId} className="item">

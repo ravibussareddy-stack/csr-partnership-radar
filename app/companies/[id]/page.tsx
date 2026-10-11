@@ -2,7 +2,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import { fmtCr, MonthStrip, StackedYearBars } from "@/app/components/charts";
+import { fmtCr, StackedYearBars, YearMonthCalendar } from "@/app/components/charts";
+import { Hero, Icon } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
 import { loadCompany } from "@/lib/history/queries";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
@@ -45,15 +46,12 @@ async function Company({ id }: { id: number }) {
 
   return (
     <>
-      <header className="masthead">
-        <p className="eyebrow">Company profile{d?.isPsu ? " · PSU" : ""}</p>
-        <h1>{company.canonicalName}</h1>
-        <p className="sub">
-          {stats
-            ? `Reported CSR in ${stats.yearsActive} of the last 11 financial years (National CSR Portal, FY2014-15 to ${fyLabel(stats.lastFy ?? 2024)}).`
-            : "No National CSR Portal history for this company (it may report under a different legal name, or spend under ₹1 cr)."}
-        </p>
-      </header>
+      <Hero eyebrow={`Company profile${d?.isPsu ? " · PSU" : ""}`} title={company.canonicalName} variant="company">
+        {stats
+          ? `Reported CSR in ${stats.yearsActive} of the last 11 financial years (National CSR Portal, FY2014-15 to ${fyLabel(stats.lastFy ?? 2024)}).`
+          : "No National CSR Portal history for this company (it may report under a different legal name, or spend under ₹1 cr)."}
+        {company.aliases.length > 0 && ` Also known as ${company.aliases.join(", ")}.`}
+      </Hero>
 
       {d && p && (
         <>
@@ -75,10 +73,17 @@ async function Company({ id }: { id: number }) {
                   <p className="big">{t.window}</p>
                   <p className="muted small">
                     {t.basis === "company"
-                      ? `${Math.round(t.windowShare * 100)}% of this company's ${t.events} announcements fell in ${t.window} (${t.events < 8 ? "small sample, indicative only" : t.strength === "clear" ? "clear pattern" : t.strength === "mild" ? "mild pattern" : "no strong pattern"}).`
+                      ? `Announced in ${t.window} in ${t.recurrence?.yearsHit.length ?? 0} of ${t.recurrence?.activeYears.length ?? 0} active years (${t.strength === "clear" ? "clear cycle" : t.strength === "mild" ? "mild cycle" : "no steady cycle yet"}).`
                       : `Too few company announcements (${t.events}); showing the pattern across all companies.`}
-                    {t.nextWindowStart && ` Next starts ${dateFmt.format(new Date(t.nextWindowStart))}.`}
+                    {t.nextWindowStart && ` Next window starts ${dateFmt.format(new Date(t.nextWindowStart))}.`}
                   </p>
+                  {t.basis === "company" && t.recurrence && (
+                    <p className="years" style={{ marginTop: 6 }}>
+                      {t.recurrence.activeYears.map((y) => (
+                        <span key={y} className={`yr${t.recurrence.yearsHit.includes(y) ? " hit" : ""}`}>{y}</span>
+                      ))}
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="muted">No dated announcements yet.</p>
@@ -139,10 +144,13 @@ async function Company({ id }: { id: number }) {
 
           {t && (
             <section className="section">
-              <MonthStrip
-                months={t.months}
+              <h2 className="section-title"><Icon name="calendar" /> The recurring cycle</h2>
+              <YearMonthCalendar
+                grid={t.grid ?? []}
                 windowStart={t.basis === "company" ? windowStart : null}
-                label={`Announcements by month (${t.events} dated ${t.counted === "announcements" ? "announcements" : "headlines"} since 2009, CSR news archives)`}
+                yearsHit={t.recurrence?.yearsHit ?? []}
+                nextWindowStart={t.basis === "company" ? t.nextWindowStart : null}
+                title={`${t.events} dated ${t.counted === "announcements" ? "announcements" : "headlines"} by month and year (CSR news archives since 2009)`}
               />
             </section>
           )}

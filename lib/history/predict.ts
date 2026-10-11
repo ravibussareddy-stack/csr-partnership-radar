@@ -55,10 +55,41 @@ export function nextWindowStart(startMonth: number, now: Date): string {
   return new Date(Date.UTC(year, startMonth, 1)).toISOString().slice(0, 10);
 }
 
-/** Small samples can't show a clear pattern: "clear" needs ≥ 8 events. */
-function strengthOf(share: number, events: number): Timing["strength"] {
-  if (share >= 0.45 && events >= 8) return "clear";
-  return share >= 0.33 ? "mild" : "none";
+function strengthOf(share: number, activeYears: number): Timing["strength"] {
+  if (share >= 0.6 && activeYears >= 4) return "clear";
+  return share >= 0.4 && activeYears >= 3 ? "mild" : "none";
+}
+
+function inWindow(month: number, start: number): boolean {
+  return [0, 1, 2].some((k) => (start + k) % 12 === month);
+}
+
+/**
+ * The recurring window: the 3-month span hit in the most distinct years (ties → most events).
+ * This rewards a cycle that repeats year after year over one busy year.
+ */
+export function recurringWindow(dates: Date[]): { start: number; yearsHit: number[]; activeYears: number[]; count: number } {
+  const activeYears = [...new Set(dates.map((d) => d.getUTCFullYear()))].sort((a, b) => a - b);
+  let best = { start: 0, yearsHit: [] as number[], count: -1 };
+  for (let s = 0; s < 12; s++) {
+    const hits = dates.filter((d) => inWindow(d.getUTCMonth(), s));
+    const yearsHit = [...new Set(hits.map((d) => d.getUTCFullYear()))].sort((a, b) => a - b);
+    if (yearsHit.length > best.yearsHit.length || (yearsHit.length === best.yearsHit.length && hits.length > best.count)) {
+      best = { start: s, yearsHit, count: hits.length };
+    }
+  }
+  return { ...best, activeYears };
+}
+
+function gridOf(dates: Date[]): Timing["grid"] {
+  const by = new Map<number, number[]>();
+  for (const d of dates) {
+    const y = d.getUTCFullYear();
+    const row = by.get(y) ?? new Array(12).fill(0);
+    row[d.getUTCMonth()]++;
+    by.set(y, row);
+  }
+  return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([year, months]) => ({ year, months }));
 }
 
 export function timingFrom(
@@ -72,31 +103,45 @@ export function timingFrom(
   const lastEvent = companyDates.length
     ? new Date(Math.max(...companyDates.map((d) => d.getTime()))).toISOString().slice(0, 10)
     : null;
+  const grid = gridOf(companyDates);
+  const empty = { yearsHit: [], activeYears: grid.map((g) => g.year), share: 0 };
 
-  let basis: Timing["basis"] = "none";
-  let hist = months;
-  if (companyDates.length >= MIN_COMPANY_EVENTS) basis = "company";
-  else if (sectorMonths && sectorMonths.some((n) => n > 0)) {
-    basis = "sector";
-    hist = sectorMonths;
+  if (companyDates.length >= MIN_COMPANY_EVENTS) {
+    const r = recurringWindow(companyDates);
+    const total = companyDates.length;
+    const share = r.activeYears.length ? round(r.yearsHit.length / r.activeYears.length, 2) : 0;
+    return {
+      basis: "company",
+      events: total,
+      months,
+      window: windowLabel(r.start),
+      windowShare: round(r.count / total, 2),
+      nextWindowStart: nextWindowStart(r.start, now),
+      lastEvent,
+      strength: strengthOf(share, r.activeYears.length),
+      counted,
+      grid,
+      recurrence: { yearsHit: r.yearsHit, activeYears: r.activeYears, share },
+    };
   }
-  if (basis === "none") {
-    return { basis, events: companyDates.length, months, window: null, windowShare: 0, nextWindowStart: null, lastEvent, strength: "none", counted };
+  if (sectorMonths && sectorMonths.some((n) => n > 0)) {
+    const total = sectorMonths.reduce((a, b) => a + b, 0);
+    const w = bestWindow(sectorMonths);
+    return {
+      basis: "sector",
+      events: companyDates.length,
+      months,
+      window: windowLabel(w.start),
+      windowShare: total ? round(w.count / total, 2) : 0,
+      nextWindowStart: nextWindowStart(w.start, now),
+      lastEvent,
+      strength: "none",
+      counted,
+      grid,
+      recurrence: empty,
+    };
   }
-  const total = hist.reduce((a, b) => a + b, 0);
-  const w = bestWindow(hist);
-  const share = total ? round(w.count / total, 2) : 0;
-  return {
-    basis,
-    events: companyDates.length,
-    months,
-    window: windowLabel(w.start),
-    windowShare: share,
-    nextWindowStart: nextWindowStart(w.start, now),
-    lastEvent,
-    strength: strengthOf(share, total),
-    counted,
-  };
+  return { basis: "none", events: companyDates.length, months, window: null, windowShare: 0, nextWindowStart: null, lastEvent, strength: "none", counted, grid, recurrence: empty };
 }
 
 export function round(n: number, dp = 2): number {

@@ -93,8 +93,9 @@ export interface AppConfig {
       windowSoonDays: number;
       windowCompany: number;
       windowSectorPattern: number;
-      maharashtraFocusSpend: number;
-      puneSpend: number;
+      /** points by last-FY ₹ crore; first tier whose minCr is met wins */
+      maharashtraFocusSpend: { minCr: number; points: number }[];
+      puneSpend: { minCr: number; points: number }[];
       /** companies added from portal spend even without recent news (top N by Maharashtra focus spend) */
       spendCandidates: number;
       thresholds: { callThisWeek: number; watch: number };
@@ -313,10 +314,17 @@ export const DEFAULT_CONFIG: AppConfig = {
       windowSoonDays: 30,
       windowCompany: 20,
       windowSectorPattern: 5,
-      maharashtraFocusSpend: 15,
-      puneSpend: 10,
+      maharashtraFocusSpend: [
+        { minCr: 10, points: 15 },
+        { minCr: 1, points: 8 },
+        { minCr: 0.01, points: 3 },
+      ],
+      puneSpend: [
+        { minCr: 1, points: 10 },
+        { minCr: 0.01, points: 4 },
+      ],
       spendCandidates: 30,
-      thresholds: { callThisWeek: 60, watch: 35 },
+      thresholds: { callThisWeek: 60, watch: 30 },
     },
   },
 };

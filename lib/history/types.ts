@@ -26,10 +26,14 @@ export interface Timing {
   /** ISO date of the next start of the window */
   nextWindowStart: string | null;
   lastEvent: string | null;
-  /** "clear" ≥ 45% of ≥ 8 events in the window, "mild" ≥ 33%, else "none" (uniform would be 25%) */
+  /** year-consistency of the window: "clear" = hit in ≥ 60% of ≥ 4 active years, "mild" ≥ 40%, else "none" */
   strength: "clear" | "mild" | "none";
   /** which headlines were counted */
   counted: "announcements" | "all_headlines";
+  /** announcements per calendar month for each year (company basis), oldest year first */
+  grid: { year: number; months: number[] }[];
+  /** years with ≥1 announcement inside the window vs years with any announcement */
+  recurrence: { yearsHit: number[]; activeYears: number[]; share: number };
 }
 
 export interface CompanyStatsData {

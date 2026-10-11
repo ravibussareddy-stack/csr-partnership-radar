@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { fmtCr, MonthStrip, StackedYearBars } from "@/app/components/charts";
+import { Hero, Icon } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
 import { bestWindow, windowLabel } from "@/lib/history/predict";
 import { loadPlanner, loadRegionTrend, loadSectorSeasonality, type PlannerSort } from "@/lib/history/queries";
@@ -26,14 +27,10 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
     <main className="wrap wide">
-      <header className="masthead">
-        <p className="eyebrow">CSR Partnership Radar</p>
-        <h1>Expansion planner</h1>
-        <p className="sub">
-          Eleven years of reported CSR spend (National CSR Portal, FY2014-15 to FY2024-25) and dated announcements from CSR news
-          archives: who funds your sectors, where the money is growing, and when companies tend to announce.
-        </p>
-      </header>
+      <Hero eyebrow="Where the money is going" title="Expansion planner" variant="planner">
+        Eleven years of reported CSR spend (National CSR Portal, FY2014-15 to FY2024-25) and dated announcements: who funds your
+        sectors, where the money is growing, and when companies tend to announce.
+      </Hero>
       <Suspense fallback={<p className="muted">Loading history…</p>}>
         {searchParams.then((sp) => <Planner sp={sp} />)}
       </Suspense>
@@ -104,7 +101,7 @@ async function Planner({ sp }: { sp: Record<string, string | string[] | undefine
 
       {sectors.length > 0 && (
         <section className="section">
-          <h2>When companies announce, by sector</h2>
+          <h2 className="section-title"><Icon name="calendar" /> When companies announce, by sector</h2>
           <p className="muted small">Dated CSR announcements across all tracked companies. The outlined months are the busiest 3-month window.</p>
           <div className="grid2">
             {sectors.map((s) => (
@@ -120,7 +117,7 @@ async function Planner({ sp }: { sp: Record<string, string | string[] | undefine
       )}
 
       <section className="section">
-        <h2>Companies to plan around</h2>
+        <h2 className="section-title"><Icon name="compass" /> Companies to plan around</h2>
         <nav className="filters" aria-label="Sort companies">
           {SORTS.map((s) => (
             <Link key={s.id} href={{ pathname: "/planner", query: { sort: s.id, ...(q ? { q } : {}) } }} className={s.id === sort ? "on" : undefined}>

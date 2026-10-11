@@ -115,3 +115,75 @@ export async function loadSectorSeasonality() {
   }
   return bySector;
 }
+
+export interface UpcomingCycle {
+  companyId: number;
+  name: string;
+  window: string;
+  nextWindowStart: string;
+  strength: "clear" | "mild" | "none";
+  yearsHit: number[];
+  activeYears: number[];
+  events: number;
+  predictedFocusCr: number;
+  predictedTotalCr: number;
+  maharashtraFocusLastCr: number;
+}
+
+/** Companies with a recurring announcement window (≥ mild), grouped later by the month their next window opens. */
+export async function loadUpcomingCycles(opts: { focusOnly: boolean }): Promise<UpcomingCycle[] | null> {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const rows = await db
+    .select({ id: companies.id, name: companies.canonicalName, s: companyStats })
+    .from(companyStats)
+    .innerJoin(companies, eq(companies.id, companyStats.companyId))
+    .where(
+      and(
+        sql`${companyStats.data}->'timing'->>'basis' = 'company'`,
+        sql`${companyStats.data}->'timing'->>'strength' in ('clear', 'mild')`,
+        opts.focusOnly ? gt(companyStats.predictedFocusCr, 0) : undefined,
+      ),
+    );
+  return rows
+    .map((r) => {
+      const t = r.s.data.timing;
+      return {
+        companyId: r.id,
+        name: r.name,
+        window: t.window ?? "",
+        nextWindowStart: t.nextWindowStart ?? "",
+        strength: t.strength,
+        yearsHit: t.recurrence?.yearsHit ?? [],
+        activeYears: t.recurrence?.activeYears ?? [],
+        events: t.events,
+        predictedFocusCr: r.s.predictedFocusCr,
+        predictedTotalCr: r.s.predictedTotalCr,
+        maharashtraFocusLastCr: r.s.maharashtraFocusLastCr,
+      };
+    })
+    .filter((u) => u.window && u.nextWindowStart);
+}
+
+/** Announcements per year × month across all companies (optionally focus sectors only). */
+export async function loadAnnouncementGrid(focusSectorIds: string[] | null) {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const rows = await db
+    .select({
+      y: sql<number>`extract(year from ${companyNews.publishedAt})`,
+      m: sql<number>`extract(month from ${companyNews.publishedAt})`,
+      n: sql<number>`count(*)`,
+    })
+    .from(companyNews)
+    .where(and(inArray(companyNews.kind, ANNOUNCEMENT_KINDS), focusSectorIds ? inArray(companyNews.sector, focusSectorIds) : undefined))
+    .groupBy(sql`1`, sql`2`);
+  const by = new Map<number, number[]>();
+  for (const r of rows) {
+    const y = Number(r.y);
+    const row = by.get(y) ?? new Array(12).fill(0);
+    row[Number(r.m) - 1] = Number(r.n);
+    by.set(y, row);
+  }
+  return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([year, months]) => ({ year, months }));
+}

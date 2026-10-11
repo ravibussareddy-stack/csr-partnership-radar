@@ -35,7 +35,13 @@ const DAY = 86400_000;
 const shortDate = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
 function cr(n: number): string {
-  return n >= 10 ? `₹${Math.round(n).toLocaleString("en-IN")} cr` : `₹${n.toFixed(1)} cr`;
+  if (n >= 10) return `₹${Math.round(n).toLocaleString("en-IN")} cr`;
+  if (n >= 1) return `₹${n.toFixed(1)} cr`;
+  return `₹${Math.round(n * 100)} lakh`;
+}
+
+function tierPoints(tiers: { minCr: number; points: number }[], value: number): number {
+  return [...tiers].sort((a, b) => b.minCr - a.minCr).find((t) => value >= t.minCr)?.points ?? 0;
 }
 
 /** Deterministic: same input + config + `now` → same output. */
@@ -75,13 +81,15 @@ export function scoreWarm(input: WarmInput, cfg: AppConfig, now: Date): WarmScor
   }
 
   const fy = input.lastFy ? fyLabel(input.lastFy) : "last FY";
-  if (input.maharashtraFocusLastCr > 0) {
-    score += w.maharashtraFocusSpend;
-    parts.push(`${cr(input.maharashtraFocusLastCr)} focus spend in Maharashtra ${fy} +${w.maharashtraFocusSpend}`);
+  const mh = tierPoints(w.maharashtraFocusSpend, input.maharashtraFocusLastCr);
+  if (mh > 0) {
+    score += mh;
+    parts.push(`${cr(input.maharashtraFocusLastCr)} focus spend in Maharashtra ${fy} +${mh}`);
   }
-  if (input.puneLastCr > 0) {
-    score += w.puneSpend;
-    parts.push(`${cr(input.puneLastCr)} in Pune ${fy} +${w.puneSpend}`);
+  const pune = tierPoints(w.puneSpend, input.puneLastCr);
+  if (pune > 0) {
+    score += pune;
+    parts.push(`${cr(input.puneLastCr)} in Pune ${fy} +${pune}`);
   }
 
   let tier: Tier = score >= w.thresholds.callThisWeek ? "call_this_week" : score >= w.thresholds.watch ? "watch" : "background";

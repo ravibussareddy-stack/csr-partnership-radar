@@ -148,3 +148,97 @@ export function MonthStrip({ months, windowStart, label }: { months: number[]; w
     </figure>
   );
 }
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Year × month calendar of dated announcements (single-hue sequential shading). The recurring
+ * window is outlined, years that hit it are ticked, and the next expected window is dashed.
+ */
+export function YearMonthCalendar({
+  grid,
+  title,
+  windowStart,
+  yearsHit = [],
+  nextWindowStart,
+  now = new Date(),
+  fromYear,
+}: {
+  grid: { year: number; months: number[] }[];
+  title: string;
+  windowStart?: number | null;
+  yearsHit?: number[];
+  nextWindowStart?: string | null;
+  now?: Date;
+  fromYear?: number;
+}) {
+  const thisYear = now.getUTCFullYear();
+  const thisMonth = now.getUTCMonth();
+  const first = Math.min(fromYear ?? Infinity, grid[0]?.year ?? thisYear);
+  const byYear = new Map(grid.map((g) => [g.year, g.months]));
+  const years = Array.from({ length: thisYear - first + 1 }, (_, i) => first + i);
+  const max = Math.max(1, ...grid.flatMap((g) => g.months));
+  const next = nextWindowStart ? new Date(nextWindowStart) : null;
+  const inWin = (m: number) => windowStart != null && [0, 1, 2].some((k) => (windowStart + k) % 12 === m);
+  const isNext = (y: number, m: number) => {
+    if (!next) return false;
+    const s = next.getUTCFullYear() * 12 + next.getUTCMonth();
+    const v = y * 12 + m;
+    return v >= s && v < s + 3;
+  };
+  const hit = new Set(yearsHit);
+
+  return (
+    <figure className="cal">
+      <figcaption className="chart-title">{title}</figcaption>
+      <table>
+        <thead>
+          <tr>
+            <th />
+            {MONTH_ABBR.map((m) => (
+              <th key={m} scope="col">{m}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y) => {
+            const row = byYear.get(y) ?? new Array(12).fill(0);
+            return (
+              <tr key={y} className={hit.has(y) ? "hit" : undefined}>
+                <th scope="row" className="yr">{y}</th>
+                {row.map((n, m) => {
+                  const future = y > thisYear || (y === thisYear && m > thisMonth);
+                  const step = n === 0 ? 0 : Math.max(1, Math.ceil((n / max) * 5));
+                  const cls = [
+                    future ? (isNext(y, m) ? "next-window" : "future") : `seq-${step}`,
+                    !future && inWin(m) && windowStart != null ? "in-window" : "",
+                  ].join(" ").trim();
+                  return (
+                    <td key={m} className={cls} title={`${MONTH_ABBR[m]} ${y}: ${future ? (isNext(y, m) ? "expected window" : "upcoming") : `${n} announcement${n === 1 ? "" : "s"}`}`}>
+                      {!future && n > 0 ? n : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+          {next && next.getUTCFullYear() > thisYear && (
+            <tr>
+              <th scope="row" className="yr">{next.getUTCFullYear()}</th>
+              {MONTH_ABBR.map((m, i) => (
+                <td key={m} className={isNext(next.getUTCFullYear(), i) ? "next-window" : "future"} title={isNext(next.getUTCFullYear(), i) ? `${m}: expected window` : m} />
+              ))}
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <div className="cal-legend">
+        <span><span className="k" style={{ background: "var(--seq-1)" }} />fewer</span>
+        <span><span className="k" style={{ background: "var(--seq-5)" }} />more announcements</span>
+        {windowStart != null && <span><span className="k k-win" />recurring window</span>}
+        {next && <span><span className="k k-next" />next expected window</span>}
+        {yearsHit.length > 0 && <span>✓ year hit the window</span>}
+      </div>
+    </figure>
+  );
+}
