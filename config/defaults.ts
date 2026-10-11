@@ -168,8 +168,9 @@ export const DEFAULT_CONFIG: AppConfig = {
     },
     {
       id: "thecsrjournal",
-      name: "The CSR Journal",
-      url: "https://thecsrjournal.in/feed/",
+      name: "The CSR Journal — CSR",
+      // The site-wide feed is mostly general news; this category feed is CSR-only.
+      url: "https://thecsrjournal.in/category/corporate-social-responsibility/feed/",
       type: "rss",
       weight: 6,
       csrFocused: true,
