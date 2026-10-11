@@ -55,8 +55,10 @@ export function nextWindowStart(startMonth: number, now: Date): string {
   return new Date(Date.UTC(year, startMonth, 1)).toISOString().slice(0, 10);
 }
 
-function strengthOf(share: number): Timing["strength"] {
-  return share >= 0.45 ? "clear" : share >= 0.33 ? "mild" : "none";
+/** Small samples can't show a clear pattern: "clear" needs ≥ 8 events. */
+function strengthOf(share: number, events: number): Timing["strength"] {
+  if (share >= 0.45 && events >= 8) return "clear";
+  return share >= 0.33 ? "mild" : "none";
 }
 
 export function timingFrom(
@@ -92,7 +94,7 @@ export function timingFrom(
     windowShare: share,
     nextWindowStart: nextWindowStart(w.start, now),
     lastEvent,
-    strength: strengthOf(share),
+    strength: strengthOf(share, total),
     counted,
   };
 }

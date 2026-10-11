@@ -75,7 +75,7 @@ async function Company({ id }: { id: number }) {
                   <p className="big">{t.window}</p>
                   <p className="muted small">
                     {t.basis === "company"
-                      ? `${Math.round(t.windowShare * 100)}% of this company's ${t.events} announcements fell in ${t.window} (${t.strength === "clear" ? "clear pattern" : t.strength === "mild" ? "mild pattern" : "no strong pattern"}).`
+                      ? `${Math.round(t.windowShare * 100)}% of this company's ${t.events} announcements fell in ${t.window} (${t.events < 8 ? "small sample, indicative only" : t.strength === "clear" ? "clear pattern" : t.strength === "mild" ? "mild pattern" : "no strong pattern"}).`
                       : `Too few company announcements (${t.events}); showing the pattern across all companies.`}
                     {t.nextWindowStart && ` Next starts ${dateFmt.format(new Date(t.nextWindowStart))}.`}
                   </p>

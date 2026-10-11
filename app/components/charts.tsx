@@ -7,6 +7,7 @@
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function fmtCr(n: number): string {
+  if (n <= 0) return "–";
   if (n >= 1000) return `₹${Math.round(n).toLocaleString("en-IN")} cr`;
   if (n >= 10) return `₹${n.toFixed(0)} cr`;
   if (n >= 1) return `₹${n.toFixed(1)} cr`;
