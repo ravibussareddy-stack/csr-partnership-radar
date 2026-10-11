@@ -1,0 +1,26 @@
+name: Monday digest email
+
+on:
+  schedule:
+    # Mondays 01:30 UTC = 07:00 IST, after the 06:00 IST ingest.
+    - cron: "30 1 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Send the Monday digest (once per ISO week)
+        run: npm run notify -- --digest
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
+          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}

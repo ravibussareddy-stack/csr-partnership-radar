@@ -218,3 +218,12 @@ export const searchRuns = pgTable("search_runs", {
   keyLabel: text("key_label"),
   model: text("model"),
 });
+
+/** Emails sent by scripts/notify (dedupe: one Monday digest per ISO week, one alert per signal). */
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  kind: text("kind").$type<"monday_digest" | "call_alert">().notNull(),
+  key: text("key").notNull().unique(),
+  subject: text("subject").notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+});

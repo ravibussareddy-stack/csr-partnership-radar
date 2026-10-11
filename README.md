@@ -61,6 +61,8 @@ npm run dev          # http://localhost:3000
 | `npm run history:classify-news` | Batch-classify those headlines with Gemini (80 per call). |
 | `npm run history:recent` | Crawl the last 12 months of CSR news archives by date and classify headlines (company, kind, sector) for the warm list. Incremental. |
 | `npm run history:stats` | Recompute company history, forecasts and announcement timing. |
+| `npm run notify -- --digest \| --alerts` | Email the Monday digest / new Call-this-week alerts (`--preview=<file>` to render only). |
+| `npm run test:email` | Parser tests for the intake inbox (Google Alerts, LinkedIn alerts, `[CSR-IN]` forwards). |
 | `npm run db:generate` | Generate a new migration after editing `lib/db/schema.ts`. |
 | `npm run db:migrate` | Apply migrations. |
 | `npm run db:seed` | Insert default config if missing (`-- --force` overwrites the row). |
@@ -73,6 +75,10 @@ npm run dev          # http://localhost:3000
   - **Google Alerts:** create alerts at google.com/alerts and set "Deliver to" to the intake address.
   - **LinkedIn:** add a Gmail filter in Ananya's mailbox that forwards mail from `linkedin.com` (job and saved-search alerts, "company posted", message notifications) to the intake address.
   - **WhatsApp, SMS and other apps:** use "Share → Mail" to the intake address; on iPhone a Shortcut makes this one tap.
+
+**Using a personal Gmail:** the default `INTAKE_FILTER=tagged` searches on the server and fetches only Google Alerts, LinkedIn mail and messages whose subject contains `[CSR-IN]`. To feed anything in by hand, forward it with `[CSR-IN]` in the subject.
+
+**Email delivery:** with `NOTIFY_TO` set (a repo variable) and a Gmail app password (the `INTAKE_IMAP_*` secrets are reused), the Monday digest goes out at 07:00 IST as `[CSR Radar] Monday digest · W42 2026 · 7 to call · 22 to watch`, and new Call-this-week items trigger `[CSR Radar] Call · <company> · <signal>` after each daily run. Preview without sending: `npm run notify -- --digest --preview=digest.html`.
 
 The adapter reads the mailbox read-only. LinkedIn and WhatsApp accounts are never accessed directly, because their terms forbid automation.
 

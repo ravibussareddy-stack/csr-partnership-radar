@@ -20,7 +20,9 @@
     "history:classify-news": "tsx scripts/history/classify-news.ts",
     "history:aliases": "tsx scripts/history/aliases.ts",
     "db:copy": "tsx scripts/db-copy.ts",
-    "history:recent": "tsx scripts/history/recent.ts"
+    "history:recent": "tsx scripts/history/recent.ts",
+    "notify": "tsx scripts/notify/index.ts",
+    "test:email": "tsx tests/email.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
@@ -36,6 +38,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@types/mailparser": "^3.9.0",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "csv-parse": "^7.0.3",
@@ -45,6 +48,7 @@
     "eslint-config-next": "16.4.0",
     "imapflow": "^2.4.0",
     "mailparser": "^3.9.38",
+    "nodemailer": "^10.1.0",
     "tsx": "^4.23.15",
     "typescript": "^5"
   }

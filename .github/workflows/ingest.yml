@@ -39,6 +39,7 @@ jobs:
           INTAKE_IMAP_USER: ${{ secrets.INTAKE_IMAP_USER }}
           INTAKE_IMAP_PASSWORD: ${{ secrets.INTAKE_IMAP_PASSWORD }}
           INTAKE_MAILBOX: ${{ vars.INTAKE_MAILBOX || 'INBOX' }}
+          INTAKE_FILTER: ${{ vars.INTAKE_FILTER || 'tagged' }}
       - name: Warm window (12-month CSR news archives, incremental)
         run: npm run history:recent
         env:
@@ -52,3 +53,10 @@ jobs:
         run: npm run history:stats
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Instant alert for new Call-this-week items
+        run: npm run notify -- --alerts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
+          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}

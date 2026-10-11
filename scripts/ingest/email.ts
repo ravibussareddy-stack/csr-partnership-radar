@@ -5,6 +5,9 @@
  *   - anything forwarded by hand (WhatsApp/SMS share-to-mail, etc.) → source "email-intake", one item per email
  * Credentials: INTAKE_IMAP_USER + INTAKE_IMAP_PASSWORD (a Gmail app password), optional
  * INTAKE_IMAP_HOST (imap.gmail.com) and INTAKE_MAILBOX (INBOX, or a Gmail label like "csr-radar").
+ * Privacy: by default (INTAKE_FILTER=tagged) the IMAP SEARCH runs server-side and only fetches
+ * mail from Google Alerts or LinkedIn, or with "[CSR-IN]" in the subject, so a personal inbox
+ * can be used without downloading anything else. INTAKE_FILTER=all reads a dedicated inbox fully.
  * Items go into raw_items and through the normal pre-filter → classify → score pipeline.
  */
 import { ImapFlow } from "imapflow";
@@ -23,6 +26,8 @@ export interface EmailItem {
 }
 
 const LOOKBACK_DAYS = Number(process.env.INTAKE_LOOKBACK_DAYS ?? 7);
+/** Subject tag for messages forwarded into the pipeline by hand. */
+export const INTAKE_TAG = "[CSR-IN]";
 
 function decodeEntities(s: string): string {
   return s.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
@@ -87,10 +92,33 @@ function cleanLinkedIn(url: string): string {
   return canonicalUrl(url);
 }
 
+/** LinkedIn alert emails list several posts/jobs; one item per entry link with a real title. */
+export function parseLinkedInDigest(html: string, date: Date | null): EmailItem[] {
+  const anchors = [...html.matchAll(/<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+  const out: EmailItem[] = [];
+  const seen = new Set<string>();
+  anchors.forEach((m, i) => {
+    const href = decodeEntities(m[1]);
+    if (!/linkedin\.com\/(comm\/)?(jobs\/view|feed\/update|posts|pulse|events)\//i.test(href)) return;
+    const title = stripHtml(m[2]);
+    if (title.length < 12) return;
+    const url = cleanLinkedIn(href);
+    if (seen.has(url)) return;
+    seen.add(url);
+    const end = anchors[i + 1]?.index ?? Math.min(html.length, (m.index ?? 0) + 1500);
+    const body = truncate(stripHtml(html.slice((m.index ?? 0) + m[0].length, end)), 500);
+    out.push({ source: "linkedin-email", url, title, body, publishedAt: date });
+  });
+  return out;
+}
+
 export function itemsFromMail(mail: ParsedMail): EmailItem[] {
   const from = mail.from?.value?.[0]?.address?.toLowerCase() ?? "";
   const date = mail.date ?? null;
-  const subject = (mail.subject ?? "").replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, "").trim();
+  const subject = (mail.subject ?? "")
+    .replace(INTAKE_TAG, "")
+    .replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, "")
+    .trim();
   const html = typeof mail.html === "string" ? mail.html : "";
   const text = mail.text ?? stripHtml(html);
   const id = (mail.messageId ?? `${from}-${date?.toISOString()}-${subject}`).replace(/[<>\s]/g, "");
@@ -100,6 +128,8 @@ export function itemsFromMail(mail: ParsedMail): EmailItem[] {
     if (items.length) return items;
   }
   if (from.endsWith("linkedin.com") || /linkedin\.com/i.test(html.slice(0, 5000))) {
+    const split = parseLinkedInDigest(html, date);
+    if (split.length > 1) return split;
     const link = firstUsefulLink(mail);
     return [
       {
@@ -142,7 +172,13 @@ export async function fetchIntakeEmail(db: DB): Promise<{ status: string; emails
   try {
     await client.mailboxOpen(process.env.INTAKE_MAILBOX ?? "INBOX", { readOnly: true });
     const since = new Date(Date.now() - LOOKBACK_DAYS * 86400_000);
-    for await (const msg of client.fetch({ since }, { source: true })) {
+    const query =
+      process.env.INTAKE_FILTER === "all"
+        ? { since }
+        : { since, or: [{ from: "googlealerts-noreply@google.com" }, { from: "linkedin.com" }, { subject: INTAKE_TAG }] };
+    const uids = (await client.search(query, { uid: true })) || [];
+    if (uids.length === 0) return { status: "ok", emails: 0, items: 0, inserted: 0 };
+    for await (const msg of client.fetch(uids, { source: true }, { uid: true })) {
       if (!msg.source) continue;
       emails++;
       items.push(...itemsFromMail(await simpleParser(msg.source)));
