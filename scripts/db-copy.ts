@@ -18,6 +18,7 @@ const TABLES: [string, PgTable, number][] = [
   ["classifications", schema.classifications, 500],
   ["csr_spend", schema.csrSpend, 2000],
   ["company_news", schema.companyNews, 1000],
+  ["archive_headlines", schema.archiveHeadlines, 1000],
   ["signals", schema.signals, 1000],
   ["company_stats", schema.companyStats, 200],
 ];
