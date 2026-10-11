@@ -54,7 +54,8 @@ npm run dev          # http://localhost:3000
 | `npm run eval` | Runs the pipeline on `evals/labelled.jsonl` and reports precision/recall of `is_signal` and tier accuracy. `--db-config` uses the DB config instead of defaults. |
 | `npm run sources:check [-- <feed-url> …]` | Verify feeds (robots.txt, reachability, freshness, pre-filter yield) before adding them. |
 | `npm run history:import -- <csv>` | Import the National CSR Portal "Dynamic CSR Report" CSV (FY2014-15 onward). |
-| `npm run history:news` | Backfill dated CSR headlines per company from CSR news archives. |
+| `npm run history:aliases` | Set company short names (manual list in `config/aliases.ts` + Gemini proposals, collision-checked). |
+| `npm run history:news` | Backfill dated CSR headlines per company from CSR news archives (`-- --aliases-only` to search only aliases). |
 | `npm run history:classify-news` | Batch-classify those headlines with Gemini (80 per call). |
 | `npm run history:stats` | Recompute company history, forecasts and announcement timing. |
 | `npm run db:generate` | Generate a new migration after editing `lib/db/schema.ts`. |

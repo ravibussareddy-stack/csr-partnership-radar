@@ -28,6 +28,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run db:migrate
+      # Short names (TCS, L&T, …): manual list + Gemini proposals, collision-checked.
+      - run: npm run history:aliases
       # Dated CSR headlines per company from news archives (idempotent).
       - run: npm run history:news
       # Batch-classify new headlines (80 per Gemini call).
