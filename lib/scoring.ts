@@ -37,6 +37,8 @@ export interface ScoreInput {
     partners?: string[];
     programmeStartYear?: number | null;
     amountInrCrore?: number | null;
+    /** false when the model found no company or foundation behind the item */
+    hasCompany?: boolean;
   } | null;
 }
 
@@ -147,6 +149,11 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (signalType === "none" && tier !== "background") {
     tier = "background";
     parts.push("no signal type → Background");
+  }
+  // Nobody to call: without a named company (policy news aside) the best tier is Watch.
+  if (c && c.hasCompany === false && signalType !== "policy_change" && tier === "call_this_week") {
+    tier = "watch";
+    parts.push("capped at Watch (no company named)");
   }
   if (outsideOnly && TIER_RANK[tier] > TIER_RANK[w.outsideSectorMaxTier]) {
     tier = w.outsideSectorMaxTier;

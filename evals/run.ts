@@ -55,6 +55,7 @@ async function predict(row: Row, cfg: AppConfig, pool: GeminiPool | null): Promi
         partners: out.data.partners,
         programmeStartYear: out.data.programme_start_year,
         amountInrCrore: out.data.amount_inr_crore,
+        hasCompany: out.data.companies.length > 0,
       };
     } else {
       how = `rules-only (${out.reason})`;

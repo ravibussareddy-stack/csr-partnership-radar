@@ -61,6 +61,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
               partners: cls.partners,
               programmeStartYear: cls.programmeStartYear,
               amountInrCrore: cls.amountInrCrore,
+              hasCompany: cls.companies.length > 0,
             }
           : null,
       },
