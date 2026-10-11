@@ -8,12 +8,22 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
   const rows = await db.select().from(config).where(eq(config.id, 1)).limit(1);
   const row = rows[0];
   if (!row) return DEFAULT_CONFIG;
+  // Merge over defaults so a row seeded by an older version still has every key.
+  const d = DEFAULT_CONFIG;
   return {
     sectors: row.sectors,
     geographies: row.geographies,
-    keywords: row.keywords,
+    keywords: {
+      ...d.keywords,
+      ...row.keywords,
+      signalHints: { ...d.keywords.signalHints, ...row.keywords.signalHints },
+    },
     sources: row.sources,
-    scoringWeights: row.scoringWeights,
+    scoringWeights: {
+      ...d.scoringWeights,
+      ...row.scoringWeights,
+      signalType: { ...d.scoringWeights.signalType, ...row.scoringWeights.signalType },
+    },
   };
 }
 

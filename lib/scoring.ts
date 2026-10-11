@@ -1,12 +1,14 @@
 import type { AppConfig, SignalTypeKey, SourceConfig } from "@/config/defaults";
 import type { SignalType, Tier } from "@/lib/db/schema";
 import { matchKeywords } from "@/lib/text";
+import { OTHER_SECTORS } from "@/prompts/classify";
 
 export const SIGNAL_LABELS: Record<SignalType, string> = {
   new_initiative: "New initiative",
   allocation_increase: "Allocation increase",
   partner_search: "Partner search",
   policy_change: "Policy change",
+  ongoing_programme: "Ongoing programme",
   none: "No clear signal",
 };
 
@@ -30,6 +32,11 @@ export interface ScoreInput {
     sectors: string[];
     geographies: string[];
     confidence: number;
+    otherSectors?: string[];
+    activelyPartnering?: "yes" | "no" | "unknown";
+    partners?: string[];
+    programmeStartYear?: number | null;
+    amountInrCrore?: number | null;
   } | null;
 }
 
@@ -45,7 +52,9 @@ export interface ScoreResult {
 export function inferSignalType(title: string, body: string, cfg: AppConfig): SignalType {
   const hints = cfg.keywords.signalHints;
   const text = `${title}\n${body}`;
-  const order: SignalTypeKey[] = ["partner_search", "policy_change", "allocation_increase", "new_initiative"];
+  const order: SignalTypeKey[] = [
+    "partner_search", "policy_change", "allocation_increase", "new_initiative", "ongoing_programme",
+  ];
   for (const t of order) {
     // Policy terms show up in passing in lots of CSR stories; require one in the headline.
     if (t === "policy_change" && matchKeywords(title, cfg.keywords.policy).length === 0) continue;
@@ -59,6 +68,10 @@ function geoMatch(cfg: AppConfig, values: string[]) {
   return cfg.geographies
     .filter((g) => matchKeywords(joined, [g.label, ...g.keywords]).length > 0)
     .sort((a, b) => b.weight - a.weight)[0];
+}
+
+function formatCrore(n: number): string {
+  return n >= 100 ? Math.round(n).toLocaleString("en-IN") : n.toFixed(n < 1 ? 2 : 1).replace(/\.0$/, "");
 }
 
 /** Deterministic: same input + config + `now` → same output. */
@@ -91,6 +104,9 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   const sectorPts = Math.min(w.sectorMax, sectorLabels.length * w.sectorPerMatch);
   score += sectorPts;
   if (sectorLabels.length) parts.push(`${sectorLabels.join(", ")} +${sectorPts}`);
+  const outsideLabels = (c?.otherSectors ?? []).map((id) => OTHER_SECTORS.find((o) => o.id === id)?.label ?? id);
+  const outsideOnly = Boolean(c) && sectorLabels.length === 0 && signalType !== "policy_change";
+  if (outsideOnly) parts.push(`outside focus${outsideLabels.length ? `: ${outsideLabels.join(", ")}` : ""}`);
 
   // 4. Geography fit (highest-weighted match only)
   const geo = c && c.geographies.length > 0 ? geoMatch(cfg, c.geographies) : geoMatch(cfg, [text]);
@@ -104,7 +120,23 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   score += srcPts;
   if (srcPts) parts.push(`source +${srcPts}`);
 
-  // 6. Model confidence
+  // 6. NGO partnering (from the model)
+  if (c?.activelyPartnering === "yes") {
+    score += w.activelyPartneringBonus;
+    const names = (c.partners ?? []).slice(0, 2).join(", ");
+    parts.push(`works with NGOs${names ? ` (${names})` : ""} +${w.activelyPartneringBonus}`);
+  } else if (c?.activelyPartnering === "no") {
+    parts.push("runs it in-house");
+  }
+
+  // Context only, no points: programme age and amount
+  if (c?.programmeStartYear) {
+    const yrs = now.getFullYear() - c.programmeStartYear;
+    parts.push(`running since ${c.programmeStartYear}${yrs > 0 ? ` (${yrs} yr${yrs === 1 ? "" : "s"})` : ""}`);
+  }
+  if (c?.amountInrCrore) parts.push(`₹${formatCrore(c.amountInrCrore)} cr`);
+
+  // 7. Model confidence
   if (c && c.confidence < w.lowConfidenceThreshold) {
     score -= w.lowConfidencePenalty;
     parts.push(`low confidence −${w.lowConfidencePenalty}`);
@@ -115,6 +147,10 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (signalType === "none" && tier !== "background") {
     tier = "background";
     parts.push("no signal type → Background");
+  }
+  if (outsideOnly && TIER_RANK[tier] > TIER_RANK[w.outsideSectorMaxTier]) {
+    tier = w.outsideSectorMaxTier;
+    parts.push(`capped at ${TIER_LABELS[tier]} (outside focus)`);
   }
   if (!c && TIER_RANK[tier] > TIER_RANK[w.unclassifiedMaxTier]) {
     tier = w.unclassifiedMaxTier;

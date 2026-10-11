@@ -8,7 +8,8 @@ export type SignalTypeKey =
   | "new_initiative"
   | "allocation_increase"
   | "partner_search"
-  | "policy_change";
+  | "policy_change"
+  | "ongoing_programme";
 
 export interface SectorConfig {
   id: string;
@@ -47,8 +48,13 @@ export interface AppConfig {
   keywords: {
     /** At least one must appear (unless the source is csrFocused). */
     csr: string[];
-    /** CSR policy/regulation terms. These pass the sector check on their own. */
+    /** CSR policy/regulation terms. These pass the pre-filter on their own. */
     policy: string[];
+    /**
+     * true: items must also mention a focus-sector keyword to reach Gemini.
+     * false (default): CSR in any sector reaches Gemini; outside-sector items are kept "for review".
+     */
+    requireSectorMatch?: boolean;
     /** Used only for rules-only typing of unclassified items. */
     signalHints: Record<SignalTypeKey, string[]>;
   };
@@ -65,6 +71,10 @@ export interface AppConfig {
     thresholds: { callThisWeek: number; watch: number };
     /** Highest tier an unclassified (rules-only) item can reach. */
     unclassifiedMaxTier: "call_this_week" | "watch" | "background";
+    /** Highest tier for CSR entirely outside the focus sectors (kept for review). */
+    outsideSectorMaxTier: "call_this_week" | "watch" | "background";
+    /** Added when the company is working with NGO / implementation partners. */
+    activelyPartneringBonus: number;
     /** Items older than this are not re-scored and do not appear in the digest window. */
     lookbackDays: number;
   };
@@ -137,6 +147,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       "Ministry of Corporate Affairs", "MCA", "CSR-1", "CSR-2", "unspent CSR",
       "Social Stock Exchange", "BRSR", "SEBI",
     ],
+    requireSectorMatch: false,
     signalHints: {
       partner_search: [
         "seeks NGO", "seeking NGO", "invites proposals", "inviting proposals",
@@ -153,6 +164,10 @@ export const DEFAULT_CONFIG: AppConfig = {
         "launches", "launched", "inaugurates", "inaugurated", "unveils", "introduces",
         "new initiative", "new programme", "new program", "partners with", "signs MoU",
         "MoU",
+      ],
+      ongoing_programme: [
+        "continues", "continued", "edition", "spent", "spends", "impact report",
+        "annual report", "so far", "has reached", "benefited",
       ],
       policy_change: [
         "CSR rules", "amendment", "notification", "circular", "Schedule VII",
@@ -238,6 +253,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       new_initiative: 35,
       allocation_increase: 30,
       policy_change: 25,
+      ongoing_programme: 10,
       none: 0,
     },
     recency: [
@@ -251,6 +267,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     lowConfidenceThreshold: 0.5,
     thresholds: { callThisWeek: 60, watch: 35 },
     unclassifiedMaxTier: "watch",
+    outsideSectorMaxTier: "watch",
+    activelyPartneringBonus: 10,
     lookbackDays: 14,
   },
 };

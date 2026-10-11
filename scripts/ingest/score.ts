@@ -68,7 +68,17 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
         fetchedAt: item.fetchedAt,
         source: sources.get(item.source),
         classification: cls
-          ? { signalType: cls.signalType, sectors: cls.sectors, geographies: cls.geographies, confidence: cls.confidence }
+          ? {
+              signalType: cls.signalType,
+              sectors: cls.sectors,
+              geographies: cls.geographies,
+              confidence: cls.confidence,
+              otherSectors: cls.otherSectors,
+              activelyPartnering: cls.activelyPartnering,
+              partners: cls.partners,
+              programmeStartYear: cls.programmeStartYear,
+              amountInrCrore: cls.amountInrCrore,
+            }
           : null,
       },
       cfg,

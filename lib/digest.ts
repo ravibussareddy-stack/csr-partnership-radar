@@ -18,6 +18,13 @@ export interface DigestItem {
   company: string | null;
   whyItMatters: string | null;
   keyLabel: string | null;
+  otherSectors: string[];
+  outsideFocus: boolean;
+  activelyPartnering: "yes" | "no" | "unknown" | null;
+  partners: string[];
+  programmeStartYear: number | null;
+  amountInrCrore: number | null;
+  financialYear: string | null;
 }
 
 export type DigestData =
@@ -47,6 +54,13 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         company: companies.canonicalName,
         whyItMatters: classifications.whyItMatters,
         keyLabel: classifications.keyLabel,
+        sectors: classifications.sectors,
+        otherSectors: classifications.otherSectors,
+        activelyPartnering: classifications.activelyPartnering,
+        partners: classifications.partners,
+        programmeStartYear: classifications.programmeStartYear,
+        amountInrCrore: classifications.amountInrCrore,
+        financialYear: classifications.financialYear,
       })
       .from(signals)
       .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
@@ -58,12 +72,22 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
     return {
       status: "ok",
       lastUpdated: last ? new Date(last) : null,
-      items: rows.map((r) => ({
-        ...r,
-        date: r.publishedAt ?? r.fetchedAt,
-        whyItMatters: r.classified ? r.whyItMatters : null,
-        keyLabel: r.classified ? r.keyLabel : null,
-      })),
+      items: rows.map(({ sectors, ...r }) => {
+        const c = r.classified;
+        return {
+          ...r,
+          date: r.publishedAt ?? r.fetchedAt,
+          whyItMatters: c ? r.whyItMatters : null,
+          keyLabel: c ? r.keyLabel : null,
+          otherSectors: c ? (r.otherSectors ?? []) : [],
+          outsideFocus: c && (sectors ?? []).length === 0 && r.signalType !== "policy_change",
+          activelyPartnering: c ? r.activelyPartnering : null,
+          partners: c ? (r.partners ?? []) : [],
+          programmeStartYear: c ? r.programmeStartYear : null,
+          amountInrCrore: c ? r.amountInrCrore : null,
+          financialYear: c ? r.financialYear : null,
+        };
+      }),
     };
   } catch (err) {
     console.error("loadDigest failed", err);

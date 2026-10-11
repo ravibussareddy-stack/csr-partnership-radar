@@ -80,6 +80,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0
 .title { display: block; font-size: 1.05rem; font-weight: 600; text-decoration: none; margin-bottom: 6px; overflow-wrap: anywhere; }
 .title:hover { text-decoration: underline; color: var(--accent); }
 .why { margin-bottom: 6px; }
+.facts { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+.fact { font-size: 0.78rem; padding: 2px 8px; border-radius: 6px; background: var(--background-bg); color: var(--muted); }
+.fact-review { background: var(--watch-bg); color: var(--watch); font-weight: 600; }
+.fact-good { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 600; }
 .reason { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
 .reason .label { font-weight: 600; color: var(--text); }
 .meta { margin-top: 6px; }

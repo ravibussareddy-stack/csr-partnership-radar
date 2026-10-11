@@ -49,6 +49,11 @@ async function predict(row: Row, cfg: AppConfig, pool: GeminiPool | null): Promi
         sectors: out.data.sectors,
         geographies: out.data.geographies,
         confidence: out.data.confidence,
+        otherSectors: out.data.other_sectors,
+        activelyPartnering: out.data.actively_partnering,
+        partners: out.data.partners,
+        programmeStartYear: out.data.programme_start_year,
+        amountInrCrore: out.data.amount_inr_crore,
       };
     } else {
       how = `rules-only (${out.reason})`;

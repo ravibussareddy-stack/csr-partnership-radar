@@ -6,6 +6,7 @@ import { DEFAULT_CONFIG } from "@/config/defaults";
 import { TIERS, type Tier } from "@/lib/db/schema";
 import { DIGEST_WINDOW_DAYS, loadDigest, type DigestItem } from "@/lib/digest";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
+import { OTHER_SECTORS } from "@/prompts/classify";
 
 const TZ = "Asia/Kolkata";
 const fmtDate = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
@@ -15,8 +16,8 @@ const fmtDateTime = new Intl.DateTimeFormat("en-IN", {
 
 const TIER_HINTS: Record<Tier, string> = {
   call_this_week: "Warm. Worth a call before Friday.",
-  watch: "Relevant, but not urgent. Check again next week.",
-  background: "Context only. No action needed.",
+  watch: "Relevant, but not urgent. Also holds CSR outside your focus sectors, for review.",
+  background: "Context: ongoing programmes and older activity. Useful for relationship mapping.",
 };
 
 // Names come from config defaults; the DB config may add sources later.
@@ -134,6 +135,7 @@ function Item({ item }: { item: DigestItem }) {
         {item.title}
       </a>
       {item.whyItMatters && <p className="why">{item.whyItMatters}</p>}
+      <Facts item={item} />
       <p className="reason">
         <span className="label">Why this tier:</span> {item.reason}
       </p>
@@ -141,6 +143,41 @@ function Item({ item }: { item: DigestItem }) {
         {fmtDate.format(item.date)} · {SOURCE_NAMES.get(item.source) ?? item.source}
       </p>
     </li>
+  );
+}
+
+const OTHER_LABELS = new Map<string, string>(OTHER_SECTORS.map((o) => [o.id, o.label]));
+
+function Facts({ item }: { item: DigestItem }) {
+  if (!item.classified) return null;
+  const year = new Date().getFullYear();
+  const facts: { text: string; tone?: "review" | "good" }[] = [];
+  if (item.outsideFocus) {
+    const labels = item.otherSectors.map((id) => OTHER_LABELS.get(id) ?? id);
+    facts.push({ text: `Outside focus${labels.length ? `: ${labels.join(", ")}` : ""} · for review`, tone: "review" });
+  }
+  if (item.activelyPartnering === "yes") {
+    facts.push({ text: `Works with NGOs${item.partners.length ? `: ${item.partners.slice(0, 3).join(", ")}` : ""}`, tone: "good" });
+  } else if (item.activelyPartnering === "no") {
+    facts.push({ text: "Runs it in-house (no NGO partner mentioned)" });
+  } else {
+    facts.push({ text: "NGO partnering: not stated" });
+  }
+  if (item.programmeStartYear) {
+    const yrs = year - item.programmeStartYear;
+    facts.push({ text: `Running since ${item.programmeStartYear}${yrs > 0 ? ` · ${yrs} yr${yrs === 1 ? "" : "s"} old` : " · new this year"}` });
+  }
+  if (item.amountInrCrore) {
+    facts.push({ text: `₹${item.amountInrCrore.toLocaleString("en-IN", { maximumFractionDigits: 2 })} cr${item.financialYear ? ` · ${item.financialYear}` : ""}` });
+  }
+  return (
+    <ul className="facts">
+      {facts.map((f) => (
+        <li key={f.text} className={f.tone ? `fact fact-${f.tone}` : "fact"}>
+          {f.text}
+        </li>
+      ))}
+    </ul>
   );
 }
 

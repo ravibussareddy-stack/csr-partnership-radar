@@ -15,6 +15,7 @@ export const SIGNAL_TYPES = [
   "allocation_increase",
   "partner_search",
   "policy_change",
+  "ongoing_programme",
   "none",
 ] as const;
 export type SignalType = (typeof SIGNAL_TYPES)[number];
@@ -49,6 +50,13 @@ export const classifications = pgTable("classifications", {
   sectors: text("sectors").array().notNull().default([]),
   geographies: text("geographies").array().notNull().default([]),
   companies: text("companies").array().notNull().default([]),
+  // v2 fields (prompt classify-v2+)
+  otherSectors: text("other_sectors").array().notNull().default([]),
+  activelyPartnering: text("actively_partnering").$type<"yes" | "no" | "unknown">().notNull().default("unknown"),
+  partners: text("partners").array().notNull().default([]),
+  programmeStartYear: integer("programme_start_year"),
+  amountInrCrore: real("amount_inr_crore"),
+  financialYear: text("financial_year"),
   whyItMatters: text("why_it_matters").notNull().default(""),
   confidence: real("confidence").notNull(),
   // "<GEMINI_MODEL>@<PROMPT_VERSION>"
