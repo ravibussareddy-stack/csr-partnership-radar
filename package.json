@@ -17,7 +17,8 @@
     "history:import": "tsx scripts/history/import-portal.ts",
     "history:stats": "tsx scripts/history/stats.ts",
     "history:news": "tsx scripts/history/news.ts",
-    "history:classify-news": "tsx scripts/history/classify-news.ts"
+    "history:classify-news": "tsx scripts/history/classify-news.ts",
+    "history:aliases": "tsx scripts/history/aliases.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
