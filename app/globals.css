@@ -1,49 +1,93 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #f7f6f2;
+  --surface: #ffffff;
+  --text: #1c1b18;
+  --muted: #6b6860;
+  --border: #e3e0d8;
+  --accent: #1f5f4a;
+  --call: #b4442b;
+  --call-bg: #fbeee9;
+  --watch: #9a6b00;
+  --watch-bg: #fbf3df;
+  --background-tier: #5d6470;
+  --background-bg: #eef0f3;
+  --warn-bg: #fff4d6;
+  --warn-text: #7a5400;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #141412;
+    --surface: #1d1c1a;
+    --text: #ecebe6;
+    --muted: #a19e95;
+    --border: #34322e;
+    --accent: #6cc3a3;
+    --call: #ff8a70;
+    --call-bg: #3a221c;
+    --watch: #e7b84a;
+    --watch-bg: #352c16;
+    --background-tier: #a7afbd;
+    --background-bg: #252830;
+    --warn-bg: #3a3016;
+    --warn-text: #f0cf75;
   }
 }
 
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
+a { color: inherit; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+.wrap { max-width: 860px; margin: 0 auto; padding: 40px 16px 80px; }
+.muted { color: var(--muted); }
+.small { font-size: 0.875rem; }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+.masthead { margin-bottom: 28px; }
+.eyebrow { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.masthead h1 { font-size: 2.2rem; line-height: 1.15; margin: 4px 0 8px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); max-width: 60ch; }
+
+.summary { padding: 16px 0 20px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+.counts { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+.count { padding: 6px 12px; border-radius: 999px; font-size: 0.9rem; font-weight: 500; }
+.count .n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.count.tier-call_this_week { background: var(--call-bg); color: var(--call); }
+.count.tier-watch { background: var(--watch-bg); color: var(--watch); }
+.count.tier-background { background: var(--background-bg); color: var(--background-tier); }
+
+.tier { margin-bottom: 40px; }
+.tier-head { margin-bottom: 12px; padding-left: 12px; border-left: 4px solid var(--background-tier); }
+.tier-call_this_week .tier-head { border-color: var(--call); }
+.tier-watch .tier-head { border-color: var(--watch); }
+.tier-head h2 { font-size: 1.3rem; }
+.empty { padding: 8px 16px; }
+
+.items { list-style: none; display: grid; gap: 12px; }
+.item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.item-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 6px; }
+.company { font-weight: 700; }
+.chip { font-size: 0.78rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); color: var(--muted); }
+.badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 6px; background: var(--background-bg); color: var(--muted); margin-left: auto; font-family: ui-monospace, Menlo, monospace; }
+.badge-warn { background: var(--warn-bg); color: var(--warn-text); font-weight: 600; }
+.title { display: block; font-size: 1.05rem; font-weight: 600; text-decoration: none; margin-bottom: 6px; overflow-wrap: anywhere; }
+.title:hover { text-decoration: underline; color: var(--accent); }
+.why { margin-bottom: 6px; }
+.reason { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
+.reason .label { font-weight: 600; color: var(--text); }
+.meta { margin-top: 6px; }
+
+.notice { background: var(--surface); border: 1px dashed var(--border); border-radius: 10px; padding: 24px; }
+.notice h2 { font-size: 1.1rem; margin-bottom: 4px; }
+
+@media (max-width: 520px) {
+  .masthead h1 { font-size: 1.7rem; }
+  .badge { margin-left: 0; }
 }
