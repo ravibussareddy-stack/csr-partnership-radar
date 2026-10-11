@@ -66,6 +66,16 @@ npm run dev          # http://localhost:3000
 | `npm run db:seed` | Insert default config if missing (`-- --force` overwrites the row). |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript. |
 
+## Google searches, Google Alerts, LinkedIn and forwarded messages
+
+- **Saved Google searches** live in `config.searches`. The daily ingest runs each one through Gemini with Google Search grounding (official API; results must be backed by a Google source). Edit the list in the config row or `config/defaults.ts`.
+- **Intake inbox** (optional): create a dedicated Gmail account, turn on 2-Step Verification, create an **app password**, and set the GitHub secrets `INTAKE_IMAP_USER` and `INTAKE_IMAP_PASSWORD`. Then send to it:
+  - **Google Alerts:** create alerts at google.com/alerts and set "Deliver to" to the intake address.
+  - **LinkedIn:** add a Gmail filter in Ananya's mailbox that forwards mail from `linkedin.com` (job and saved-search alerts, "company posted", message notifications) to the intake address.
+  - **WhatsApp, SMS and other apps:** use "Share → Mail" to the intake address; on iPhone a Shortcut makes this one tap.
+
+The adapter reads the mailbox read-only. LinkedIn and WhatsApp accounts are never accessed directly, because their terms forbid automation.
+
 ## 10-year history and forecasts
 
 The **Expansion planner** (`/planner`) and **company profiles** (`/companies/[id]`) use two historical sources:

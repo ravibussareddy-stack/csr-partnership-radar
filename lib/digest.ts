@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { classifications, companies, rawItems, signals, type SignalType, type Tier } from "@/lib/db/schema";
+import { classifications, companies, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
 
 export const DIGEST_WINDOW_DAYS = 7;
 
@@ -95,4 +95,32 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
     console.error("loadDigest failed", err);
     return { status: "error", message: "Could not read from the database." };
   }
+}
+
+export interface SearchRunSummary {
+  searchId: string;
+  query: string;
+  ranAt: Date;
+  itemsFound: number;
+  itemsNew: number;
+  entryPointHtml: string | null;
+}
+
+/** Latest grounded-search run per saved search in the last 7 days (for the digest's search panel). */
+export async function loadRecentSearches(now = new Date()): Promise<SearchRunSummary[]> {
+  if (!hasDatabaseUrl()) return [];
+  const db = await getDb();
+  const since = new Date(now.getTime() - DIGEST_WINDOW_DAYS * 86400_000);
+  const rows = await db.select().from(searchRuns).where(gte(searchRuns.ranAt, since)).orderBy(desc(searchRuns.ranAt));
+  const latest = new Map<string, SearchRunSummary>();
+  for (const r of rows) {
+    const prev = latest.get(r.searchId);
+    if (prev) {
+      prev.itemsFound = Math.max(prev.itemsFound, r.itemsFound);
+      prev.itemsNew += r.itemsNew;
+      continue;
+    }
+    latest.set(r.searchId, { searchId: r.searchId, query: r.query, ranAt: r.ranAt, itemsFound: r.itemsFound, itemsNew: r.itemsNew, entryPointHtml: r.entryPointHtml });
+  }
+  return [...latest.values()];
 }

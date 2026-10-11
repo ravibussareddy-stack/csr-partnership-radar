@@ -31,7 +31,7 @@ export interface SourceConfig {
   id: string;
   name: string;
   url: string;
-  type: "rss";
+  type: "rss" | "search" | "email";
   /** 0–10, added to the score. Higher for sources that are mostly on-topic. */
   weight: number;
   /** Every item is CSR-related, so the pre-filter skips the CSR-keyword check. */
@@ -44,7 +44,16 @@ export interface SourceConfig {
   pages?: number;
 }
 
+export interface SearchConfig {
+  id: string;
+  /** What Ananya would type into Google. Gemini runs it with Google Search grounding. */
+  query: string;
+  enabled: boolean;
+}
+
 export interface AppConfig {
+  /** Saved Google searches, run daily by scripts/ingest/search.ts. */
+  searches: SearchConfig[];
   sectors: SectorConfig[];
   geographies: GeographyConfig[];
   keywords: {
@@ -104,6 +113,16 @@ export interface AppConfig {
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
+  searches: [
+    { id: "edu-partner", query: "company CSR education programme NGO implementation partner India", enabled: true },
+    { id: "skilling-mh", query: "CSR skill development initiative Maharashtra Pune", enabled: true },
+    { id: "rfp", query: "CSR call for proposals OR expression of interest NGO education skilling India", enabled: true },
+    { id: "digital-literacy", query: "CSR digital literacy programme launched India company", enabled: true },
+    { id: "youth-employability", query: "CSR youth employability first-generation job seekers programme India", enabled: true },
+    { id: "allocation", query: "company increases CSR budget education skilling crore", enabled: true },
+    { id: "policy", query: "CSR rules amendment Ministry of Corporate Affairs Schedule VII", enabled: true },
+    { id: "pune-schools", query: "CSR school dropouts Pune company foundation", enabled: true },
+  ],
   sectors: [
     {
       id: "education",
@@ -203,10 +222,17 @@ export const DEFAULT_CONFIG: AppConfig = {
       ],
     },
   },
+  // Non-RSS sources: their items get these weights and the CSR-focused flag.
+  // "gemini-search": Gemini + Google Search grounding over `searches`. "google-alerts" / "email-intake": the intake inbox.
+  // (Kept disabled for the RSS fetcher by type.)
   // Verified with `npm run sources:check` on 2026-10-11 (reachable, robots.txt allows, fresh).
   // Rejected: Google News RSS (robots.txt), Business Standard + PIB (403), thecsrupdates.com
   // (timeout), education-news feeds (no CSR items pass the pre-filter).
   sources: [
+    { id: "gemini-search", name: "Google Search (via Gemini)", url: "https://www.google.com/", type: "search", weight: 5, csrFocused: true, enabled: true },
+    { id: "google-alerts", name: "Google Alerts", url: "imap://intake", type: "email", weight: 5, csrFocused: true, enabled: true },
+    { id: "linkedin-email", name: "LinkedIn (email notifications)", url: "imap://intake", type: "email", weight: 4, csrFocused: false, enabled: true },
+    { id: "email-intake", name: "Forwarded to the intake inbox", url: "imap://intake", type: "email", weight: 6, csrFocused: true, enabled: true },
     {
       id: "indiacsr",
       name: "India CSR",

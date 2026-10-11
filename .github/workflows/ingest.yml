@@ -35,6 +35,10 @@ jobs:
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
           MAX_CLASSIFY_PER_RUN: ${{ vars.MAX_CLASSIFY_PER_RUN || '60' }}
+          # Intake inbox (Google Alerts, LinkedIn emails, forwarded messages). Optional until set.
+          INTAKE_IMAP_USER: ${{ secrets.INTAKE_IMAP_USER }}
+          INTAKE_IMAP_PASSWORD: ${{ secrets.INTAKE_IMAP_PASSWORD }}
+          INTAKE_MAILBOX: ${{ vars.INTAKE_MAILBOX || 'INBOX' }}
       - name: Warm window (12-month CSR news archives, incremental)
         run: npm run history:recent
         env:

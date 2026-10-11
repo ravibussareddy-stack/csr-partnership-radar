@@ -62,8 +62,19 @@ function retryAfterMs(res: Response, body: string): number | undefined {
   return m ? Number(m[1]) * 1000 : undefined;
 }
 
+export interface GroundingMetadata {
+  webSearchQueries?: string[];
+  groundingChunks?: { web?: { uri?: string; title?: string } }[];
+  groundingSupports?: { segment?: { startIndex?: number; endIndex?: number; text?: string }; groundingChunkIndices?: number[] }[];
+  searchEntryPoint?: { renderedContent?: string };
+}
+
 interface GenerateResponse {
-  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  candidates?: {
+    content?: { parts?: { text?: string; thought?: boolean }[] };
+    finishReason?: string;
+    groundingMetadata?: GroundingMetadata;
+  }[];
   promptFeedback?: { blockReason?: string };
 }
 
@@ -91,11 +102,24 @@ export class GeminiPool {
   }
 
   async generateJson(prompt: string, schema: object): Promise<GeminiResult> {
-    if (this.keys.length === 0) throw new GeminiError("no Gemini keys configured", "no_keys");
-    const body = JSON.stringify({
+    return this.generate({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: "application/json", responseSchema: schema },
     });
+  }
+
+  /**
+   * Plain-text generation with Google Search grounding. Returns the text plus groundingMetadata
+   * (source chunks, the text segments they support, and Google's Search Suggestions HTML).
+   */
+  async generateGrounded(prompt: string): Promise<GeminiResult & { grounding: GroundingMetadata | null }> {
+    const res = await this.generate({ contents: [{ role: "user", parts: [{ text: prompt }] }], tools: [{ google_search: {} }] });
+    return { ...res, grounding: res.raw?.candidates?.[0]?.groundingMetadata ?? null };
+  }
+
+  private async generate(request: object): Promise<GeminiResult & { raw?: GenerateResponse }> {
+    if (this.keys.length === 0) throw new GeminiError("no Gemini keys configured", "no_keys");
+    const body = JSON.stringify(request);
     const url = `${API_BASE}/models/${encodeURIComponent(this.model)}:generateContent`;
 
     for (const key of this.keys) {
@@ -132,7 +156,7 @@ export class GeminiPool {
             this.log(`gemini key=${key.label} empty output (${why})`);
           }
           this.log(`gemini key=${key.label} ok`);
-          return { text: out, keyLabel: key.label, model: this.model };
+          return { text: out, keyLabel: key.label, model: this.model, raw: json };
         }
 
         if (isQuotaError(res.status, text)) {

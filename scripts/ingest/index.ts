@@ -4,7 +4,8 @@
  *
  * Flags:
  *   --refilter   re-run the pre-filter on items in the lookback window (after keyword changes)
- *   --no-fetch   skip fetching (re-classify / re-score only)
+ *   --no-fetch   skip fetching and searching (re-classify / re-score only)
+ *   --no-search  skip the saved Google searches (Gemini grounding)
  */
 import "../env";
 import { and, eq, gte, isNull, or } from "drizzle-orm";
@@ -16,6 +17,8 @@ import { classifyPending } from "./classify";
 import { PoliteFetcher } from "./robots";
 import { fetchRssSource } from "./rss";
 import { scoreRecent } from "./score";
+import { runSearches } from "./search";
+import { fetchIntakeEmail } from "./email";
 
 async function main() {
   const args = new Set(process.argv.slice(2));
@@ -26,11 +29,11 @@ async function main() {
 
   // 1–2. Fetch + store (idempotent by URL)
   let fetchFailures = 0;
-  const enabled = cfg.sources.filter((s) => s.enabled);
+  const enabled = cfg.sources.filter((s) => s.enabled && s.type === "rss");
   if (!args.has("--no-fetch")) {
     // TODO(phase-2): Gmail, WhatsApp intake and BRSR adapters plug in here alongside RSS.
     const fetcher = new PoliteFetcher();
-    for (const src of enabled.filter((s) => s.type === "rss")) {
+    for (const src of enabled) {
       const res = await fetchRssSource(src, fetcher);
       if (res.status !== "ok") {
         fetchFailures++;
@@ -44,6 +47,22 @@ async function main() {
       }
       console.log(`fetch ${src.id}: ${res.items.length} items, ${inserted} new`);
     }
+  }
+
+  // 2a. Intake inbox: Google Alerts, LinkedIn notification emails, forwarded messages
+  if (!args.has("--no-fetch")) {
+    try {
+      const em = await fetchIntakeEmail(db);
+      console.log(`email: ${em.status}${em.status === "ok" ? `, ${em.emails} emails → ${em.items} items, ${em.inserted} new` : ""}`);
+    } catch (err) {
+      console.warn(`email: failed (${(err as Error).message}); continuing`);
+    }
+  }
+
+  // 2b. Saved Google searches via Gemini grounding (skip with --no-search)
+  if (!args.has("--no-search") && !args.has("--no-fetch")) {
+    const sr = await runSearches(db, cfg);
+    console.log(`search: ${sr.runs} searches, ${sr.found} sourced items, ${sr.inserted} new`);
   }
 
   // 3. Pre-filter (new items, or the whole lookback window with --refilter)

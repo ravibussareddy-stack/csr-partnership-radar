@@ -196,10 +196,25 @@ export const signals = pgTable("signals", {
 // Single-row table (id = 1). The DB row is the source of truth; config/defaults.ts seeds it.
 export const config = pgTable("config", {
   id: integer("id").primaryKey().default(1),
+  searches: jsonb("searches").$type<AppConfig["searches"]>().notNull().default([]),
   sectors: jsonb("sectors").$type<AppConfig["sectors"]>().notNull(),
   geographies: jsonb("geographies").$type<AppConfig["geographies"]>().notNull(),
   keywords: jsonb("keywords").$type<AppConfig["keywords"]>().notNull(),
   sources: jsonb("sources").$type<AppConfig["sources"]>().notNull(),
   scoringWeights: jsonb("scoring_weights").$type<AppConfig["scoringWeights"]>().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One row per grounded Google search run (keeps Google's Search Suggestions HTML for display). */
+export const searchRuns = pgTable("search_runs", {
+  id: serial("id").primaryKey(),
+  searchId: text("search_id").notNull(),
+  query: text("query").notNull(),
+  ranAt: timestamp("ran_at", { withTimezone: true }).notNull().defaultNow(),
+  webQueries: text("web_queries").array().notNull().default([]),
+  itemsFound: integer("items_found").notNull(),
+  itemsNew: integer("items_new").notNull(),
+  entryPointHtml: text("entry_point_html"),
+  keyLabel: text("key_label"),
+  model: text("model"),
 });

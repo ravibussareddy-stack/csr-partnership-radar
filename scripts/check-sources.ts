@@ -16,7 +16,7 @@ async function main() {
   const csrFocused = process.argv.includes("--csr-focused");
   const sources: SourceConfig[] = urls.length
     ? urls.map((url, i) => ({ id: `candidate-${i + 1}`, name: url, url, type: "rss", weight: 0, csrFocused, enabled: true, pages }))
-    : DEFAULT_CONFIG.sources;
+    : DEFAULT_CONFIG.sources.filter((s) => s.type === "rss");
 
   const fetcher = new PoliteFetcher();
   const weekAgo = Date.now() - 7 * 86400_000;

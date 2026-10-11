@@ -5,7 +5,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { TIERS, type Tier } from "@/lib/db/schema";
-import { DIGEST_WINDOW_DAYS, loadDigest, type DigestItem } from "@/lib/digest";
+import { DIGEST_WINDOW_DAYS, loadDigest, loadRecentSearches, type DigestItem, type SearchRunSummary } from "@/lib/digest";
 import { loadWarmList, type WarmItem } from "@/lib/warm";
 import { Hero, Icon } from "@/app/components/illustrations";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
@@ -51,7 +51,11 @@ export default function Page() {
 async function Digest() {
   await connection(); // always read fresh from the DB at request time
   const now = new Date();
-  const [data, warm] = await Promise.all([loadDigest(now), loadWarmList(now).catch(() => null)]);
+  const [data, warm, searches] = await Promise.all([
+    loadDigest(now),
+    loadWarmList(now).catch(() => null),
+    loadRecentSearches(now).catch(() => []),
+  ]);
 
   if (data.status === "no_database") {
     return <Notice title="No database configured">Set <code>DATABASE_URL</code> and run <code>npm run ingest</code>.</Notice>;
@@ -114,7 +118,45 @@ async function Digest() {
       )}
 
       {warm && warm.length > 0 && <WarmList items={warm} />}
+
+      {searches.length > 0 && <SearchesRun runs={searches} />}
     </>
+  );
+}
+
+/** Saved searches Gemini ran on Google this week, with Google's Search Suggestions (required by the grounding terms). */
+function SearchesRun({ runs }: { runs: SearchRunSummary[] }) {
+  return (
+    <section className="section searches" aria-labelledby="h-search">
+      <h2 id="h-search" className="section-title">
+        <Icon name="compass" /> Searched on Google this week
+      </h2>
+      <p className="muted small">
+        Ananya&rsquo;s saved searches, run daily by Gemini with Google Search grounding. Results only count when Google returned a
+        source for them; they are scored in the sections above.
+      </p>
+      <ul className="search-runs">
+        {runs.map((r) => (
+          <li key={r.searchId} className="card">
+            <p>
+              <strong>{r.query}</strong>
+            </p>
+            <p className="muted small">
+              {r.itemsFound} sourced result{r.itemsFound === 1 ? "" : "s"} · {r.itemsNew} new this week · last run {fmtDateTime.format(r.ranAt)}
+            </p>
+            {r.entryPointHtml && (
+              <iframe
+                className="search-suggestions"
+                title={`Google Search suggestions for ${r.query}`}
+                srcDoc={r.entryPointHtml}
+                sandbox="allow-popups allow-popups-to-escape-sandbox"
+                loading="lazy"
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
