@@ -108,8 +108,13 @@ Repo → Settings → Secrets and variables → Actions:
 
 The workflow [`.github/workflows/ingest.yml`](.github/workflows/ingest.yml) runs daily at 00:30 UTC and can be triggered manually (Actions → Ingest → Run workflow).
 
+To move existing local data into Neon without re-crawling (keeps ids):
+```bash
+SOURCE_DATABASE_URL=pglite://./.pglite TARGET_DATABASE_URL="<neon url>" npm run db:copy
+```
+
 ### 3. Vercel (digest page)
-Import the repo into Vercel and set **only** `DATABASE_URL` (the app needs no Gemini keys). The page renders fresh from the DB on every request.
+Import the repo into Vercel and set **only** `DATABASE_URL` (the app needs no Gemini keys). `vercel.json` pins functions to Singapore (`sin1`), next to the Neon database (aws-ap-southeast-1; Mumbai isn't offered for this Neon org). The page renders fresh from the DB on every request.
 
 ## Not built yet (later phases)
 
