@@ -1,3 +1,5 @@
+// Monday digest (read-only).
+// TODO(phase-2): Monday 07:00 IST email delivery of this digest; feedback buttons per item (feedback loop).
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { DEFAULT_CONFIG } from "@/config/defaults";
