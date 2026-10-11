@@ -1,0 +1,35 @@
+name: History
+
+on:
+  schedule:
+    # Sundays 21:30 UTC = Monday 03:00 IST, before the 07:00 IST digest.
+    - cron: "30 21 * * 0"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+      GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
+      GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
+      GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run db:migrate
+      # Dated CSR headlines per company from news archives (idempotent).
+      - run: npm run history:news
+      # Batch-classify new headlines (80 per Gemini call).
+      - run: npm run history:classify-news
+      - run: npm run history:stats

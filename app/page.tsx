@@ -1,6 +1,7 @@
 // Monday digest (read-only).
 // TODO(phase-2): Monday 07:00 IST email delivery of this digest; feedback buttons per item (feedback loop).
 import { Suspense } from "react";
+import Link from "next/link";
 import { connection } from "next/server";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { TIERS, type Tier } from "@/lib/db/schema";
@@ -119,7 +120,13 @@ function Item({ item }: { item: DigestItem }) {
   return (
     <li className="item">
       <div className="item-top">
-        <span className="company">{item.company ?? "Company not identified"}</span>
+        <span className="company">
+          {item.company && item.companyId ? (
+            <Link className="company-link" href={`/companies/${item.companyId}`}>{item.company}</Link>
+          ) : (
+            item.company ?? "Company not identified"
+          )}
+        </span>
         <span className="chip">{SIGNAL_LABELS[item.signalType]}</span>
         {item.classified ? (
           <span className="badge" title="Gemini key label that classified this item">

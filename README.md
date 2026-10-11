@@ -52,10 +52,32 @@ npm run dev          # http://localhost:3000
 |---|---|
 | `npm run ingest` | Full pipeline. Flags: `--refilter` (re-run the pre-filter on the lookback window after keyword changes), `--no-fetch` (re-classify and re-score only). |
 | `npm run eval` | Runs the pipeline on `evals/labelled.jsonl` and reports precision/recall of `is_signal` and tier accuracy. `--db-config` uses the DB config instead of defaults. |
+| `npm run sources:check [-- <feed-url> …]` | Verify feeds (robots.txt, reachability, freshness, pre-filter yield) before adding them. |
+| `npm run history:import -- <csv>` | Import the National CSR Portal "Dynamic CSR Report" CSV (FY2014-15 onward). |
+| `npm run history:news` | Backfill dated CSR headlines per company from CSR news archives. |
+| `npm run history:classify-news` | Batch-classify those headlines with Gemini (80 per call). |
+| `npm run history:stats` | Recompute company history, forecasts and announcement timing. |
 | `npm run db:generate` | Generate a new migration after editing `lib/db/schema.ts`. |
 | `npm run db:migrate` | Apply migrations. |
 | `npm run db:seed` | Insert default config if missing (`-- --force` overwrites the row). |
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript. |
+
+## 10-year history and forecasts
+
+The **Expansion planner** (`/planner`) and **company profiles** (`/companies/[id]`) use two historical sources:
+
+1. **National CSR Portal** (MCA): company-wise CSR spend by FY, state, district and sector, FY2014-15 to FY2024-25. The portal's company-wise reports are behind a CAPTCHA, so download the "Dynamic CSR Report" CSV from https://www.csr.gov.in by hand, then:
+   ```bash
+   npm run history:import -- ~/Downloads/Dynamic_CSR_Report_YYYY-MM-DD.csv
+   ```
+   The CSV (about 130 MB) is not committed. Re-import once a year when a new FY appears.
+2. **CSR news archives** (India CSR since 2009, The CSR Journal since 2014, CSR Times since 2019) through their public WordPress REST APIs: dated headlines per company, classified in batches by Gemini.
+   ```bash
+   npm run history:news && npm run history:classify-news && npm run history:stats
+   ```
+   The weekly `history.yml` workflow keeps this fresh.
+
+Forecasts are deterministic and explained on each page (see `lib/history/predict.ts`).
 
 ## Configuration
 

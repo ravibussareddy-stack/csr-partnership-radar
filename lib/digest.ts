@@ -16,6 +16,7 @@ export interface DigestItem {
   source: string;
   date: Date;
   company: string | null;
+  companyId: number | null;
   whyItMatters: string | null;
   keyLabel: string | null;
   otherSectors: string[];
@@ -52,6 +53,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         publishedAt: rawItems.publishedAt,
         fetchedAt: rawItems.fetchedAt,
         company: companies.canonicalName,
+        companyId: signals.companyId,
         whyItMatters: classifications.whyItMatters,
         keyLabel: classifications.keyLabel,
         sectors: classifications.sectors,

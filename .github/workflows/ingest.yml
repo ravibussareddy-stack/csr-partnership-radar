@@ -34,3 +34,7 @@ jobs:
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           MAX_CLASSIFY_PER_RUN: ${{ vars.MAX_CLASSIFY_PER_RUN || '60' }}
+      - name: Refresh company stats and forecasts
+        run: npm run history:stats
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
