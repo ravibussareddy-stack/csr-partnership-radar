@@ -2,7 +2,7 @@
  * Minimal Gemini REST client (generateContent) with multi-key fallback.
  *
  * - Keys: GEMINI_KEY_PRIMARY, then GEMINI_KEY_FALLBACK_1..N (stops at the first gap).
- * - Falls back to the next key ONLY on 429 / quota errors.
+ * - Falls back to the next key on 429 / quota errors, and on 401 / 403 (key rejected).
  * - Up to 3 tries per key with exponential backoff (429, 5xx, network errors).
  * - Logs key labels ("primary", "fallback_1"), never key values.
  */
@@ -153,11 +153,17 @@ export class GeminiPool {
           continue;
         }
 
-        // 400 / 401 / 403 (non-quota) / 404: config problem, not something another key fixes.
         const msg = text.match(/"message"\s*:\s*"([^"]{0,200})/)?.[1] ?? "";
+        // 401 / 403: this key is rejected (invalid, revoked, blocked). Skip it for the run, try the next.
+        if (res.status === 401 || res.status === 403) {
+          this.exhausted.add(key.label);
+          this.log(`gemini key=${key.label} rejected (HTTP ${res.status}), trying next key`);
+          break;
+        }
+        // 400 / 404: bad request or unknown model, a config problem another key won't fix.
         throw new GeminiError(`HTTP ${res.status} key=${key.label}: ${msg}`, "fatal");
       }
     }
-    throw new GeminiError("all Gemini keys exhausted (429/quota)", "all_keys_exhausted");
+    throw new GeminiError("all Gemini keys exhausted (429/quota) or rejected (401/403)", "all_keys_exhausted");
   }
 }
