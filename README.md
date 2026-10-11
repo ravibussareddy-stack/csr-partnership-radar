@@ -7,6 +7,8 @@ A weekly CSR intelligence digest for a Pune education NGO. It surfaces new CSR i
 - **Data:** Postgres on Neon via Drizzle ORM.
 - **Ingestion:** TypeScript scripts in `scripts/ingest/`, run daily by GitHub Actions at 00:30 UTC (06:00 IST).
 
+**Live:** https://csr-partnership-radar-two.vercel.app/ (digest) · [/planner](https://csr-partnership-radar-two.vercel.app/planner) (expansion planner)
+
 Components map: [docs/COMPONENTS.md](docs/COMPONENTS.md).
 
 ## How it works
