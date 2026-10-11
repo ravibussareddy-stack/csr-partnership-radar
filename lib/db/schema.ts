@@ -1,14 +1,18 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
   real,
   serial,
+  smallint,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { AppConfig } from "@/config/defaults";
+import type { CompanyStatsData } from "@/lib/history/types";
 
 export const SIGNAL_TYPES = [
   "new_initiative",
@@ -65,12 +69,79 @@ export const classifications = pgTable("classifications", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const companies = pgTable("companies", {
-  id: serial("id").primaryKey(),
-  canonicalName: text("canonical_name").notNull().unique(),
-  aliases: text("aliases").array().notNull().default([]),
-  isActive: boolean("is_active").notNull().default(true),
-});
+export const companies = pgTable(
+  "companies",
+  {
+    id: serial("id").primaryKey(),
+    canonicalName: text("canonical_name").notNull().unique(),
+    aliases: text("aliases").array().notNull().default([]),
+    isActive: boolean("is_active").notNull().default(true),
+    // Normalised name ("abc private limited"), see lib/companies.ts. Unique when set.
+    nameKey: text("name_key").unique(),
+    // Name without legal suffixes ("abc"), for loose matching of news names. Not unique.
+    baseKey: text("base_key"),
+    isPsu: boolean("is_psu"),
+    // "portal" = National CSR Portal import, "news" = first seen in news.
+    origin: text("origin").$type<"portal" | "news">().notNull().default("news"),
+  },
+  (t) => [index("companies_base_key_idx").on(t.baseKey)],
+);
+
+/** National CSR Portal "Dynamic CSR Report": one row per company × FY × state × district × sector project line. */
+export const csrSpend = pgTable(
+  "csr_spend",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    // FY 2024-25 → 2024
+    fyStart: smallint("fy_start").notNull(),
+    state: text("state").notNull(),
+    district: text("district").notNull(),
+    sector: text("sector").notNull(),
+    subSector: text("sub_sector").notNull(),
+    amountCr: real("amount_cr").notNull(),
+  },
+  (t) => [index("csr_spend_company_idx").on(t.companyId), index("csr_spend_district_idx").on(t.district)],
+);
+
+/** Dated news mentions of a company from CSR news archives (for announcement timing). */
+export const companyNews = pgTable(
+  "company_news",
+  {
+    id: serial("id").primaryKey(),
+    companyId: integer("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [uniqueIndex("company_news_company_url_idx").on(t.companyId, t.url)],
+);
+
+/** Precomputed per-company history + predictions (scripts/history/stats.ts). Read by the app. */
+export const companyStats = pgTable(
+  "company_stats",
+  {
+    companyId: integer("company_id")
+      .primaryKey()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    lastFy: smallint("last_fy"),
+    yearsActive: smallint("years_active").notNull(),
+    totalLastCr: real("total_last_cr").notNull(),
+    focusLastCr: real("focus_last_cr").notNull(),
+    maharashtraFocusLastCr: real("maharashtra_focus_last_cr").notNull(),
+    puneLastCr: real("pune_last_cr").notNull(),
+    predictedTotalCr: real("predicted_total_cr").notNull(),
+    predictedFocusCr: real("predicted_focus_cr").notNull(),
+    data: jsonb("data").$type<CompanyStatsData>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_stats_focus_idx").on(t.predictedFocusCr)],
+);
 
 export const signals = pgTable("signals", {
   id: serial("id").primaryKey(),

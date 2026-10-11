@@ -2,6 +2,7 @@ import { and, eq, gte, isNull, or } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
 import { classifications, companies, rawItems, signals } from "@/lib/db/schema";
+import { baseKey, nameKey } from "@/lib/companies";
 import { scoreItem } from "@/lib/scoring";
 
 export interface ScoreStats {
@@ -10,24 +11,41 @@ export interface ScoreStats {
   byTier: Record<string, number>;
 }
 
-function normName(s: string): string {
-  return s.toLowerCase().replace(/\s+/g, " ").trim();
+interface CompanyIndex {
+  byKey: Map<string, number>;
+  byBase: Map<string, number | null>; // null = ambiguous
+}
+
+async function loadCompanyIndex(db: DB): Promise<CompanyIndex> {
+  const idx: CompanyIndex = { byKey: new Map(), byBase: new Map() };
+  const rows = await db
+    .select({ id: companies.id, name: companies.canonicalName, aliases: companies.aliases, key: companies.nameKey, base: companies.baseKey })
+    .from(companies);
+  for (const co of rows) {
+    for (const n of [co.name, ...co.aliases]) idx.byKey.set(nameKey(n), co.id);
+    if (co.key) idx.byKey.set(co.key, co.id);
+    const b = co.base ?? baseKey(co.name);
+    if (!b) continue;
+    idx.byBase.set(b, idx.byBase.has(b) && idx.byBase.get(b) !== co.id ? null : co.id);
+  }
+  return idx;
 }
 
 /**
- * Minimal entity resolution: exact (case-insensitive) match on canonical name or
- * alias, otherwise insert. TODO(phase-2): real entity resolver (fuzzy, Ltd/Limited, CIN).
+ * Entity resolution: exact normalised name (incl. aliases and the 71k National CSR Portal
+ * names), then a unique match without legal suffixes ("Hindustan Zinc" → "Hindustan Zinc
+ * Limited"); otherwise a new news-origin company. TODO(phase-2): fuzzy matching, CIN.
  */
-async function upsertCompany(db: DB, name: string, cache: Map<string, number>): Promise<number> {
-  const key = normName(name);
-  const hit = cache.get(key);
+async function resolveCompany(db: DB, name: string, idx: CompanyIndex): Promise<number> {
+  const key = nameKey(name);
+  const hit = idx.byKey.get(key) ?? idx.byBase.get(baseKey(name)) ?? undefined;
   if (hit) return hit;
   const [row] = await db
     .insert(companies)
-    .values({ canonicalName: name.trim() })
+    .values({ canonicalName: name.trim(), nameKey: key, baseKey: baseKey(name), origin: "news" })
     .onConflictDoUpdate({ target: companies.canonicalName, set: { isActive: true } })
     .returning({ id: companies.id });
-  cache.set(key, row.id);
+  idx.byKey.set(key, row.id);
   return row.id;
 }
 
@@ -37,11 +55,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
   const since = new Date(now.getTime() - cfg.scoringWeights.lookbackDays * 86400_000);
   const sources = new Map(cfg.sources.map((s) => [s.id, s]));
 
-  const companyCache = new Map<string, number>();
-  for (const co of await db.select().from(companies)) {
-    companyCache.set(normName(co.canonicalName), co.id);
-    for (const a of co.aliases) companyCache.set(normName(a), co.id);
-  }
+  const companyIdx = await loadCompanyIndex(db);
 
   const rows = await db
     .select({ item: rawItems, cls: classifications })
@@ -84,7 +98,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       cfg,
       now,
     );
-    const companyId = cls?.companies[0] ? await upsertCompany(db, cls.companies[0], companyCache) : null;
+    const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
     const values = {
       itemId: item.id,
       companyId,

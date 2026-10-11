@@ -10,8 +10,10 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
   if (!row) return DEFAULT_CONFIG;
   // Merge over defaults so a row seeded by an older version still has every key.
   const d = DEFAULT_CONFIG;
+  const defaultSectors = new Map(d.sectors.map((s) => [s.id, s]));
   return {
-    sectors: row.sectors,
+    // Sector fields added after seeding (e.g. portalSectors) are filled from defaults by id.
+    sectors: row.sectors.map((s) => ({ ...defaultSectors.get(s.id), ...s })),
     geographies: row.geographies,
     keywords: {
       ...d.keywords,

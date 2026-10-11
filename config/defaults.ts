@@ -15,6 +15,8 @@ export interface SectorConfig {
   id: string;
   label: string;
   keywords: string[];
+  /** National CSR Portal development-sector names (lowercase) that count as this sector. */
+  portalSectors?: string[];
 }
 
 export interface GeographyConfig {
@@ -85,6 +87,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     {
       id: "education",
       label: "Education",
+      portalSectors: ["education", "special education"],
       keywords: [
         "education", "school", "schools", "scholarship", "scholarships", "classroom",
         "teacher training", "STEM", "foundational literacy", "numeracy", "dropout",
@@ -94,6 +97,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     {
       id: "skill_development",
       label: "Skill development",
+      portalSectors: ["vocational skills"],
       keywords: [
         "skill development", "skilling", "upskilling", "reskilling", "vocational",
         "ITI", "apprenticeship", "apprenticeships", "skill centre", "skill center",
@@ -103,6 +107,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     {
       id: "digital_literacy",
       label: "Digital literacy",
+      // The portal has no digital-literacy sector; such projects are reported under Education.
+      portalSectors: [],
       keywords: [
         "digital literacy", "digital skills", "digital skilling", "computer literacy",
         "coding", "computer lab", "digital classroom", "smart classroom", "AI skilling",
@@ -111,6 +117,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     {
       id: "youth_employment",
       label: "Youth employment",
+      portalSectors: ["livelihood enhancement projects"],
       keywords: [
         "youth employment", "employability", "job seekers", "first-generation",
         "placement", "placements", "livelihood", "livelihoods", "entrepreneurship",

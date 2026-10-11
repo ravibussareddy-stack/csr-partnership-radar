@@ -13,7 +13,9 @@
     "ingest": "tsx scripts/ingest/index.ts",
     "eval": "tsx evals/run.ts",
     "typecheck": "tsc --noEmit",
-    "sources:check": "tsx scripts/check-sources.ts"
+    "sources:check": "tsx scripts/check-sources.ts",
+    "history:import": "tsx scripts/history/import-portal.ts",
+    "history:stats": "tsx scripts/history/stats.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
@@ -30,6 +32,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "csv-parse": "^7.0.3",
     "dotenv": "^18.0.7",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
