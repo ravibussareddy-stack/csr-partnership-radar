@@ -1,8 +1,7 @@
 import robotsParser from "robots-parser";
 
-// TODO: replace the URL with the public GitHub repo once it exists.
 export const USER_AGENT =
-  "CSRPartnershipRadar/0.1 (+https://github.com/; weekly CSR digest for an education NGO)";
+  "CSRPartnershipRadar/0.1 (+https://github.com/ravibussareddy-stack/csr-partnership-radar; weekly CSR digest for an education NGO)";
 const BOT_TOKEN = "CSRPartnershipRadar";
 
 type RobotsEntry = ReturnType<typeof robotsParser> | "deny-all" | "allow-all";

@@ -5,6 +5,7 @@
  * Label format per line: "label": { "is_signal": true|false, "tier": "call_this_week"|"watch"|"background"|null }
  * Use tier null (or omit) when is_signal is false. Rows still labelled "TODO" are skipped.
  * Recency is computed against each row's `as_of`, so results don't drift as the file ages.
+ * Bodies are short excerpts (≤600 chars) of the original articles, kept brief for copyright.
  * Uses config/defaults.ts unless --db-config is passed (then the live `config` row).
  */
 import "../scripts/env";
