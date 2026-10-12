@@ -13,6 +13,7 @@ import { PageBackdrop } from "@/app/components/illustrations";
 import { NamasteArt } from "@/app/components/posters";
 import { fmtCr } from "@/app/components/charts";
 import { getImpactStats, getRegulatory, getSummary } from "@/lib/data";
+import { CALL_TYPE_HELP, CALL_TYPE_LABELS } from "@/lib/insights";
 
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
@@ -71,13 +72,13 @@ async function Overview() {
       </header>
 
       <div className="ov-grid">
-        <Panel n={1} title="Call this week" tip={`${TIER_TIP} A call must pass every check: a named funder, an NGO partner route, Pune/Maharashtra or national (or a company already funding in Maharashtra), and the analysis itself recommending outreach now. "Introduce soon" are good leads that aren't urgent.`} more={`All in the digest`} href="/digest">
+        <Panel n={1} title="Call this week" tip={`${TIER_TIP} A call must pass every check: a named funder, an NGO partner route, Pune/Maharashtra or national (or a company already funding in Maharashtra), and the analysis itself recommending outreach now. Each call is an Open opportunity (the company is asking for partners: partner search, call for proposals, RFP, EOI) or a Warm lead (it funds your sectors through NGOs; approach now for its next cycle). "Introduce soon" are good leads that aren't urgent.`} more={`All in the digest`} href="/digest">
           {calls.length === 0 ? <p className="muted small">No calls this week.</p> : (
             <ul className="ov-list">
               {calls.slice(0, introduce.length ? 2 : 3).map((c) => (
                 <li key={c.key}>
                   <Logo name={c.company ?? "?"} domain={c.domain} size={26} />
-                  <span><b>{c.company ?? "Company not named"}</b>: {c.title}<span className="muted small ov-clamp"> {c.worthIt ?? c.summary}</span></span>
+                  <span>{c.callType && <span className={`call-type ct-${c.callType}`} title={CALL_TYPE_HELP[c.callType]}>{CALL_TYPE_LABELS[c.callType]}</span>} <b>{c.company ?? "Company not named"}</b>: {c.title}<span className="muted small ov-clamp"> {c.worthIt ?? c.summary}</span></span>
                 </li>
               ))}
             </ul>

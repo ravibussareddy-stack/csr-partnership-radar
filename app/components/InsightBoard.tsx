@@ -6,7 +6,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { giveFeedback, undoRead } from "@/app/actions";
 import Link from "next/link";
-import type { Insight } from "@/lib/insights";
+import { CALL_TYPE_HELP, CALL_TYPE_LABELS, type Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
 import { track } from "./Ambient";
 import { Discussion } from "./Discussion";
@@ -81,6 +81,12 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
           <InfoTip text={TIER_HELP[i.tier]} label={`What does ${tierLabel} mean?`} />
         </span>
       </header>
+      {i.callType && (
+        <span className={`call-type ct-${i.callType}`}>
+          {CALL_TYPE_LABELS[i.callType]}
+          <InfoTip text={CALL_TYPE_HELP[i.callType]} label={`What is a ${CALL_TYPE_LABELS[i.callType].toLowerCase()}?`} />
+        </span>
+      )}
       <h3 className="cue-title">{i.title}</h3>
       {i.policyStatus && <span className={`policy-badge ps-${i.policyStatus}`} title={POLICY_STATUS[i.policyStatus].help}>{POLICY_STATUS[i.policyStatus].label}</span>}
       <p className="cue-summary">{i.worthIt ?? i.summary}</p>
@@ -119,6 +125,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
             <span className={`tier-pill tier-${i.tier}`}>{tierLabel}</span>
             <button type="button" className="dialog-close" onClick={() => dialog.current?.close()} aria-label="Close">×</button>
           </header>
+          {i.callType && <p className="small"><span className={`call-type ct-${i.callType}`}>{CALL_TYPE_LABELS[i.callType]}</span> <span className="muted">{CALL_TYPE_HELP[i.callType]}</span></p>}
           <h3 className="dialog-title">{i.title}</h3>
           {i.originalTitle && <p className="muted small">Original headline: {i.originalTitle}</p>}
           {i.policyStatus && (

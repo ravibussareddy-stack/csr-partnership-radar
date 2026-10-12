@@ -2,10 +2,25 @@
 import type { DigestItem } from "@/lib/digest";
 import { sourceGroup, type SourceGroup } from "@/lib/sources";
 import type { WarmItem } from "@/lib/warm";
-import type { PitchKit, Quote, Tier } from "@/lib/db/schema";
+import type { PitchKit, Quote, SignalType, Tier } from "@/lib/db/schema";
 import { placeKeys } from "@/lib/geo";
 import { SIGNAL_LABELS } from "@/lib/scoring";
 import { OTHER_SECTORS } from "@/prompts/classify";
+
+/**
+ * What kind of call it is. Open opportunity: the company is asking for partners now (partner search,
+ * call for proposals, RFP, EOI): apply before it closes. Warm lead: the company funds the focus
+ * sectors through NGOs: introduce the NGO now so it is considered in the next cycle.
+ */
+export type CallType = "open" | "warm";
+export const CALL_TYPE_LABELS: Record<CallType, string> = { open: "Open opportunity", warm: "Warm lead" };
+export const CALL_TYPE_HELP: Record<CallType, string> = {
+  open: "The company is asking for NGO partners right now (partner search, call for proposals, RFP or EOI). Apply or respond before it closes.",
+  warm: "The company funds your sectors through NGOs, but there is no open call. Introduce your programmes now so you are considered in its next funding cycle.",
+};
+export function callType(signalType: SignalType): CallType {
+  return signalType === "partner_search" ? "open" : "warm";
+}
 
 export interface Insight {
   key: string;
@@ -23,6 +38,8 @@ export interface Insight {
   worthIt: string | null;
   /** the analysis's recommendation (v7): only reach_out_now can be Call this week */
   action: "reach_out_now" | "prepare" | "monitor" | "context" | null;
+  /** Calls only: open opportunity (partner search / RFP / EOI) or warm lead. */
+  callType: CallType | null;
   /** "state:Maharashtra", "city:Pune" (for the geography filter). */
   places: string[];
   geographies: string[];
@@ -78,6 +95,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     summary: i.whyItMatters ?? i.reason,
     worthIt: i.worthIt,
     action: i.recommendedAction,
+    callType: i.tier === "call_this_week" ? callType(i.signalType) : null,
     places: placeKeys(i.geographies),
     geographies: i.geographies,
     policyStatus: i.policyStatus,
@@ -123,6 +141,7 @@ export function fromWarm(w: WarmItem): Insight {
     originalTitle: null,
     worthIt: null,
     action: null,
+    callType: null,
     places: [],
     geographies: [],
     policyStatus: null,

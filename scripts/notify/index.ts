@@ -17,6 +17,7 @@ import { closeDb, getDb } from "@/lib/db/client";
 import { activity, memberTime, notifications, relationshipAlerts, relationships, teamMembers } from "@/lib/db/schema";
 import { loadRegulatory } from "@/lib/regulatory";
 import { loadDigest, type DigestItem } from "@/lib/digest";
+import { CALL_TYPE_HELP, CALL_TYPE_LABELS, callType } from "@/lib/insights";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 import { loadWarmList, type WarmItem } from "@/lib/warm";
 
@@ -35,10 +36,14 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 const TIER_COLOR = { call_this_week: "#c2462a", watch: "#8a6100", background: "#3f6a8a" } as const;
 
+const CALL_TYPE_COLOR = { open: "#128a63", warm: "#8a6100" } as const;
+
 function itemHtml(i: DigestItem): string {
+  const ct = i.tier === "call_this_week" ? callType(i.signalType) : null;
+  const badge = ct ? `<span title="${esc(CALL_TYPE_HELP[ct])}" style="display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:999px;border:1px solid ${CALL_TYPE_COLOR[ct]};color:${CALL_TYPE_COLOR[ct]};margin-right:6px">${CALL_TYPE_LABELS[ct]}</span>` : "";
   const company = i.company && i.companyId ? `<a href="${SITE}/companies/${i.companyId}" style="color:#1f2a24">${esc(i.company)}</a>` : esc(i.company ?? "Company not identified");
   return `<tr><td style="padding:12px 14px;border-left:4px solid ${TIER_COLOR[i.tier]};background:#fffdf8;border-radius:10px">
-    <div style="font-size:13px;color:#5f6a62"><strong style="color:#1f2a24">${company}</strong> · ${esc(SIGNAL_LABELS[i.signalType])} · ${dateFmt.format(i.date)}</div>
+    <div style="font-size:13px;color:#5f6a62">${badge}<strong style="color:#1f2a24">${company}</strong> · ${esc(SIGNAL_LABELS[i.signalType])} · ${dateFmt.format(i.date)}</div>
     <div style="font-size:15px;font-weight:600;margin:4px 0"><a href="${esc(i.url)}" style="color:#128a63;text-decoration:none">${esc(i.headline ?? i.title)}</a></div>
     ${i.worthIt || i.whyItMatters ? `<div style="font-size:14px;margin:2px 0 4px">${esc(i.worthIt ?? i.whyItMatters ?? "")}</div>` : ""}
     <div style="font-size:12px;color:#5f6a62"><strong>Why this tier:</strong> ${esc(i.reason)}</div>
@@ -155,12 +160,12 @@ async function main() {
       const warm = ((await loadWarmList(now).catch(() => null)) ?? []).filter((w) => w.tier !== "background").slice(0, 10);
       const subject = `${SUBJECT_TAG} Monday digest · W${week} ${year} · ${calls.length} to call · ${watch.length} to watch`;
       const html = shell(`Monday digest · week ${week}`, [
-        calls.length ? section(`Call this week (${calls.length})`, calls.map(itemHtml).join("")) : section("Call this week", `<tr><td style="font-size:14px;color:#5f6a62">Nothing new to call this week.</td></tr>`),
+        calls.length ? section(`Call this week (${calls.length})`, `<tr><td style="font-size:12px;color:#5f6a62;padding:0 2px 8px"><strong>Open opportunity</strong>: asking for NGO partners now (partner search, call for proposals, RFP, EOI); respond before it closes. <strong>Warm lead</strong>: funds your sectors through NGOs; introduce yourself now for its next cycle.</td></tr>` + calls.map(itemHtml).join("")) : section("Call this week", `<tr><td style="font-size:14px;color:#5f6a62">Nothing new to call this week.</td></tr>`),
         watch.length ? section(`Watch (${watch.length}, top 8)`, watch.slice(0, 8).map(itemHtml).join("")) : "",
         ...(await mondayExtras(db)),
         warm.length ? section("Warm list: active in your sectors this year", warm.map(warmHtml).join("")) : "",
       ].join(""));
-      const text = [subject, "", ...calls.map((c) => `CALL: ${c.company ?? "?"}: ${c.title}\n  ${c.url}\n  ${c.reason}`), "", `Full digest: ${SITE}`].join("\n");
+      const text = [subject, "", ...calls.map((c) => `CALL (${CALL_TYPE_LABELS[callType(c.signalType)]}): ${c.company ?? "?"}: ${c.title}\n  ${c.url}\n  ${c.reason}`), "", `Full digest: ${SITE}`].join("\n");
       await tr.t.sendMail({ from: `CSR Radar <${tr.from}>`, to: to ?? "", subject, html, text });
       if (!preview) await db.insert(notifications).values({ kind: "monday_digest", key, subject }).onConflictDoNothing();
       console.log(`notify: ${preview ? "previewed" : "sent"} "${subject}"`);

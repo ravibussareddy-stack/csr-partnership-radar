@@ -908,6 +908,10 @@ a.cue-company:hover { color: var(--accent); }
 .ps-executed.policy-badge { background: var(--accent-soft); color: var(--accent); }
 .ps-confirmed.policy-badge { background: var(--background-bg); color: var(--background-tier); }
 .ps-inferred.policy-badge { background: var(--watch-bg); color: var(--watch); }
+/* Call type: open opportunity (asking for partners now) vs warm lead (funds the sectors via NGOs) */
+.call-type { display: inline-flex; align-items: center; gap: 4px; font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; letter-spacing: 0.02em; margin-bottom: 4px; }
+.ct-open { background: var(--accent-soft); color: var(--accent); }
+.ct-warm { background: var(--watch-bg); color: var(--watch); }
 .badge-official { font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); }
 .cue .policy-badge { margin: -2px 0 4px; align-self: flex-start; }
 
