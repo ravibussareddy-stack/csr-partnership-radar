@@ -62,6 +62,10 @@ export const rawItems = pgTable("raw_items", {
   researchedAt: timestamp("researched_at", { withTimezone: true }),
   // Saved-search results: which config.searches entry found this item.
   searchId: text("search_id"),
+  // Sample data for demos (clearly labelled in the UI, can be hidden).
+  isDemo: boolean("is_demo").notNull().default(false),
+  // Job postings: link check result ("ok" | "generic" | "dead" | "expired" | "unverified").
+  linkStatus: text("link_status"),
   classifyStatus: text("classify_status").$type<ClassifyStatus>().notNull().default("pending"),
 });
 
@@ -261,3 +265,80 @@ export const itemResearch = pgTable(
   },
   (t) => [uniqueIndex("item_research_item_url_idx").on(t.itemId, t.url)],
 );
+
+/** Ananya's feedback on insights: read / not relevant (with optional reason). Drives score learning. */
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id").references(() => rawItems.id, { onDelete: "cascade" }),
+    companyId: integer("company_id").references(() => companies.id, { onDelete: "set null" }),
+    action: text("action").$type<"read" | "irrelevant">().notNull(),
+    reason: text("reason"),
+    // snapshot of features used for learning (source, signal type, sectors) at the time of feedback
+    source: text("source"),
+    signalType: text("signal_type"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("feedback_item_action_idx").on(t.itemId, t.action)],
+);
+
+/** Per-company "pitch kit": what the company is after + sourced proof points (Gemini + Google Search). */
+export const pitchKits = pgTable("pitch_kits", {
+  companyId: integer("company_id")
+    .primaryKey()
+    .references(() => companies.id, { onDelete: "cascade" }),
+  data: jsonb("data").$type<PitchKit>().notNull(),
+  model: text("model").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export interface PitchKit {
+  wants: { text: string; url: string | null }[]; // what the company is looking to achieve / benefit
+  recentNews: { text: string; url: string | null; date: string | null }[];
+  proof: { text: string; url: string | null }[]; // sourced metrics / evidence only
+}
+
+/** Small key/value store for computed model metrics (forecast accuracy, correlations). */
+export const modelMetrics = pgTable("model_metrics", {
+  key: text("key").primaryKey(),
+  data: jsonb("data").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Community builder: people publicly named in a professional capacity (CSR heads quoted in
+ * announcements, authors of public CSR posts, managers named in news). Name, role, company and the
+ * public source only: no personal emails or phone numbers are collected.
+ */
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    nameKey: text("name_key").notNull(),
+    title: text("title"),
+    companyName: text("company_name"),
+    companyKey: text("company_key").notNull().default(""),
+    companyId: integer("company_id").references(() => companies.id, { onDelete: "set null" }),
+    kind: text("kind").$type<"spokesperson" | "author" | "manager" | "hiring_manager">().notNull().default("spokesperson"),
+    sourceUrl: text("source_url").notNull(),
+    sourceTitle: text("source_title"),
+    context: text("context"),
+    status: text("status").$type<"new" | "reached_out" | "connected" | "failed" | "not_useful">().notNull().default("new"),
+    notes: text("notes"),
+    isDemo: boolean("is_demo").notNull().default(false),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("contacts_person_idx").on(t.nameKey, t.companyKey)],
+);
+
+/** Items already scanned for contacts (so each article is read once). */
+export const contactScans = pgTable("contact_scans", {
+  itemId: integer("item_id")
+    .primaryKey()
+    .references(() => rawItems.id, { onDelete: "cascade" }),
+  found: integer("found").notNull(),
+  scannedAt: timestamp("scanned_at", { withTimezone: true }).notNull().defaultNow(),
+});

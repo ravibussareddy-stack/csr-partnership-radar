@@ -28,6 +28,8 @@ export interface ScoreInput {
   publishedAt: Date | null;
   fetchedAt: Date;
   source: SourceConfig | undefined;
+  /** Learned from "Not relevant" feedback: how many rejected items share this company / source / type. */
+  feedback?: { company: number; source: number; type: number };
   /** null = unclassified → rules-only scoring */
   classification: {
     signalType: SignalType;
@@ -144,6 +146,30 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (c && c.confidence < w.lowConfidenceThreshold) {
     score -= w.lowConfidencePenalty;
     parts.push(`low confidence −${w.lowConfidencePenalty}`);
+  }
+
+  // 8. Learned from feedback
+  const fb = input.feedback;
+  const f = w.feedback;
+  if (fb && f) {
+    let pen = 0;
+    const why: string[] = [];
+    if (fb.company >= 1) {
+      pen += f.companyPenalty;
+      why.push(`company marked not relevant ${fb.company}×`);
+    }
+    if (fb.source >= f.minCount) {
+      pen += Math.min(f.sourceMax, fb.source * f.perSimilar);
+      why.push(`${fb.source} from this source`);
+    }
+    if (fb.type >= f.minCount) {
+      pen += Math.min(f.typeMax, fb.type * f.perSimilar);
+      why.push(`${fb.type} of this type`);
+    }
+    if (pen > 0) {
+      score -= pen;
+      parts.push(`learned from your feedback (${why.join(", ")}) −${pen}`);
+    }
   }
 
   let tier: Tier =

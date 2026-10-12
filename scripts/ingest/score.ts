@@ -1,7 +1,7 @@
-import { and, eq, gte, isNull, or } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
-import { classifications, companies, companyNews, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
+import { classifications, companies, companyNews, feedback, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
 import { loadCompanyIndex, resolveCompany } from "@/lib/resolve";
 import { scoreItem } from "@/lib/scoring";
 
@@ -26,6 +26,29 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
 
   const companyIdx = await loadCompanyIndex(db);
 
+  // Feedback learning: what Ananya marked "not relevant" recently, by company / source / signal type.
+  const fbSince = new Date(now.getTime() - cfg.scoringWeights.feedback.days * 86400_000);
+  const rejected = await db
+    .select({ itemId: feedback.itemId, companyId: feedback.companyId, source: feedback.source, type: feedback.signalType })
+    .from(feedback)
+    .where(and(eq(feedback.action, "irrelevant"), gte(feedback.createdAt, fbSince)));
+  const rejectedItems = new Set(rejected.map((r) => r.itemId));
+  const countBy = (key: "companyId" | "source" | "type") => {
+    const m = new Map<string | number, number>();
+    for (const r of rejected) if (r[key] != null) m.set(r[key]!, (m.get(r[key]!) ?? 0) + 1);
+    return m;
+  };
+  const byCompany = countBy("companyId");
+  const bySource = countBy("source");
+  const byType = countBy("type");
+  // Items she rejected leave the digest entirely.
+  if (rejectedItems.size) {
+    const del = await db.delete(signals).where(inArray(signals.itemId, [...rejectedItems].filter((x): x is number => x != null))).returning({ id: signals.id });
+    stats.removed += del.length;
+  }
+  // Job postings whose links failed the check (generic portal, dead, expired) leave the digest too.
+  await db.delete(signals).where(sql`${signals.itemId} in (select id from raw_items where link_status in ('generic','dead','expired'))`);
+
   const rows = await db
     .select({ item: rawItems, cls: classifications })
     .from(rawItems)
@@ -38,13 +61,20 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
     );
 
   for (const { item, cls } of rows) {
+    if (rejectedItems.has(item.id) || ["generic", "dead", "expired"].includes(item.linkStatus ?? "")) continue;
     if (cls && !cls.isSignal) {
       const del = await db.delete(signals).where(eq(signals.itemId, item.id)).returning({ id: signals.id });
       stats.removed += del.length;
       continue;
     }
+    const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
     const r = scoreItem(
       {
+        feedback: {
+          company: companyId ? (byCompany.get(companyId) ?? 0) : 0,
+          source: bySource.get(item.source) ?? 0,
+          type: cls ? (byType.get(cls.signalType) ?? 0) : 0,
+        },
         title: item.title,
         body: item.body,
         publishedAt: item.publishedAt,
@@ -68,7 +98,6 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       cfg,
       now,
     );
-    const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
     // Remember the company's website domain (for logos) the first time we learn it.
     if (companyId && cls?.companyDomain) {
       await db.update(companies).set({ domain: cls.companyDomain }).where(and(eq(companies.id, companyId), isNull(companies.domain)));

@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { classifications, companies, itemResearch, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
+import { classifications, companies, feedback, itemResearch, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
 import { sourceGroup, type SourceGroup } from "@/lib/sources";
 
 export const DIGEST_WINDOW_DAYS = 7;
@@ -34,6 +34,9 @@ export interface DigestItem {
   sourceGroup: SourceGroup;
   channel: string | null;
   research: { url: string; title: string; publisher: string | null }[];
+  itemId: number;
+  read: boolean;
+  isDemo: boolean;
 }
 
 export type DigestData =
@@ -77,6 +80,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         coDomain: companies.domain,
         channel: rawItems.channel,
         itemId: rawItems.id,
+        isDemo: rawItems.isDemo,
       })
       .from(signals)
       .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
@@ -92,6 +96,10 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           .from(itemResearch)
           .where(inArray(itemResearch.itemId, itemIds))
       : [];
+    const readRows = itemIds.length
+      ? await db.select({ itemId: feedback.itemId }).from(feedback).where(and(inArray(feedback.itemId, itemIds), eq(feedback.action, "read")))
+      : [];
+    const readSet = new Set(readRows.map((r) => r.itemId));
     const researchBy = new Map<number, { url: string; title: string; publisher: string | null }[]>();
     for (const r of research) (researchBy.get(r.itemId) ?? researchBy.set(r.itemId, []).get(r.itemId)!).push(r);
     return {
@@ -107,6 +115,8 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           domain: coDomain ?? clsDomain ?? null,
           sourceGroup: sourceGroup(r.source),
           research: researchBy.get(itemId) ?? [],
+          itemId,
+          read: readSet.has(itemId),
           date: r.publishedAt ?? r.fetchedAt,
           whyItMatters: c ? r.whyItMatters : null,
           keyLabel: c ? r.keyLabel : null,

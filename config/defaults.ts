@@ -117,6 +117,11 @@ export interface AppConfig {
     activelyPartneringBonus: number;
     /** Items older than this are not re-scored and do not appear in the digest window. */
     lookbackDays: number;
+    /**
+     * Learning from "Not relevant" feedback (last `days` days). Penalties apply to NEW items that
+     * share a company / source / signal type with items Ananya rejected, once `minCount` is reached.
+     */
+    feedback: { days: number; minCount: number; companyPenalty: number; perSimilar: number; sourceMax: number; typeMax: number };
     /** Warm list: companies with focus-sector CSR activity in the last `days` days. */
     warm: {
       days: number;
@@ -387,6 +392,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     outsideSectorMaxTier: "watch",
     activelyPartneringBonus: 10,
     lookbackDays: 14,
+    feedback: { days: 90, minCount: 2, companyPenalty: 25, perSimilar: 4, sourceMax: 16, typeMax: 16 },
     warm: {
       days: 365,
       maxItems: 40,

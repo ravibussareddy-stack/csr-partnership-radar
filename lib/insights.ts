@@ -27,6 +27,9 @@ export interface Insight {
   reason: string;
   research: { url: string; title: string; publisher: string | null }[];
   classified: boolean;
+  itemId: number | null;
+  read: boolean;
+  isDemo: boolean;
 }
 
 const OTHER_LABELS = new Map<string, string>(OTHER_SECTORS.map((o) => [o.id, o.label]));
@@ -66,6 +69,9 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     reason: i.reason,
     research: i.research,
     classified: i.classified,
+    itemId: i.itemId,
+    read: i.read,
+    isDemo: i.isDemo,
   };
 }
 
@@ -102,5 +108,8 @@ export function fromWarm(w: WarmItem): Insight {
     reason: w.reason,
     research: [],
     classified: true,
+    itemId: null,
+    read: false,
+    isDemo: false,
   };
 }

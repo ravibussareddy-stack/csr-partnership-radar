@@ -3,7 +3,8 @@
  * Filterable cue-card board. Data arrives pre-rendered from the (cached) server page; filters run
  * instantly in the browser: source group, tier, sector, company.
  */
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
+import { giveFeedback, undoRead } from "@/app/actions";
 import Link from "next/link";
 import type { Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
@@ -17,24 +18,46 @@ const TIERS = [
   { id: "background", label: "Background" },
 ] as const;
 
-const TIER_HELP: Record<string, string> = {
-  call_this_week: "A company is allocating money or looking for partners right now, in your sectors, recently enough that a call can still change the outcome. Reach out before Friday.",
-  watch: "Relevant but not urgent, or an early sign: an ongoing programme, CSR outside your sectors, a company hiring CSR staff, or a new plant near you (a future funder).",
-  background: "Context only: older or loosely related CSR activity. No action needed this week.",
+export const TIER_HELP: Record<string, string> = {
+  call_this_week: "A company is putting money into your sectors or looking for NGO partners RIGHT NOW (new programme, RFP, funding ramp-up near Pune), and it happened recently enough that a call this week can still change who gets the grant. Action: reach out before Friday.",
+  watch: "Relevant, but not urgent yet, or an early sign of a future opportunity: an ongoing programme, CSR outside your four sectors, a company hiring CSR staff, or a company opening a plant in Maharashtra. Action: track it and plan outreach for when it matures.",
+  background: "Context only: older or loosely related CSR activity that helps you read the market. Action: none this week.",
 };
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
+const REASONS = ["Not my sector", "Wrong company", "Old news", "Not CSR", "Not in our geography", "Other"];
+
 export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<string, string> }) {
   const company = i.company ?? "Company not identified";
   const dialog = useRef<HTMLDialogElement>(null);
+  const [read, setRead] = useState(i.read);
+  const [hidden, setHidden] = useState(false);
+  const [askWhy, setAskWhy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const act = (fn: () => Promise<{ ok: boolean; needsUnlock?: boolean; message?: string }>, onOk: () => void) =>
+    start(async () => {
+      const r = await fn();
+      if (r.ok) onOk();
+      else setNote(r.needsUnlock ? "unlock" : (r.message ?? "Couldn't save that."));
+    });
+  const toggleRead = () =>
+    i.itemId != null && act(() => (read ? undoRead(i.itemId!) : giveFeedback(i.itemId!, "read")), () => setRead(!read));
+  const reject = (reason: string) =>
+    i.itemId != null &&
+    act(() => giveFeedback(i.itemId!, "irrelevant", reason), () => {
+      dialog.current?.close();
+      setHidden(true);
+    });
+  if (hidden) return null;
   const open = () => {
     dialog.current?.showModal();
     track("opens");
   };
   const tierLabel = TIERS.find((t) => t.id === i.tier)?.label;
   return (
-    <article className={`cue spot tier-${i.tier}`}>
+    <article className={`cue spot tier-${i.tier}${read ? " is-read" : ""}`}>
       <header className="cue-head">
         <Logo name={company} domain={i.domain} />
         <div className="cue-who">
@@ -57,10 +80,21 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
         <span className={`src src-${i.sourceGroup}`}>{i.sourceLabel}</span>
         {i.sectors.slice(0, 2).map((s) => sectorLabels[s] && <span key={s} className="sector-dot">{sectorLabels[s]}</span>)}
         {!i.classified && <span className="badge-warn">unclassified</span>}
+        {i.isDemo && <span className="badge-demo" title="Sample data for demonstration, built from real public news">Demo</span>}
       </footer>
-      <button type="button" className="cue-open" onClick={open}>
-        {i.nextStep ? "Job to be done & breakdown" : "Open breakdown"} <span aria-hidden="true">↗</span>
-      </button>
+      <div className="cue-actions">
+        <button type="button" className="cue-open" onClick={open}>
+          {i.nextStep ? "Job to be done & breakdown" : "Open breakdown"} <span aria-hidden="true">↗</span>
+        </button>
+        {i.itemId != null && (
+          <button type="button" className={read ? "cue-read on" : "cue-read"} onClick={toggleRead} disabled={pending} aria-pressed={read} title={read ? "Mark as unread" : "Mark as read"}>
+            {read ? "✓ Read" : "Mark read"}
+          </button>
+        )}
+      </div>
+      {note && (
+        <p className="cue-note">{note === "unlock" ? <>Unlock first on <Link href="/inbox">People messages</Link> to save feedback.</> : note}</p>
+      )}
 
       <dialog ref={dialog} className="cue-dialog glass" onClick={(e) => e.target === dialog.current && dialog.current?.close()}>
         <div className="dialog-inner">
@@ -105,6 +139,21 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
             {i.url && <a href={i.url} target="_blank" rel="noopener noreferrer" className="pill-link">Read the source ↗</a>}
             {i.companyId && <Link href={`/companies/${i.companyId}`} className="pill-link strong">Company profile →</Link>}
           </div>
+          {i.itemId != null && (
+            <div className="feedback-row">
+              <button type="button" className={read ? "chip on" : "chip"} onClick={toggleRead} disabled={pending}>{read ? "✓ Read" : "Mark read"}</button>
+              {!askWhy ? (
+                <button type="button" className="chip" onClick={() => setAskWhy(true)}>Not relevant…</button>
+              ) : (
+                <span className="why-reasons" role="group" aria-label="Why is this not relevant?">
+                  <span className="muted small">Why?</span>
+                  {REASONS.map((r) => <button key={r} type="button" className="chip" disabled={pending} onClick={() => reject(r)}>{r}</button>)}
+                </span>
+              )}
+              <InfoTip text="Not relevant removes this item now. After a couple of similar rejections (same company, source or signal type), the next scoring run lowers similar items, and you'll see 'learned from your feedback' in their reasons. Email alerts follow the same scores." />
+            </div>
+          )}
+          {note && <p className="cue-note">{note === "unlock" ? <>Unlock first on <Link href="/inbox">People messages</Link> to save feedback.</> : note}</p>}
         </div>
       </dialog>
     </article>
@@ -126,6 +175,8 @@ export function InsightBoard({
   const [tier, setTier] = useState<string>("all");
   const [sector, setSector] = useState<string>("all");
   const [company, setCompany] = useState("");
+  const [hideRead, setHideRead] = useState(false);
+  const [hideDemo, setHideDemo] = useState(false);
   const sectorLabels = Object.fromEntries(sectors.map((s) => [s.id, s.label]));
   const companies = useMemo(
     () => [...new Set([...signals, ...warm].map((i) => i.company).filter((c): c is string => Boolean(c)))].sort(),
@@ -136,7 +187,9 @@ export function InsightBoard({
     (group === "all" || i.sourceGroup === group) &&
     (tier === "all" || i.tier === tier) &&
     (sector === "all" || i.sectors.includes(sector)) &&
-    (!company || (i.company ?? "").toLowerCase().includes(company.toLowerCase()));
+    (!company || (i.company ?? "").toLowerCase().includes(company.toLowerCase())) &&
+    !(hideRead && i.read) &&
+    !(hideDemo && i.isDemo);
   const shownSignals = signals.filter(match);
   const shownWarm = group === "all" || group === "news" ? warm.filter(match) : [];
   const counts = Object.fromEntries(groups.map((g) => [g.id, signals.filter((s) => s.sourceGroup === g.id).length]));
@@ -154,21 +207,34 @@ export function InsightBoard({
           ))}
         </div>
         <div className="selects">
-          <select value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tier">
-            <option value="all">All tiers</option>
-            {TIERS.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
+          <span className="tier-chips" role="group" aria-label="Tier">
+            <button className={tier === "all" ? "chip on" : "chip"} onClick={() => setTier("all")}>All tiers</button>
+            {TIERS.map((t) => (
+              <span key={t.id} className={`tier-chip tier-${t.id}${tier === t.id ? " on" : ""}`}>
+                <button className="chip" onClick={() => setTier(t.id)} aria-pressed={tier === t.id}>{t.label}</button>
+                <InfoTip text={<><b>{t.label}:</b> {TIER_HELP[t.id]}</>} label={`What does ${t.label} mean?`} />
+              </span>
+            ))}
+          </span>
           <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector">
             <option value="all">All focus sectors</option>
             {sectors.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
           <input list="companies" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Filter by company" aria-label="Company" />
           <datalist id="companies">{companies.map((c) => <option key={c} value={c} />)}</datalist>
+          <button className={hideRead ? "chip on" : "chip"} onClick={() => setHideRead(!hideRead)} aria-pressed={hideRead}>Hide read</button>
+          {signals.some((x) => x.isDemo) && <button className={hideDemo ? "chip on" : "chip"} onClick={() => setHideDemo(!hideDemo)} aria-pressed={hideDemo}>Hide demo</button>}
           {(group !== "all" || tier !== "all" || sector !== "all" || company) && (
             <button className="chip clear" onClick={() => { setGroup("all"); setTier("all"); setSector("all"); setCompany(""); }}>Clear</button>
           )}
         </div>
       </div>
+
+      {tier !== "all" && (
+        <p className={`tier-definition tier-${tier}`}>
+          <b>{TIERS.find((t) => t.id === tier)?.label}</b>: {TIER_HELP[tier]}
+        </p>
+      )}
 
       <section aria-labelledby="h-week" className="section">
         <h2 id="h-week" className="section-title">This week <span className="muted">· {shownSignals.length} insight{shownSignals.length === 1 ? "" : "s"}</span> <InfoTip text="New CSR signals from the last 7 days, highest score first. Each card ends in a decision (Call this week, Watch or Background) with the reason inside its breakdown." /></h2>
