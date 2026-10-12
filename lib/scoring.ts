@@ -10,6 +10,7 @@ export const SIGNAL_LABELS: Record<SignalType, string> = {
   policy_change: "Policy change",
   ongoing_programme: "Ongoing programme",
   csr_hiring: "Hiring for CSR",
+  regional_expansion: "Expansion in region",
   none: "No clear signal",
 };
 
@@ -56,7 +57,7 @@ export function inferSignalType(title: string, body: string, cfg: AppConfig): Si
   const hints = cfg.keywords.signalHints;
   const text = `${title}\n${body}`;
   const order: SignalTypeKey[] = [
-    "partner_search", "policy_change", "csr_hiring", "allocation_increase", "new_initiative", "ongoing_programme",
+    "partner_search", "policy_change", "csr_hiring", "allocation_increase", "new_initiative", "ongoing_programme", "regional_expansion",
   ];
   for (const t of order) {
     // Policy terms show up in passing in lots of CSR stories; require one in the headline.
@@ -108,7 +109,7 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   score += sectorPts;
   if (sectorLabels.length) parts.push(`${sectorLabels.join(", ")} +${sectorPts}`);
   const outsideLabels = (c?.otherSectors ?? []).map((id) => OTHER_SECTORS.find((o) => o.id === id)?.label ?? id);
-  const outsideOnly = Boolean(c) && sectorLabels.length === 0 && signalType !== "policy_change" && signalType !== "csr_hiring";
+  const outsideOnly = Boolean(c) && sectorLabels.length === 0 && signalType !== "policy_change" && signalType !== "csr_hiring" && signalType !== "regional_expansion";
   if (outsideOnly) parts.push(`outside focus${outsideLabels.length ? `: ${outsideLabels.join(", ")}` : ""}`);
 
   // 4. Geography fit (highest-weighted match only)
@@ -150,6 +151,10 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (signalType === "none" && tier !== "background") {
     tier = "background";
     parts.push("no signal type → Background");
+  }
+  if (signalType === "regional_expansion" && TIER_RANK[tier] > TIER_RANK[w.expansionMaxTier]) {
+    tier = w.expansionMaxTier;
+    parts.push(`capped at ${TIER_LABELS[tier]} (future CSR funder)`);
   }
   if (signalType === "csr_hiring" && TIER_RANK[tier] > TIER_RANK[w.hiringMaxTier]) {
     tier = w.hiringMaxTier;

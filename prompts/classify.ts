@@ -8,7 +8,9 @@ import type { AppConfig } from "@/config/defaults";
  * v2: keeps ongoing programmes / spend reports (ongoing_programme) and CSR outside the
  *     focus sectors (other_sectors) instead of discarding them; adds programme age,
  *     NGO partnering status, partners, amount and financial year.
- * v3: adds csr_hiring (job posts for CSR / foundation roles = a growing CSR team).
+ * v3: adds csr_hiring (job posts for CSR / foundation roles = a growing CSR team) and
+ *     regional_expansion (a company investing / setting up operations in India: a future CSR
+ *     funder there, since s.135(5) prefers local areas of operation); any Indian language.
  */
 export const PROMPT_VERSION = "classify-v3";
 
@@ -19,6 +21,7 @@ export const SIGNAL_TYPE_VALUES = [
   "policy_change",
   "ongoing_programme",
   "csr_hiring",
+  "regional_expansion",
   "none",
 ] as const;
 
@@ -137,7 +140,7 @@ export function buildPrompt(
 
 Classify the news item below.
 
-is_signal = true for any corporate CSR activity in India by a named company or corporate foundation, in ANY sector, plus CSR policy changes. is_signal = false only for items that are not about corporate CSR at all (general business news, lifestyle or tech articles, awards, opinion with no CSR activity, an NGO's own news with no corporate funder).
+is_signal = true for any corporate CSR activity in India by a named company or corporate foundation, in ANY sector, plus CSR policy changes, CSR job posts, and companies expanding operations in India (see below). is_signal = false only for items that are not about corporate CSR at all (general business news, lifestyle or tech articles, awards, opinion with no CSR activity, an NGO's own news with no corporate funder).
 
 signal_type (pick the strongest that applies):
 - partner_search: a company or foundation is explicitly looking for NGO or implementation partners (RFPs, calls for proposals, EOIs, empanelment).
@@ -146,6 +149,7 @@ signal_type (pick the strongest that applies):
 - policy_change: a policy, rule or regulatory change affecting how companies deploy CSR funds in India (Companies Act Section 135, Schedule VII, CSR rules, MCA or SEBI circulars, Social Stock Exchange).
 - ongoing_programme: an existing programme with nothing new announced, or a retrospective spend/impact report.
 - csr_hiring: a company or corporate foundation is hiring for CSR, foundation, social impact or community roles (job posts, job alerts). Put the hiring company in companies and the job location in geographies.
+- regional_expansion: a company (Indian or foreign) announces a new plant, campus, office or major investment in India. Not CSR yet, but a future CSR funder in that area, because Indian CSR law prefers the local areas where a company operates. Put the investing company in companies and the Indian city/state in geographies; sectors and other_sectors may be empty.
 - none: not corporate CSR (is_signal = false).
 
 Focus sectors (sectors: use only these ids):
@@ -157,7 +161,7 @@ Priority geographies: ${geos}.
 
 Rules:
 - Base every field only on the text below. Do not invent facts. Use null or empty when the text does not say.
-- companies: the companies or corporate foundations funding the CSR activity, as named.
+- companies: the companies or corporate foundations funding the CSR activity, written in English (Latin script) as commonly used, e.g. "Tata Trusts" even if the text is in Marathi.
 - geographies: Indian cities or states where the activity happens; "India" if national.
 - partners: names of EXTERNAL NGOs or implementation partners working with the company on this activity. The company's own foundation, group trust or group-run institute is NOT a partner.
 - actively_partnering: "yes" if partners is non-empty or the text says the company works through external NGOs / implementation partners; "no" if the text says it runs the activity itself (own foundation, group trust, staff); else "unknown".
@@ -166,7 +170,7 @@ Rules:
 - financial_year: the financial year the amount or activity refers to, as "FY2025-26", else null.
 - why_it_matters: one sentence (under 30 words) for the partnerships head: what happened and whether it is a near-term opportunity, a long-term relationship lead, or context only.
 - confidence: 0 to 1, how sure you are about is_signal and signal_type.
-- The text may be in Hindi or English. Write why_it_matters in English.
+- The text may be in English, Hindi, Marathi or any other language. Write why_it_matters in English.
 
 News item:
 Source: ${item.source}

@@ -21,6 +21,7 @@ export const SIGNAL_TYPES = [
   "policy_change",
   "ongoing_programme",
   "csr_hiring",
+  "regional_expansion",
   "none",
 ] as const;
 export type SignalType = (typeof SIGNAL_TYPES)[number];

@@ -10,7 +10,8 @@ export type SignalTypeKey =
   | "partner_search"
   | "policy_change"
   | "ongoing_programme"
-  | "csr_hiring";
+  | "csr_hiring"
+  | "regional_expansion";
 
 export interface SectorConfig {
   id: string;
@@ -90,6 +91,8 @@ export interface AppConfig {
     unclassifiedMaxTier: "call_this_week" | "watch" | "background";
     /** Highest tier for CSR job posts (a growing CSR team is a lead, not a reason to call this week). */
     hiringMaxTier: "call_this_week" | "watch" | "background";
+    /** Highest tier for companies expanding into a region (future CSR funder, no budget yet). */
+    expansionMaxTier: "call_this_week" | "watch" | "background";
     /** Highest tier for CSR entirely outside the focus sectors (kept for review). */
     outsideSectorMaxTier: "call_this_week" | "watch" | "background";
     /** Added when the company is working with NGO / implementation partners. */
@@ -229,6 +232,10 @@ export const DEFAULT_CONFIG: AppConfig = {
         "hiring", "we are hiring", "job opening", "vacancy", "apply now", "CSR Manager",
         "CSR Lead", "Head of CSR", "CSR Executive", "CSR Programme Manager",
       ],
+      regional_expansion: [
+        "new plant", "manufacturing facility", "sets up", "to invest", "investment of",
+        "MoU with Maharashtra", "greenfield", "new campus", "expansion",
+      ],
       policy_change: [
         "CSR rules", "amendment", "notification", "circular", "Schedule VII",
         "Section 135", "Ministry of Corporate Affairs", "SEBI", "Social Stock Exchange",
@@ -322,6 +329,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       policy_change: 25,
       ongoing_programme: 10,
       csr_hiring: 20,
+      regional_expansion: 15,
       none: 0,
     },
     recency: [
@@ -336,6 +344,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     thresholds: { callThisWeek: 60, watch: 35 },
     unclassifiedMaxTier: "watch",
     hiringMaxTier: "watch",
+    expansionMaxTier: "watch",
     outsideSectorMaxTier: "watch",
     activelyPartneringBonus: 10,
     lookbackDays: 14,
