@@ -27,6 +27,7 @@ export interface Insight {
   policyStatus: "confirmed" | "executed" | "inferred" | null;
   quotes: Quote[];
   pitch: PitchKit | null;
+  alsoReported: { title: string; url: string; source: string }[];
   date: string | null; // ISO
   sourceGroup: SourceGroup;
   sourceLabel: string;
@@ -76,6 +77,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     policyStatus: i.policyStatus,
     quotes: i.quotes,
     pitch: i.pitch,
+    alsoReported: i.alsoReported.map((a) => ({ ...a, source: sourceNames.get(a.source) ?? a.source })),
     date: new Date(i.date).toISOString(),
     sourceGroup: i.sourceGroup,
     sourceLabel: sourceNames.get(i.source) ?? i.source,
@@ -118,6 +120,7 @@ export function fromWarm(w: WarmItem): Insight {
     policyStatus: null,
     quotes: [],
     pitch: null,
+    alsoReported: [],
     url: w.activity.last?.url ?? null,
     summary: w.activity.last
       ? `${w.activity.count} announcement${w.activity.count === 1 ? "" : "s"} in your sectors in the last 12 months.${windowText ? ` ${windowText}.` : ""}`

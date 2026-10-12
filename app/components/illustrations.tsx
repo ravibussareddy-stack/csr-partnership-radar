@@ -1,3 +1,4 @@
+import { Poster } from "./posters";
 /**
  * Original illustrated scenes (inline SVG, no external assets). Style: flat CSR vector art
  * (globe, sprouting leaves, people on dashed orbits, growth arrows, gears, water drops) set in a
@@ -152,11 +153,14 @@ export function Hero({
   title,
   children,
   variant,
+  poster,
 }: {
   eyebrow: string;
   title: string;
   children?: React.ReactNode;
   variant?: "digest" | "planner" | "calendar" | "company";
+  /** editorial poster art instead of the landscape scene (app/components/posters.tsx) */
+  poster?: Parameters<typeof Poster>[0]["variant"];
 }) {
   return (
     <header className="hero-glass glass compact">
@@ -165,8 +169,8 @@ export function Hero({
         <h1 className="greeting page-title">{title}</h1>
         {children && <div className="lede">{children}</div>}
       </div>
-      <div className="hero-art scene-art">
-        <HeroScene variant={variant} />
+      <div className={poster ? "hero-art poster-art" : "hero-art scene-art"}>
+        {poster ? <Poster variant={poster} /> : <HeroScene variant={variant} />}
       </div>
     </header>
   );

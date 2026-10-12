@@ -1,6 +1,7 @@
 // 1 · Summary: a one-page overview. Six key-point panels, each with its top items as one-liners and a
 // link to the page with the detail. Public panels are cached (lib/data.ts); "Your partners" renders
 // per request for signed-in teammates only.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Greeting } from "@/app/components/Greeting";
@@ -9,6 +10,7 @@ import { Logo } from "@/app/components/Logo";
 import { PartnerWatch } from "@/app/components/PartnerWatch";
 import { RegulatoryBrief } from "@/app/components/RegulatoryBrief";
 import { PageBackdrop } from "@/app/components/illustrations";
+import { NamasteArt } from "@/app/components/posters";
 import { fmtCr } from "@/app/components/charts";
 import { getImpactStats, getRegulatory, getSummary } from "@/lib/data";
 
@@ -19,12 +21,14 @@ const TIER_TIP =
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="classroom" />
       <Suspense fallback={<div className="ov-head glass skeleton" />}>
         <Overview />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -48,10 +52,14 @@ async function Overview() {
   return (
     <>
       <header className="ov-head glass">
-        <div>
+        <div className="ov-welcome">
+          <NamasteArt />
+          <div>
           <p className="eyebrow">1 · Summary{data.lastUpdated ? ` · updated ${dateTime.format(new Date(data.lastUpdated))}` : ""}</p>
           <Greeting name="Ananya" />
+          <p className="namaste-line">Namaste · Vanakkam · नमस्कार</p>
           <p className="lede small">This week at a glance. Each panel shows the top items; open it for the detail.</p>
+          </div>
         </div>
         <ul className="ov-stats">
           <li><b>{calls.length}</b><span>to call this week</span></li>

@@ -202,10 +202,10 @@ export async function getHiring() {
   return loadHiring(60);
 }
 
-export async function getYearEvents(year: number, focusOnly: boolean) {
+export async function getYearEvents(year: number, focusOnly: boolean, geo: "india" | "maharashtra" | "pune" = "india") {
   "use cache";
   tag();
-  return loadEventsForYear(year, focusOnly ? (await sectorList()).map((s) => s.id) : null);
+  return loadEventsForYear(year, focusOnly ? (await sectorList()).map((s) => s.id) : null, geo);
 }
 
 export interface SummaryData {
@@ -281,12 +281,14 @@ export async function getContacts() {
     .select({
       id: contacts.id, name: contacts.name, title: contacts.title, companyName: contacts.companyName, companyId: contacts.companyId,
       domain: co.domain, kind: contacts.kind, sourceUrl: contacts.sourceUrl, sourceTitle: contacts.sourceTitle, context: contacts.context,
-      status: contacts.status, notes: contacts.notes, isDemo: contacts.isDemo, firstSeenAt: contacts.firstSeenAt, statusUpdatedAt: contacts.statusUpdatedAt,
+      status: contacts.status, notes: contacts.notes, isDemo: contacts.isDemo, firstSeenAt: contacts.firstSeenAt, statusUpdatedAt: contacts.statusUpdatedAt, sourceCheck: contacts.sourceCheck,
       stats: companyStats.data,
     })
     .from(contacts)
     .leftJoin(co, eq(co.id, contacts.companyId))
     .leftJoin(companyStats, eq(companyStats.companyId, contacts.companyId))
+    // Hidden: contacts whose cited page doesn't name them (data-quality audit).
+    .where(sql`coalesce(${contacts.sourceCheck}, 'ok') <> 'mismatch'`)
     .orderBy(sql`${contacts.firstSeenAt} desc`)
     .limit(300);
   // Where the person's company spends CSR (National CSR Portal), for the city / state filter.

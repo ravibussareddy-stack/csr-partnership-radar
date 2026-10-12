@@ -37,6 +37,8 @@ export interface DigestItem {
   quotes: Quote[];
   /** Sourced pitch material for the company (scripts/history/pitch.ts), if any. */
   pitch: PitchKit | null;
+  /** the same story from other outlets (merged into this card) */
+  alsoReported: { title: string; url: string; source: string }[];
   domain: string | null;
   sourceGroup: SourceGroup;
   channel: string | null;
@@ -120,7 +122,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
     return {
       status: "ok",
       lastUpdated: last ? new Date(last) : null,
-      items: rows.map(({ sectors, keyPoints, nextStep, headline, worthIt, geographies, policyStatus, quotes, clsDomain, coDomain, itemId, ...r }) => {
+      items: mergeSameStory(rows.map(({ sectors, keyPoints, nextStep, headline, worthIt, geographies, policyStatus, quotes, clsDomain, coDomain, itemId, ...r }) => {
         const c = r.classified;
         return {
           ...r,
@@ -133,6 +135,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           policyStatus: c ? (policyStatus ?? null) : null,
           quotes: c ? (quotes ?? []) : [],
           pitch: r.companyId ? (kitBy.get(r.companyId) ?? null) : null,
+          alsoReported: [],
           domain: coDomain ?? clsDomain ?? null,
           sourceGroup: sourceGroup(r.source),
           research: researchBy.get(itemId) ?? [],
@@ -149,7 +152,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           amountInrCrore: c ? r.amountInrCrore : null,
           financialYear: c ? r.financialYear : null,
         };
-      }),
+      })),
     };
   } catch (err) {
     console.error("loadDigest failed", err);
@@ -195,4 +198,20 @@ export async function loadRecentSearches(now = new Date()): Promise<SearchRunSum
     if (s) s.results.push({ title: f.title, url: f.url, date: f.date, company: f.company, tier: f.tier });
   }
   return [...latest.values()].sort((a, b) => b.results.length - a.results.length);
+}
+
+/**
+ * One card per story: items about the same company with the same signal type within 3 days are the
+ * same news from different outlets. The highest-scored one stays; the rest become "also reported by".
+ */
+function mergeSameStory(items: DigestItem[]): DigestItem[] {
+  const out: DigestItem[] = [];
+  for (const it of items) {
+    const twin = it.companyId != null && !it.isDemo
+      ? out.find((o) => o.companyId === it.companyId && !o.isDemo && o.signalType === it.signalType && Math.abs(new Date(o.date).getTime() - new Date(it.date).getTime()) <= 3 * 86400_000)
+      : undefined;
+    if (twin) twin.alsoReported.push({ title: it.title, url: it.url, source: it.source });
+    else out.push(it);
+  }
+  return out;
 }

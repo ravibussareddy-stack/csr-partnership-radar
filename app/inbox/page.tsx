@@ -1,6 +1,8 @@
 // Message drop: paste many messages at once (WhatsApp, LinkedIn, Telegram, SMS…), no integrations needed.
+import { PageTransition } from "@/app/components/PageTransition";
+import { Poster } from "@/app/components/posters";
 import { Suspense } from "react";
-import { Icon, PageBackdrop, PeopleFrames } from "@/app/components/illustrations";
+import { Icon, PageBackdrop } from "@/app/components/illustrations";
 import { getRecentPasted } from "@/lib/data";
 import { hasSession, passcodeConfigured } from "@/lib/session";
 import { DropForm, UnlockForm } from "./forms";
@@ -10,6 +12,7 @@ const STATUS: Record<string, string> = { pending: "queued", classified: "read", 
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="messages" />
       <header className="hero-glass glass compact">
@@ -21,12 +24,13 @@ export default function Page() {
             programme each is about, looks up public sources, and puts the good ones in your digest.
           </p>
         </div>
-        <div className="hero-art small"><PeopleFrames /></div>
+        <div className="hero-art poster-art"><Poster variant="messages" /></div>
       </header>
       <Suspense fallback={<div className="glass card-pad">Loading…</div>}>
         <Drop />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 

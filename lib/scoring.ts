@@ -191,6 +191,15 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = "watch";
     parts.push("capped at Watch (no company named)");
   }
+  // Outside the NGO's region: places are named, none in Pune / Maharashtra and none national.
+  // A Pune NGO can't act on (say) an ITI build in Nellore this week; it stays visible as Watch.
+  const places = c?.geographies ?? [];
+  const national = places.some((g) => /^(india|pan[- ]india|nationwide|national|across india|all india|multiple states)$/i.test(g.trim()));
+  const outOfRegion = Boolean(c) && places.length > 0 && !geo && !national && signalType !== "policy_change";
+  if (outOfRegion && TIER_RANK[tier] > TIER_RANK[w.outOfRegionMaxTier ?? "watch"]) {
+    tier = w.outOfRegionMaxTier ?? "watch";
+    parts.push(`capped at ${TIER_LABELS[tier]} (outside your region: ${places.slice(0, 2).join(", ")})`);
+  }
   if (outsideOnly && TIER_RANK[tier] > TIER_RANK[w.outsideSectorMaxTier]) {
     tier = w.outsideSectorMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (outside focus)`);

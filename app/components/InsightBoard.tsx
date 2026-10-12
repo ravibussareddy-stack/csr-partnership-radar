@@ -11,6 +11,8 @@ import type { SourceGroup } from "@/lib/sources";
 import { track } from "./Ambient";
 import { Discussion } from "./Discussion";
 import { PitchKitView } from "./PitchKitView";
+import { SearchPanel } from "./SearchPanel";
+import type { SearchRunSummary } from "@/lib/digest";
 import { POLICY_STATUS } from "@/lib/policy";
 import { InfoTip } from "./InfoTip";
 import { Logo } from "./Logo";
@@ -87,6 +89,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
         <span className={`src src-${i.sourceGroup}`}>{i.sourceLabel}</span>
         {i.sectors.slice(0, 2).map((s) => sectorLabels[s] && <span key={s} className="sector-dot">{sectorLabels[s]}</span>)}
         {!i.classified && <span className="badge-warn">unclassified</span>}
+        {i.alsoReported.length > 0 && <span className="fact" title={i.alsoReported.map((a) => a.source).join(", ")}>+{i.alsoReported.length} outlet{i.alsoReported.length === 1 ? "" : "s"}</span>}
         {i.isDemo && <span className="badge-demo" title="Sample data for demonstration, built from real public news">Demo</span>}
       </footer>
       <div className="cue-actions">
@@ -170,6 +173,12 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
             </>
           )}
           <p className="reason"><span className="label">Why this tier:</span> {i.reason}</p>
+          {i.alsoReported.length > 0 && (
+            <>
+              <h4>Also reported by</h4>
+              <ul className="research">{i.alsoReported.map((a) => <li key={a.url}>{a.url.startsWith("http") ? <a href={a.url} target="_blank" rel="noopener noreferrer">{a.title}</a> : a.title} · {a.source}</li>)}</ul>
+            </>
+          )}
           <div className="cue-links">
             {i.url && <a href={i.url} target="_blank" rel="noopener noreferrer" className="pill-link">Read the source ↗</a>}
             {i.companyId && <Link href={`/companies/${i.companyId}`} className="pill-link strong">Company profile →</Link>}
@@ -201,11 +210,13 @@ export function InsightBoard({
   warm,
   groups,
   sectors,
+  searches = [],
 }: {
   signals: Insight[];
   warm: Insight[];
   groups: readonly { id: SourceGroup; label: string; hint: string }[];
   sectors: { id: string; label: string }[];
+  searches?: SearchRunSummary[];
 }) {
   const [group, setGroup] = useState<SourceGroup | "all">("all");
   const [tier, setTier] = useState<string>("all");
@@ -237,6 +248,8 @@ export function InsightBoard({
     !(hideRead && i.read) &&
     !(hideDemo && i.isDemo);
   const shownSignals = signals.filter(match);
+  const filtered = group !== "all" || tier !== "all" || sector !== "all" || Boolean(company) || place !== "all";
+  const passing = new Set(shownSignals.map((i) => i.url).filter((u): u is string => Boolean(u)));
   const shownWarm = group === "all" || group === "news" ? warm.filter(match) : [];
   const counts = Object.fromEntries(groups.map((g) => [g.id, signals.filter((s) => s.sourceGroup === g.id).length]));
 
@@ -296,6 +309,8 @@ export function InsightBoard({
           <div className="cue-grid">{shownSignals.map((i) => <CueCard key={i.key} i={i} sectorLabels={sectorLabels} />)}</div>
         )}
       </section>
+
+      <SearchPanel searches={searches} passing={passing} filtered={filtered} />
 
       {shownWarm.length > 0 && (
         <section aria-labelledby="h-warm" className="section">

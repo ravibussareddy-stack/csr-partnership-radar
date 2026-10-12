@@ -43,7 +43,7 @@ export function DropForm() {
       />
       <div className="row">
         <button className="pill-link strong" disabled={pending}>{pending ? "Reading…" : "Drop messages"}</button>
-        <span className="muted small">Sender names are not stored. Messages are classified and researched within about 10 minutes.</span>
+        <span className="muted small">Sender names are not stored. Messages are classified and researched in a few minutes.</span>
       </div>
       {state.message && (
         <div className={state.ok ? "ok-msg" : "err-msg"} role="status">

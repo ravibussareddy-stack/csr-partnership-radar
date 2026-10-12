@@ -107,7 +107,8 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
     }
     // Feed the company's dated-news history (announcement timing) from the live pipeline.
     const kind = cls ? HEADLINE_KIND[cls.signalType] : undefined;
-    if (companyId && cls && kind) {
+    // Only real, public web articles: demo items and pasted messages (paste: URLs) are not announcements.
+    if (companyId && cls && kind && !item.isDemo && /^https?:\/\//.test(item.url)) {
       await db
         .insert(companyNews)
         .values({

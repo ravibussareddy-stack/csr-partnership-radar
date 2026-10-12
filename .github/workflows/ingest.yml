@@ -89,6 +89,21 @@ jobs:
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
+      - name: Re-check CSR job links (closed or empty postings drop to "check link" or out)
+        run: npm run jobs:validate
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Data-quality audit (merge duplicate companies, check cited sources)
+        run: npm run audit
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
+          GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
+          GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
+          GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
       - name: Refresh company stats and forecasts
         run: npm run history:stats
         env:

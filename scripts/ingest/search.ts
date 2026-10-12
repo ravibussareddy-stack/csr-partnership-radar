@@ -96,7 +96,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
         if (d && d < (s.kind === "jobs" ? minJobs : s.kind === "policy" ? minPolicy : minNews)) continue; // outside the window
         let linkStatus: string | null = null;
         if (s.kind === "jobs") {
-          linkStatus = await checkJobLink(url, fetcher);
+          linkStatus = await checkJobLink(url, fetcher, { title });
           if (linkStatus === "generic" || linkStatus === "dead" || linkStatus === "expired") continue; // not a usable posting
         }
         items.push({ title, publisher: publisher ?? "", date: d, summary: rest.join(" ").trim(), url: canonicalUrl(url), linkStatus });

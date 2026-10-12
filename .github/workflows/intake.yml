@@ -2,13 +2,13 @@ name: Message drop intake
 
 on:
   schedule:
-    # Every 10 minutes: process messages pasted into the web app's message drop, and team tasks
-    # (questions to the Radar, new sectors, confirmed dashboard feedback).
+    # Every 10 minutes (and immediately when the app dispatches it): process messages pasted into
+    # the web app's message drop. Team tasks run in team.yml.
     - cron: "*/10 * * * *"
   workflow_dispatch: {}
 
 concurrency:
-  group: ingest
+  group: intake
   cancel-in-progress: false
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --prefer-offline --no-audit --no-fund
       - id: check
         run: npm run intake:check
       - name: Classify, research and score pasted messages
@@ -35,18 +35,6 @@ jobs:
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
-      - name: Team tasks (answer questions, set up new sectors, triage confirmed dashboard feedback)
-        if: steps.check.outputs.tasks != '0'
-        run: npm run team:tasks
-        env:
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
-          GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
-          GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
-          GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
-          GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
-          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
-          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
-          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}
       - name: Instant alert for new Call-this-week items
         if: steps.check.outputs.pending != '0'
         run: npm run notify -- --alerts
@@ -55,7 +43,7 @@ jobs:
           NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
           NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}
       - name: Refresh site cache
-        if: steps.check.outputs.pending != '0' || steps.check.outputs.tasks != '0'
+        if: steps.check.outputs.pending != '0'
         run: '[ -z "$REVALIDATE_SECRET" ] || curl -fsS -X POST "${{ vars.SITE_URL || ''https://csr-partnership-radar-two.vercel.app'' }}/api/revalidate" -H "x-revalidate-secret: $REVALIDATE_SECRET" || true'
         env:
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}

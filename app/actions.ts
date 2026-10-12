@@ -3,7 +3,7 @@
 // learning (scripts/ingest/score.ts); comments and questions, contact moves, sectors, dashboard
 // feedback and active time are attributed to the signed-in member and logged as team activity.
 // No AI runs here: questions, new sectors and confirmed dashboard feedback are processed by the
-// intake workflow (every 10 minutes, or right away when GITHUB_DISPATCH_TOKEN is set).
+// team-tasks workflow (every 5 minutes, or right away when GITHUB_DISPATCH_TOKEN is set).
 import { updateTag } from "next/cache";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { RADAR_TAG } from "@/lib/data";
@@ -24,13 +24,17 @@ async function itemTitle(itemId: number): Promise<string> {
   return r?.t ?? `item ${itemId}`;
 }
 
-/** Wake the intake workflow now instead of waiting for its 10-minute schedule (optional). */
-async function dispatchIntake() {
+/**
+ * Start a GitHub Actions workflow now instead of waiting for its schedule (optional; needs
+ * GITHUB_DISPATCH_TOKEN and GITHUB_REPO in Vercel). team.yml answers questions etc.; intake.yml
+ * processes pasted messages. No AI runs in Vercel: this only asks GitHub to start the job.
+ */
+export async function dispatchWorkflow(file: "team.yml" | "intake.yml") {
   const token = process.env.GITHUB_DISPATCH_TOKEN;
   const repo = process.env.GITHUB_REPO;
-  if (!token || !repo) return;
+  if (!token || !repo || !(await hasSession())) return; // signed-in teammates only
   try {
-    await fetch(`https://api.github.com/repos/${repo}/actions/workflows/intake.yml/dispatches`, {
+    await fetch(`https://api.github.com/repos/${repo}/actions/workflows/${file}/dispatches`, {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, accept: "application/vnd.github+json" },
       body: JSON.stringify({ ref: "main" }),
@@ -176,7 +180,7 @@ export async function postComment(itemId: number, body: string, ask: boolean, we
   const title = await itemTitle(itemId);
   await log(me.id, ask ? "question" : "comment", `${ask ? "Asked" : "Commented"} on ${title}: “${text.slice(0, 120)}”`, itemId);
   for (const m of mentions) await log(m, "mention", `${me.name} mentioned you on ${title}`, itemId);
-  if (ask) await dispatchIntake();
+  if (ask) await dispatchWorkflow("team.yml");
   return loadThread(itemId);
 }
 
@@ -246,7 +250,7 @@ export async function sendDashboardFeedback(page: string, kind: string, body: st
   const db = await getDb();
   await db.insert(dashboardFeedback).values({ memberId: me.id, page: PAGES.has(page) ? page : "general", kind: k, body: text, status: me.role === "lead" ? "confirmed" : "new" });
   await log(me.id, "dashboard_feedback", `Dashboard feedback (${k}, ${page}): “${text.slice(0, 120)}”`);
-  if (me.role === "lead") await dispatchIntake();
+  if (me.role === "lead") await dispatchWorkflow("team.yml");
   return { ok: true, message: me.role === "lead" ? "Thanks! Confirmed: it will be triaged on the next intake run." : "Thanks! Ananya will review it." };
 }
 
@@ -256,7 +260,7 @@ export async function reviewDashboardFeedback(id: number, decision: "confirmed" 
   const db = await getDb();
   await db.update(dashboardFeedback).set({ status: decision, resolvedAt: decision === "declined" ? new Date() : null }).where(and(eq(dashboardFeedback.id, id), inArray(dashboardFeedback.status, ["new", "confirmed", "declined"])));
   await log(me.id, "dashboard_feedback", `${decision === "confirmed" ? "Confirmed" : "Declined"} dashboard feedback #${id}`);
-  if (decision === "confirmed") await dispatchIntake();
+  if (decision === "confirmed") await dispatchWorkflow("team.yml");
   return { ok: true };
 }
 
@@ -279,7 +283,7 @@ export async function addSector(label: string, description: string, keywords: st
   const sectors = [...row.sectors, { id, label: l, keywords: kws.length ? kws : [l.toLowerCase()], portalSectors: [], description: description.trim().slice(0, 300), status: "pending" as const, custom: true, addedBy: me.name }];
   await db.update(config).set({ sectors, updatedAt: new Date() }).where(eq(config.id, 1));
   await log(me.id, "sector", `Added the sector “${l}”`);
-  await dispatchIntake();
+  await dispatchWorkflow("team.yml");
   updateTag(RADAR_TAG);
   return { ok: true, message: `Added. The next intake run expands its keywords (English, Hindi, Marathi), maps it to the CSR Portal and adds Google searches; then new and recent articles are classified with it.` };
 }
@@ -367,7 +371,7 @@ export async function saveRelationship(input: RelationshipInput): Promise<Feedba
     const [row] = await db.insert(relationships).values({ ...values, createdBy: me.id }).returning({ id: relationships.id });
     id = row.id;
     await log(me.id, "relationship", `Added ${companyName} to current relationships`);
-    await dispatchIntake();
+    await dispatchWorkflow("team.yml");
   }
   return { ok: true, id, message: values.companyId ? "Saved and matched to the company's CSR records." : "Saved. The company wasn't found in the CSR Portal records, so spend and timing checks are skipped; news and regulatory checks still run." };
 }

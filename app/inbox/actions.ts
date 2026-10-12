@@ -8,6 +8,7 @@ import { rawItems } from "@/lib/db/schema";
 import { contentHash } from "@/lib/hash";
 import { splitMessages } from "@/lib/paste";
 import { hasSession, signIn } from "@/lib/session";
+import { dispatchWorkflow } from "@/app/actions";
 
 export interface DropState {
   ok: boolean;
@@ -55,9 +56,10 @@ export async function dropMessages(_: DropState, form: FormData): Promise<DropSt
     added += out.length;
   }
   updateTag(RADAR_TAG);
+  if (added) await dispatchWorkflow("intake.yml");
   return {
     ok: true,
-    message: `${added} message${added === 1 ? "" : "s"} queued. They'll be read, classified and researched within about 10 minutes.`,
+    message: `${added} message${added === 1 ? "" : "s"} queued. They'll be read, classified and researched in a few minutes.`,
     added,
     duplicates: msgs.length - added,
     preview: msgs.slice(0, 5).map((m) => (m.text.length > 90 ? `${m.text.slice(0, 89)}…` : m.text)),

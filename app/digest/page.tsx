@@ -1,4 +1,5 @@
 // Monday digest (home). Served from cache (lib/data.ts); filters run in the browser.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Greeting } from "@/app/components/Greeting";
@@ -6,7 +7,6 @@ import { InsightBoard } from "@/app/components/InsightBoard";
 import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { InfoTip } from "@/app/components/InfoTip";
 import { KeepUp } from "@/app/components/KeepUp";
-import { SearchSuggestions } from "@/app/components/SearchSuggestions";
 import { fmtCr } from "@/app/components/charts";
 import { getHomeInsights, getImpactStats, getSearches, getSectors } from "@/lib/data";
 import { SOURCE_GROUPS } from "@/lib/sources";
@@ -16,12 +16,14 @@ const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "shor
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="classroom" />
       <Suspense fallback={<div className="hero-glass glass skeleton" />}>
         <Home />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -80,36 +82,8 @@ async function Home() {
       </header>
 
 
-      <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} />
+      <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} searches={searches} />
 
-      {searches.length > 0 && (
-        <section className="section" aria-labelledby="h-search">
-          <h2 id="h-search" className="section-title">
-            <Icon name="compass" /> Searched on Google this week
-            <InfoTip text="Your saved searches, run every morning by Gemini with Google Search. A result counts only when Google returned a source for it; each one is then scored like any other item. Google's own search chips are shown under each search, as Google requires." />
-          </h2>
-          <div className="search-grid">
-            {searches.filter((r) => r.results.length > 0).map((r) => (
-              <article key={r.searchId} className="glass card-pad search-card spot">
-                <p className="search-q">{r.query}</p>
-                <p className="muted small">{r.results.length} result{r.results.length === 1 ? "" : "s"} this week</p>
-                <ul className="search-results">
-                  {r.results.slice(0, 4).map((x) => (
-                    <li key={x.url}>
-                      <a href={x.url} target="_blank" rel="noopener noreferrer">{x.title}</a>
-                      <span className="muted small">{x.company ? `${x.company} · ` : ""}{x.tier ? <span className={`tier-pill tier-${x.tier} mini-pill`}>{x.tier === "call_this_week" ? "Call" : x.tier === "watch" ? "Watch" : "Background"}</span> : "not CSR"}</span>
-                    </li>
-                  ))}
-                </ul>
-                {r.entryPointHtml && <SearchSuggestions html={r.entryPointHtml} label={`Google search suggestions for ${r.query}`} />}
-              </article>
-            ))}
-          </div>
-          {searches.some((r) => r.results.length === 0) && (
-            <p className="muted small">Nothing new this week for: {searches.filter((r) => r.results.length === 0).map((r) => `“${r.query}”`).join(" · ")}</p>
-          )}
-        </section>
-      )}
     </>
   );
 }

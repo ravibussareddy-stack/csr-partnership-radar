@@ -10,6 +10,8 @@ import { closeDb, getDb } from "@/lib/db/client";
 import { companies, pitchKits, relationships, signals, type PitchKit } from "@/lib/db/schema";
 import { GeminiError, GeminiPool } from "@/lib/gemini";
 import { isPublisher } from "@/lib/publishers";
+import { pageMentions } from "@/lib/verify";
+import { PoliteFetcher } from "../ingest/robots";
 import { buildPitchPrompt, PITCH_PROMPT_VERSION } from "@/prompts/pitch";
 import { parseGrounded, resolveRedirect } from "../ingest/search";
 
@@ -29,8 +31,11 @@ async function main() {
   const fresh = new Set(existing.filter((e) => Date.now() - e.at.getTime() < REFRESH_DAYS * 86400_000).map((e) => e.id));
   const todo = ids.filter((id) => !fresh.has(id)).slice(0, MAX);
   if (todo.length === 0) return console.log("pitch: all kits fresh");
-  const names = new Map((await db.select({ id: companies.id, name: companies.canonicalName }).from(companies).where(inArray(companies.id, todo))).map((c) => [c.id, c.name]));
+  const rows = await db.select({ id: companies.id, name: companies.canonicalName, aliases: companies.aliases }).from(companies).where(inArray(companies.id, todo));
+  const names = new Map(rows.map((c) => [c.id, c.name]));
+  const aliasesOf = new Map(rows.map((c) => [c.id, c.aliases ?? []]));
   const pool = new GeminiPool(undefined, undefined, () => {});
+  const fetcher = new PoliteFetcher(1200);
   let made = 0;
   for (const id of todo) {
     const name = names.get(id);
@@ -48,6 +53,8 @@ async function main() {
       const parts = line.split("||").map((p) => p.trim());
       const url = await resolveRedirect(chunkUris[0]);
       if (!url) continue;
+      // The cited page must name the company (grounding sometimes attaches a page about someone else).
+      if ((await pageMentions(url, [name, ...(aliasesOf.get(id) ?? [])], fetcher)) === false) continue;
       if (parts[0] === "WANTS" && parts[1]) kit.wants.push({ text: parts[1], url });
       else if (parts[0] === "NEWS" && parts[2]) kit.recentNews.push({ text: parts[2], url, date: /^\d{4}-\d{2}-\d{2}$/.test(parts[1]) ? parts[1] : null });
       else if (parts[0] === "PROOF" && parts[1] && /\d/.test(parts[1])) kit.proof.push({ text: parts[1], url }); // proof must contain a number
@@ -55,6 +62,7 @@ async function main() {
     kit.wants = kit.wants.slice(0, 4);
     kit.recentNews = kit.recentNews.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")).slice(0, 4);
     kit.proof = kit.proof.slice(0, 4);
+    kit.auditedAt = new Date().toISOString();
     if (!kit.wants.length && !kit.recentNews.length && !kit.proof.length) continue;
     await db
       .insert(pitchKits)

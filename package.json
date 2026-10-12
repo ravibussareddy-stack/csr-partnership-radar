@@ -34,7 +34,8 @@
     "relationships": "tsx scripts/ingest/relationships.ts",
     "demo:seed": "tsx scripts/demo/seed.ts",
     "demo:clear": "tsx scripts/demo/clear.ts",
-    "pitch": "tsx scripts/history/pitch.ts"
+    "pitch": "tsx scripts/history/pitch.ts",
+    "audit": "tsx scripts/quality/audit.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

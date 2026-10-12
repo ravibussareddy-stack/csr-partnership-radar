@@ -1,6 +1,7 @@
 // Sectors: the four core focus sectors plus any Ananya's team adds. A new sector is expanded by the
 // intake workflow (keywords in English/Hindi/Marathi, CSR Portal mapping, Google searches), then
 // used by the pre-filter, the classifier, scoring and every sector filter.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import { InfoTip } from "@/app/components/InfoTip";
 import { Hero, PageBackdrop } from "@/app/components/illustrations";
@@ -9,12 +10,13 @@ import { AddSectorForm, RemoveSector } from "./SectorForms";
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="seasons" />
-      <Hero eyebrow="Sectors" title="What the Radar looks for" variant="planner">
+      <Hero eyebrow="Sectors" title="What the Radar looks for" variant="planner" poster="sectors">
         Your focus sectors decide which articles are kept, how they score and what the sector filters show. Add a sector and the
         Radar learns it automatically.{" "}
-        <InfoTip text="After you add a sector, the next intake run (within about 10 minutes) asks Gemini for keywords in English, Hindi and Marathi, maps it to National CSR Portal categories where one fits, and adds two saved Google searches. At the next daily run, the last two weeks of articles are re-classified once with the new sector available, and new articles use it from then on." />
+        <InfoTip text="After you add a sector, the next team-tasks run (within a few minutes) asks Gemini for keywords in English, Hindi and Marathi, maps it to National CSR Portal categories where one fits, and adds two saved Google searches. At the next daily run, the last two weeks of articles are re-classified once with the new sector available, and new articles use it from then on." />
       </Hero>
       <div className="two-col">
         <AddSectorForm />
@@ -23,6 +25,7 @@ export default function Page() {
         </Suspense>
       </div>
     </main>
+    </PageTransition>
   );
 }
 

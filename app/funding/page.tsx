@@ -1,4 +1,5 @@
 // Expansion planner: where CSR money for the focus sectors is, where it is heading, and when companies announce.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
@@ -27,9 +28,10 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="funding" />
-      <Hero eyebrow="Where the money is going" title="Funding insights" variant="planner">
+      <Hero eyebrow="Where the money is going" title="Funding insights" variant="planner" poster="funding">
         Eleven years of reported CSR spend (National CSR Portal, FY2014-15 to FY2024-25) and dated announcements: who funds your
         sectors, where the money is growing, and when companies tend to announce.
       </Hero>
@@ -37,6 +39,7 @@ export default function Page({ searchParams }: { searchParams: SP }) {
         {searchParams.then((sp) => <Planner sp={sp} />)}
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 

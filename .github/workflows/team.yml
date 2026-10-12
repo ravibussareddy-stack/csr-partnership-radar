@@ -1,0 +1,48 @@
+name: Team tasks
+
+# Questions to the Radar, new sectors, confirmed dashboard feedback and new relationships.
+# Separate from ingestion (own concurrency group) so it never waits behind the daily pipeline.
+# The web app starts it the moment something is queued (GITHUB_DISPATCH_TOKEN in Vercel), so an
+# answer usually lands in about 1-2 minutes; the 5-minute schedule is the fallback.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "*/5 * * * *"
+
+concurrency:
+  group: team-tasks
+  cancel-in-progress: false
+
+jobs:
+  team:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install (cached)
+        run: npm ci --prefer-offline --no-audit --no-fund
+      - id: check
+        run: npm run intake:check
+      - name: Answer questions, set up sectors, triage feedback, check new relationships
+        if: steps.check.outputs.tasks != '0'
+        run: npm run team:tasks
+        env:
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
+          GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
+          GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
+          GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
+          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
+          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}
+      - name: Refresh site cache
+        if: steps.check.outputs.tasks != '0'
+        run: '[ -z "$REVALIDATE_SECRET" ] || curl -fsS -X POST "${{ vars.SITE_URL || ''https://csr-partnership-radar-two.vercel.app'' }}/api/revalidate" -H "x-revalidate-secret: $REVALIDATE_SECRET" || true'
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}

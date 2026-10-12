@@ -302,9 +302,11 @@ export const pitchKits = pgTable("pitch_kits", {
 });
 
 export interface PitchKit {
-  wants: { text: string; url: string | null }[]; // what the company is looking to achieve / benefit
-  recentNews: { text: string; url: string | null; date: string | null }[];
-  proof: { text: string; url: string | null }[]; // sourced metrics / evidence only
+  wants: { text: string; url: string | null; checked?: boolean }[]; // what the company is looking to achieve / benefit
+  recentNews: { text: string; url: string | null; date: string | null; checked?: boolean }[];
+  proof: { text: string; url: string | null; checked?: boolean }[]; // sourced metrics / evidence only
+  /** set by the data-quality audit once every line's source has been checked */
+  auditedAt?: string;
 }
 
 /** Small key/value store for computed model metrics (forecast accuracy, correlations). */
@@ -339,6 +341,8 @@ export const contacts = pgTable(
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
     updatedBy: integer("updated_by"),
+    // Data-quality audit: does the source page name this person? ok / mismatch / null = not checked yet.
+    sourceCheck: text("source_check").$type<"ok" | "mismatch" | "unreadable">(),
   },
   (t) => [uniqueIndex("contacts_person_idx").on(t.nameKey, t.companyKey)],
 );

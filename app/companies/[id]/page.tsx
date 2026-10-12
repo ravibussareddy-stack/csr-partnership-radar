@@ -1,4 +1,5 @@
 // Company profile: 11-year CSR history (National CSR Portal), forecasts and announcement timing.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { InfoTip } from "@/app/components/InfoTip";
@@ -20,12 +21,14 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short
 
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return (
+    <PageTransition>
     <main className="wrap">
       <PageBackdrop variant="skyline" />
       <Suspense fallback={<p className="muted">Loading company…</p>}>
         {params.then(({ id }) => <Company id={Number(id)} />)}
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -40,7 +43,7 @@ async function Company({ id }: { id: number }) {
       </div>
     );
   }
-  const { company, stats, recentSignals, announcements } = data;
+  const { company, stats, recentSignals, announcements, spend, people } = data;
   const d = stats?.data;
   const p = d?.prediction;
   const t = d?.timing;
@@ -183,6 +186,24 @@ async function Company({ id }: { id: number }) {
             </section>
           )}
         </>
+      )}
+
+      {!stats && spend.length > 0 && (
+        <section className="section glass card-pad">
+          <h2 className="section-title">CSR reported to the National CSR Portal</h2>
+          <p className="muted small">Below the ₹1 cr threshold used for forecasts, so no prediction is made; the reported history is shown as is.</p>
+          <ul className="kv">{spend.map((r) => <li key={r.fy}><span>{fyLabel(r.fy)} · {r.sectors}</span><span>{fmtCr(r.total)}</span></li>)}</ul>
+        </section>
+      )}
+
+      {people.length > 0 && (
+        <section className="section">
+          <h2>People publicly named here</h2>
+          <ul className="kv">
+            {people.map((p) => <li key={p.name}><span>{p.name}{p.title ? ` · ${p.title}` : ""}</span><span><a href={p.url} target="_blank" rel="noopener noreferrer">source ↗</a></span></li>)}
+          </ul>
+          <p className="more-link"><Link href="/community">Community builder →</Link></p>
+        </section>
       )}
 
       <section className="section">

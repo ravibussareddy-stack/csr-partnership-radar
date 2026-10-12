@@ -104,11 +104,11 @@ async function deterministic(db: DB, rel: Rel): Promise<AlertIn[]> {
         key: `spend:${last.fy}:${label.split(" ")[0]}`,
         kind: "spend_change",
         level: down ? "risk" : "opportunity",
-        title: `${label[0].toUpperCase()}${label.slice(1)} CSR spend ${down ? "fell" : "rose"} ${Math.abs(Math.round(change * 100))}% in ${fyl}`,
+        title: `Latest reported year (${fyl}): ${label} CSR spend ${down ? "down" : "up"} ${Math.abs(Math.round(change * 100))}%`,
         impact: down
-          ? "Less money in this area can mean smaller renewals or fewer partners. Bring outcome evidence and cost-per-learner figures to the next conversation, and ask about their plans early."
-          : "More money in this area: a good moment to propose expanding the programme (more learners, a new centre or district).",
-        reasoning: `National CSR Portal: ${label} spend ${cr(before)} in FY${prev.fy}-${String(prev.fy + 1).slice(2)} → ${cr(now)} in ${fyl} (${down ? "" : "+"}${Math.round(change * 100)}%). A change of 25% or more is flagged; smaller moves are normal year-to-year noise.${st?.data.prediction ? ` The Radar's forecast for next year is ${cr(st.data.prediction.focus.mid)} in focus sectors (range ${cr(st.data.prediction.focus.low)}–${cr(st.data.prediction.focus.high)}).` : ""}`,
+          ? "The trend going into their next budget cycle is down: expect a tighter renewal. Bring outcome evidence and cost-per-learner figures, and ask about next year's plans early."
+          : "The trend going into their next budget cycle is up: a good basis to propose expanding the programme (more learners, a new centre or district) at renewal.",
+        reasoning: `National CSR Portal: ${label} spend ${cr(before)} in FY${prev.fy}-${String(prev.fy + 1).slice(2)} → ${cr(now)} in ${fyl} (${down ? "" : "+"}${Math.round(change * 100)}%). The National CSR Portal publishes a year's spend 12–18 months after it ends, so ${fyl} is the newest data that exists. Companies set next year's CSR budget from recent spend and profits (2% of average net profit), so this trend is the best public signal for the coming cycle. A change of 25% or more is flagged; smaller moves are normal year-to-year noise.${st?.data.prediction ? ` The Radar's forecast for next year is ${cr(st.data.prediction.focus.mid)} in focus sectors (range ${cr(st.data.prediction.focus.low)}–${cr(st.data.prediction.focus.high)}).` : ""}`,
       });
     }
   }

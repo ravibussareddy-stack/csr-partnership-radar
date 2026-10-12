@@ -1,6 +1,7 @@
 // CSR calendar: a real year / month calendar. Past months show dated announcements that happened;
 // current and future months show companies likely to announce (recurring windows, with evidence),
 // plus the statutory CSR deadlines pinned on their dates.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { InfoTip } from "@/app/components/InfoTip";
@@ -32,9 +33,10 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="seasons" />
-      <Hero eyebrow="The recurring cycle" title="CSR calendar" variant="calendar">
+      <Hero eyebrow="The recurring cycle" title="CSR calendar" variant="calendar" poster="calendar">
         Which companies are likely to start an initiative each month, based on when they announced in past years, with the
         statutory CSR deadlines on their dates. Past months show what actually happened.
       </Hero>
@@ -42,6 +44,7 @@ export default function Page({ searchParams }: { searchParams: SP }) {
         {searchParams.then((sp) => <Calendar sp={sp} />)}
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -88,9 +91,9 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
   const y = Math.min(thisY + 2, Math.max(2009, Number(sp.y) || thisY));
   const mParam = Number(sp.m);
   const month = mParam >= 1 && mParam <= 12 ? mParam - 1 : null;
-  const [allCycles, events] = await Promise.all([getUpcomingCycles(scope === "focus"), getYearEvents(y, scope === "focus")]);
-  // Geography: where the company actually spends CSR (portal, latest year). Announcements in the
-  // past months are not filtered, because a news item rarely states where the money will go.
+  const [allCycles, events] = await Promise.all([getUpcomingCycles(scope === "focus"), getYearEvents(y, scope === "focus", geo)]);
+  // Geography: where the company actually spends CSR (portal, latest year), for both the likely
+  // companies and the dated announcements.
   const cycles = allCycles?.filter((c) => geo === "india" || (geo === "pune" ? c.puneLastCr > 0 : c.maharashtraLastCr > 0));
   if (!cycles || !events) return <div className="notice glass"><h2>No history loaded</h2><p>Run the history scripts (see README).</p></div>;
 
@@ -119,7 +122,7 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
           {GEOS.map((g) => (
             <Link key={g.id} className={geo === g.id ? "chip on" : "chip"} title={g.help} href={link({ y, m: month === null ? undefined : month + 1, scope, geo: g.id })}>{g.label}</Link>
           ))}
-          <InfoTip text="Filters the companies likely to start an initiative by where they reported CSR spend in the latest National CSR Portal year (Maharashtra or Pune district). Past announcements are not filtered, because news rarely says where the money will be spent." />
+          <InfoTip text="Keeps only companies that reported CSR spend in Maharashtra or Pune district in the latest National CSR Portal year, for both the companies likely to start an initiative and the dated announcements." />
         </div>
       </nav>
 
@@ -215,9 +218,23 @@ function MonthView({ y, m0, now, past, events, opens, during }: { y: number; m0:
                   {d > 0 && <span className="mg-num">{d}</span>}
                   {dl.map((x) => <span key={x.short} className="mg-dl" title={x.label}>◆ {x.short}</span>)}
                   {ev.slice(0, 2).map((e) => (
-                    <a key={e.url} className="mg-ev" href={e.url} target="_blank" rel="noopener noreferrer" title={e.title}>{e.company}</a>
+                    <a key={e.url} className="mg-ev" href={e.url} target="_blank" rel="noopener noreferrer" title={e.title}>
+                      {e.company}{e.more.length ? ` ·${e.more.length + 1}` : ""}
+                    </a>
                   ))}
-                  {ev.length > 2 && <span className="mg-more">+{ev.length - 2} more</span>}
+                  {ev.length > 2 && (
+                    <details className="mg-more">
+                      <summary>+{ev.length - 2} more</summary>
+                      <ul className="mg-pop glass">
+                        {ev.map((e) => (
+                          <li key={e.url}>
+                            <a href={e.url} target="_blank" rel="noopener noreferrer"><b>{e.company}</b>: {e.title}</a>
+                            {e.more.map((m) => <a key={m.url} className="mg-alt" href={m.url} target="_blank" rel="noopener noreferrer">also: {m.title}</a>)}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               );
             })}

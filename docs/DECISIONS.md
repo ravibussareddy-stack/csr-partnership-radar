@@ -78,3 +78,28 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | Decision | Why | Rejected alternative |
 |---|---|---|
 | The Monday email adds: partner alerts from the last 7 days (with reasons), regulatory highlights, and the team's week (active minutes, comments, questions, reads, outreach). Cards use the specific headline and the "why it's worth your time" line. | The email is the one place she reads everything at once; it should match the Summary page's priorities. It goes only to `NOTIFY_TO` (her own address), so partner details stay private. | A separate weekly team report. |
+
+## Self-checking (how errors are caught without a developer)
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| A daily **data-quality audit** (`npm run audit`, in `ingest.yml`) with results on the Team page ("Data health"): merges duplicate or unmatched companies; unlinks publishers recorded as funders; removes pitch-kit lines whose cited page doesn't mention the company; hides contacts whose source page doesn't name them. Job links are re-checked daily (`jobs:validate`). | The problems found by hand (duplicate companies, Sportskeeda as a funder, a Tata Elxsi page cited for MediaTek, a closed Trelleborg job marked verified) are all checkable by rules or one cheap call. Running them daily and showing what was fixed makes the system self-correcting and auditable. | Relying on a developer noticing; asking the LLM to "double-check itself" (no ground truth). |
+| Company merges: Gemini only **chooses among candidates pulled from the database** (name tokens), at ≥ 0.8 confidence; "same entity" or "corporate foundation of" merges into the CSR Portal record; old names become **aliases** so future news resolves directly. | Aliases fix the cause (future items) as well as the symptom (today's duplicates), and the portal record carries spend and timing, so profiles stop being empty. The first run merged 17 (e.g. MediaTek → MediaTek India Technology Pvt Ltd; AM/NS India → ArcelorMittal Nippon Steel India Ltd; Jindal Stainless Foundation → Jindal Stainless Ltd). | Free-text matching by the model (could invent a company); fuzzy string matching alone (merges different companies that share words). |
+| Source check = the cited page's visible text names the company/person (all distinctive words, or the joined form for short names like "AM/NS"), and the company's own website always counts; unreadable pages are left alone. | Catches wrong-page citations without false alarms on short names or blocked sites. The first version wrongly rejected amns.in for "AM/NS India"; it was fixed before kits were regenerated. | Requiring an exact full-name match (misses "AM/NS", "L&T"). |
+| A job link is "verified" only if the page text shows the company or the role; a 200 response alone isn't enough. | Aggregators return an empty JavaScript shell for closed jobs (the Trelleborg posting was a 1.9 KB page). | Trusting HTTP status. |
+
+## Speed of answers
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| Team tasks run in their own workflow (`team.yml`), started by the app the moment a question is asked (GitHub `workflow_dispatch`, needs `GITHUB_DISPATCH_TOKEN` in Vercel), with a 5-minute schedule as fallback. Pasted messages trigger `intake.yml` the same way. | The ~10-minute wait was queueing, not computing: the old intake ran every 10 minutes and shared a concurrency group with the 30-minute daily ingest. Retrieval is milliseconds and the Gemini answer ~10 s; a GitHub job starts in ~20-40 s, so ~1-2 minutes end to end. | A vector database: it speeds up retrieval, which isn't the bottleneck, and would add an embeddings model to a Gemini-Flash-only brief. Calling Gemini from Vercel: breaks the brief's "no LLM calls in Vercel" rule. |
+
+## Calendar and UI
+
+| Decision | Why |
+|---|---|
+| Calendar events: one chip per company per day (other outlets' links kept under it), only real article links (no pasted/demo items, no category or tag pages), "+N more" opens the full list, and Maharashtra / Pune filter **both** the likely companies and the dated announcements (by where the company reports CSR spend). | The same story from several outlets showed as duplicates; pasted items have no public link; listing pages aren't the story; the filter previously only affected one panel, which looked broken. |
+| ⓘ explanations render at page level with fixed positioning and stay inside the viewport. | CSS-only popups were clipped by any container that hides overflow (hero cards, calendar cells). |
+| Page transitions use React `<ViewTransition>` (fade and lift, ~0.3 s), off under reduced motion. | Smooth without a JS animation library; browsers without the API simply switch pages. |
+| The Google "search suggestion" chip opens Google, by design. | Google's grounding terms require showing that chip as a link to the Google search; article titles link to the articles. A caption now says so. |
+| Spend-trend alerts say "latest reported year (FY2024-25)" and why it matters now. | The portal publishes a year 12-18 months after it ends; the newest year is the best public signal for the next budget cycle. |

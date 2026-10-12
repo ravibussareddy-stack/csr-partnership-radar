@@ -1,7 +1,7 @@
 /** Team page data: members, active time, what each did this week, the activity feed, mentions, dashboard feedback. */
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
-import { activity, dashboardFeedback, memberTime, rawItems, teamMembers } from "@/lib/db/schema";
+import { activity, dashboardFeedback, memberTime, modelMetrics, rawItems, teamMembers } from "@/lib/db/schema";
 
 const istDay = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(d);
 
@@ -61,7 +61,9 @@ export async function loadTeam(meId: number) {
     .limit(15);
   const fb = await db.select().from(dashboardFeedback).orderBy(desc(dashboardFeedback.createdAt)).limit(60);
   const names = new Map(members.map((m) => [m.id, m.name]));
+  const [dq] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, "data-quality"));
   return {
+    quality: (dq?.data ?? null) as { ranAt: string; checks: { id: string; label: string; checked: number; found: number; fixed: number; needsHuman: number; examples: string[] }[] } | null,
     members: rows,
     feed: feed.map((f) => ({ ...f, at: f.at.toISOString(), who: f.memberId ? (names.get(f.memberId) ?? "Someone") : "Radar" })),
     mentions: mentions.map((m) => ({ ...m, at: m.at.toISOString() })),

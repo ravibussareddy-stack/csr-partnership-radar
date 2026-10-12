@@ -1,5 +1,6 @@
 // Team: who is on the team, their active time this week, what they did (comments, questions, reads,
 // not-relevant marks, outreach), mentions, and the dashboard feedback queue. Team-only, never cached.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -18,9 +19,10 @@ const FB_STATUS: Record<string, string> = { new: "Waiting for Ananya", confirmed
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="team" />
-      <Hero eyebrow="Team" title="What the team is working on" variant="planner">
+      <Hero eyebrow="Team" title="What the team is working on" variant="planner" poster="team">
         Time spent, comments and questions, outreach and feedback, for everyone on the partnerships team.{" "}
         <InfoTip text="Active time counts only while a signed-in teammate has the Radar open and is using it (idle tabs don't count). Activity comes from actions in the app: comments, questions to the Radar, read / not-relevant marks, Community builder updates, sectors and dashboard feedback." />
       </Hero>
@@ -28,6 +30,7 @@ export default function Page() {
         <Body />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -37,7 +40,7 @@ async function Body() {
   if (!me) {
     return <div className="notice glass"><h2>Sign in to see the team</h2><p><Link href="/inbox">Sign in on People messages</Link> with your name and passcode.</p></div>;
   }
-  const { members, feed, mentions, feedback } = await loadTeam(me.id);
+  const { members, feed, mentions, feedback, quality } = await loadTeam(me.id);
   const lead = me.role === "lead";
   const waiting = feedback.filter((f) => f.status === "new");
   return (
@@ -96,6 +99,24 @@ async function Body() {
           )}
         </section>
       </div>
+
+      <section className="section" aria-labelledby="h-dq">
+        <h2 id="h-dq" className="section-title">
+          Data health {quality && <span className="muted small">· audited {when.format(new Date(quality.ranAt))}</span>}
+          <InfoTip text="A daily automatic audit, so data problems are caught without a developer: it merges duplicate or unmatched companies into their CSR Portal record (keeping the old names as aliases), unlinks news sites recorded as funders, removes pitch-kit lines whose cited page doesn't mention the company, hides contacts whose source page doesn't name them, and re-checks job links. Each fix is listed here with examples." />
+        </h2>
+        {!quality ? <p className="muted">The first audit runs with tonight&rsquo;s pipeline.</p> : (
+          <div className="dq-grid">
+            {quality.checks.map((c) => (
+              <article key={c.id} className="glass card-pad dq">
+                <p className="small"><b>{c.label}</b></p>
+                <p className="dq-num"><b>{c.fixed}</b> fixed <span className="muted small">of {c.checked} checked</span></p>
+                {c.examples.length > 0 && <ul className="dq-ex">{c.examples.slice(0, 4).map((e) => <li key={e}>{e}</li>)}</ul>}
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="section" aria-labelledby="h-fb">
         <h2 id="h-fb" className="section-title">

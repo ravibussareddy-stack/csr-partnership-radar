@@ -11,6 +11,7 @@ import {
   modelMetrics,
   rawItems,
   signals,
+  contacts,
 } from "@/lib/db/schema";
 
 export async function loadCompany(id: number) {
@@ -41,7 +42,28 @@ export async function loadCompany(id: number) {
     .where(and(eq(companyNews.companyId, id), inArray(companyNews.kind, ANNOUNCEMENT_KINDS)))
     .orderBy(desc(companyNews.publishedAt))
     .limit(12);
-  return { company: co, stats: stats ?? null, recentSignals, announcements };
+  // Companies below the stats threshold (< ₹1 cr) still get their raw portal history.
+  const spend = stats
+    ? []
+    : await db
+        .select({ fy: csrSpend.fyStart, total: sql<number>`sum(${csrSpend.amountCr})`, sectors: sql<string>`string_agg(distinct ${csrSpend.sector}, ', ')` })
+        .from(csrSpend)
+        .where(eq(csrSpend.companyId, id))
+        .groupBy(csrSpend.fyStart)
+        .orderBy(csrSpend.fyStart);
+  const people = await db
+    .select({ name: contacts.name, title: contacts.title, url: contacts.sourceUrl })
+    .from(contacts)
+    .where(and(eq(contacts.companyId, id), sql`coalesce(${contacts.sourceCheck}, 'ok') <> 'mismatch'`, sql`${contacts.status} <> 'not_useful'`))
+    .limit(8);
+  return {
+    company: co,
+    stats: stats ?? null,
+    recentSignals: recentSignals.filter((r) => /^https?:/.test(r.url)),
+    announcements,
+    spend: spend.map((r) => ({ fy: r.fy, total: Number(r.total), sectors: r.sectors })),
+    people,
+  };
 }
 
 export type PlannerSort = "maharashtra" | "pune" | "focus" | "total";
@@ -266,10 +288,16 @@ export interface CalendarEvent {
   title: string;
   url: string;
   kind: string | null;
+  /** other stories about the same company on the same day */
+  more: { title: string; url: string }[];
 }
 
-/** Dated CSR announcements in one calendar year (for the calendar's past months). */
-export async function loadEventsForYear(year: number, focusSectorIds: string[] | null): Promise<CalendarEvent[] | null> {
+/**
+ * Dated CSR announcements in one calendar year (for the calendar). One entry per company per day
+ * (the same story from several outlets is merged; `count` and `more` keep the other links). `geo`
+ * keeps companies that reported CSR spend in Maharashtra / Pune district in their latest portal year.
+ */
+export async function loadEventsForYear(year: number, focusSectorIds: string[] | null, geo: "india" | "maharashtra" | "pune" = "india"): Promise<CalendarEvent[] | null> {
   if (!hasDatabaseUrl()) return null;
   const db = await getDb();
   const from = new Date(Date.UTC(year, 0, 1));
@@ -283,10 +311,24 @@ export async function loadEventsForYear(year: number, focusSectorIds: string[] |
         inArray(companyNews.kind, ANNOUNCEMENT_KINDS),
         sql`${companyNews.publishedAt} >= ${from} and ${companyNews.publishedAt} < ${to}`,
         focusSectorIds ? inArray(companyNews.sector, focusSectorIds) : undefined,
+        // Real article links only: no pasted/demo items, no category, tag or topic listing pages.
+        sql`${companyNews.url} like 'http%' and ${companyNews.url} not like '%#demo%' and ${companyNews.url} !~* '/(category|tag|tags|topic|topics|author|page)/[^/]*/?$'`,
+        geo === "pune"
+          ? sql`exists (select 1 from company_stats s where s.company_id = ${companyNews.companyId} and s.pune_last_cr > 0)`
+          : geo === "maharashtra"
+            ? sql`exists (select 1 from company_stats s where s.company_id = ${companyNews.companyId} and (s.data->'byYear'->-1->>'maharashtra')::float > 0)`
+            : undefined,
       ),
     )
     .orderBy(companyNews.publishedAt);
-  return rows.map((r) => ({ date: r.at.toISOString(), companyId: r.companyId, company: r.company, title: r.title, url: r.url, kind: r.kind }));
+  const out = new Map<string, CalendarEvent>();
+  for (const r of rows) {
+    const key = `${r.companyId}:${r.at.toISOString().slice(0, 10)}`;
+    const e = out.get(key);
+    if (!e) out.set(key, { date: r.at.toISOString(), companyId: r.companyId, company: r.company, title: r.title, url: r.url, kind: r.kind, more: [] });
+    else if (e.url !== r.url && !e.more.some((m) => m.url === r.url)) e.more.push({ title: r.title, url: r.url });
+  }
+  return [...out.values()];
 }
 
 export type Lens = "india" | "maharashtra" | "pune";

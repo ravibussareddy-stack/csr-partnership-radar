@@ -11,7 +11,7 @@ const host = (u: string | null) => {
 };
 
 export function PitchKitView({ kit, compact = false }: { kit: PitchKit; compact?: boolean }) {
-  const sections: [string, string, { text: string; url: string | null; date?: string | null }[]][] = [
+  const sections: [string, string, { text: string; url: string | null; date?: string | null; checked?: boolean }[]][] = [
     ["What they want from CSR", "Stated goals, focus areas and the business benefits they link to CSR. Shape the pitch around these.", kit.wants],
     ["Recent news to mention", "Recent CSR or business news that gives a reason to reach out now.", kit.recentNews],
     ["Proof you can cite", "Numbers the company or its partners have published about CSR outcomes. Only sourced figures are shown; nothing is estimated.", kit.proof],
@@ -28,6 +28,7 @@ export function PitchKitView({ kit, compact = false }: { kit: PitchKit; compact?
                   {r.date ? <span className="muted small">{r.date} · </span> : null}
                   {r.text}{" "}
                   {r.url && <a href={r.url} target="_blank" rel="noopener noreferrer" className="pitch-src">{host(r.url)} ↗</a>}
+                  {r.checked && <span className="pitch-ok" title="The cited page mentions this company (checked automatically)"> ✓</span>}
                 </li>
               ))}
             </ul>

@@ -40,13 +40,40 @@ export function classifyJobUrl(url: string): "specific" | "generic" {
   return CAREERS_WITH_ID.test(url) ? "specific" : "generic";
 }
 
-/** fetcher.get returns null when robots.txt disallows, throws on HTTP errors. */
-export async function checkJobLink(url: string, fetcher: { get(url: string): Promise<string | null> }): Promise<LinkStatus> {
+const STOP = new Set(["the", "and", "for", "with", "india", "private", "limited", "ltd", "pvt", "job", "jobs", "role", "senior", "junior", "at", "of", "in"]);
+
+/** Visible text of an HTML page (scripts, styles and tags removed). */
+export function visibleText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z#0-9]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * fetcher.get returns null when robots.txt disallows, throws on HTTP errors.
+ * "ok" requires the posting to be visibly there: the page's text must name the company or the role.
+ * A 200 response alone is not enough (job aggregators often return an empty JavaScript shell, e.g.
+ * a 1.9 KB page for a closed Trelleborg posting), so such pages are "unverified" ("check link").
+ */
+export async function checkJobLink(url: string, fetcher: { get(url: string): Promise<string | null> }, expect: { title?: string; company?: string | null } = {}): Promise<LinkStatus> {
   if (classifyJobUrl(url) === "generic") return "generic";
   try {
     const html = await fetcher.get(url);
     if (html === null) return "unverified";
-    return EXPIRED.test(html.slice(0, 200_000)) ? "expired" : "ok";
+    if (EXPIRED.test(html.slice(0, 200_000))) return "expired";
+    const text = visibleText(html.slice(0, 400_000)).toLowerCase();
+    if (EXPIRED.test(text)) return "expired";
+    const words = (s?: string | null) => (s ?? "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w));
+    const company = words(expect.company ?? expect.title?.split(/ at /i)[1]);
+    const role = words(expect.title?.split(/ at /i)[0]);
+    const hasCompany = company.length > 0 && company.some((w) => text.includes(w));
+    const roleHits = role.filter((w) => text.includes(w)).length;
+    if (text.length < 400 || !(hasCompany || roleHits >= Math.min(2, role.length))) return "unverified";
+    return "ok";
   } catch (err) {
     const m = (err as Error).message.match(/HTTP (\d{3})/);
     if (m && ["404", "410"].includes(m[1])) return "dead";

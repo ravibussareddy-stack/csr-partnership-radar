@@ -1,8 +1,10 @@
 // Hiring radar: CSR / foundation / community job postings = companies building CSR teams (planning programmes).
+import { PageTransition } from "@/app/components/PageTransition";
+import { Poster } from "@/app/components/posters";
 import { Suspense } from "react";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { InfoTip } from "@/app/components/InfoTip";
-import { Icon, PageBackdrop, PeopleFrames } from "@/app/components/illustrations";
+import { Icon, PageBackdrop } from "@/app/components/illustrations";
 import { getHiring } from "@/lib/data";
 import { JobsBoard } from "./JobsBoard";
 
@@ -11,6 +13,7 @@ const PRIORITY = /pune|maharashtra|mumbai|thane|nashik|nagpur/i;
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="network" />
       <header className="hero-glass glass compact">
@@ -23,12 +26,13 @@ export default function Page() {
             search, from the last 60 days.
           </p>
         </div>
-        <div className="hero-art small"><PeopleFrames /></div>
+        <div className="hero-art poster-art"><Poster variant="hiring" /></div>
       </header>
       <Suspense fallback={<div className="glass card-pad">Loading postings…</div>}>
         <Hiring />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 

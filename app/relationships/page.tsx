@@ -1,6 +1,7 @@
 // Current relationships: Ananya's existing funders and contracts, and what changes mean for each
 // (company news, rule changes, spend trends, renewal timing). Team-only and never cached: contract
 // details are confidential.
+import { PageTransition } from "@/app/components/PageTransition";
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -20,9 +21,10 @@ const STATUS: Record<string, string> = { active: "Active", renewal_due: "Renewal
 
 export default function Page() {
   return (
+    <PageTransition>
     <main className="wrap wide">
       <PageBackdrop variant="network" />
-      <Hero eyebrow="Relationships" title="Your current funders, watched daily" variant="planner">
+      <Hero eyebrow="Relationships" title="Your current funders, watched daily" variant="planner" poster="relationships">
         Add the companies you already work with. Every day the Radar checks their CSR news, rule changes, their reported CSR spend and
         your renewal timing, and tells you what each change means for the contract, with its reasoning.{" "}
         <InfoTip text="Levels: At risk = could reduce, delay or end the funding or add obligations. Opportunity = could expand it. Watch = relevant, direction unclear. Renewal timing, spend trends and CSR hiring are calculated from the data (no AI); company news and rule changes are judged by Gemini against this specific contract, and a rule that is not official yet is never shown as more than Watch. Only your team can see this page." />
@@ -31,6 +33,7 @@ export default function Page() {
         <Body />
       </Suspense>
     </main>
+    </PageTransition>
   );
 }
 
@@ -58,7 +61,7 @@ async function Body() {
       <section className="section" aria-labelledby="h-rel-list">
         <h2 id="h-rel-list" className="section-title">Relationships</h2>
         {rels.length === 0 ? (
-          <p className="muted">None yet. Add your first funder below; the first check runs within about 10 minutes.</p>
+          <p className="muted">None yet. Add your first funder below; the first check runs within a few minutes.</p>
         ) : (
           <div className="rel-list">{rels.map((r) => <RelationshipCard key={r.id} r={r} sectorLabel={sectorLabel} sectors={sectors} />)}</div>
         )}
@@ -101,7 +104,7 @@ function RelationshipCard({ r, sectorLabel, sectors }: { r: RelationshipView; se
       )}
       {r.notes && <p className="small">{r.notes}</p>}
       {r.alerts.length === 0 ? (
-        <p className="small muted">{r.lastCheckedAt ? `No changes found (last checked ${dateFmt.format(new Date(r.lastCheckedAt))}).` : "First check pending (within about 10 minutes)."}</p>
+        <p className="small muted">{r.lastCheckedAt ? `No changes found (last checked ${dateFmt.format(new Date(r.lastCheckedAt))}).` : "First check pending (within a few minutes)."}</p>
       ) : (
         <ol className="rel-alerts">
           {r.alerts.map((a) => (

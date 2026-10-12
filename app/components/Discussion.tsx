@@ -87,7 +87,7 @@ export function Discussion({ itemId }: { itemId: number }) {
                 )}
               </div>
             ))}
-            {e.kind === "question" && e.status === "open" && <p className="muted small answering">Radar is researching this… answers usually arrive within 10 minutes.</p>}
+            {e.kind === "question" && e.status === "open" && <p className="muted small answering">Radar is researching this… answers usually arrive in 1–2 minutes (up to 5 if the instant trigger isn’t set up).</p>}
             {e.kind === "question" && e.status === "failed" && <p className="muted small">The Radar couldn&rsquo;t answer this one (AI quota). It will retry on the next run.</p>}
           </li>
         ))}

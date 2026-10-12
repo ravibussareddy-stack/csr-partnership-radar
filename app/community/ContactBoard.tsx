@@ -20,6 +20,7 @@ export interface ContactCard {
   notes: string | null;
   isDemo: boolean;
   places: string[];
+  sourceCheck: "ok" | "mismatch" | "unreadable" | null;
 }
 
 const COLUMNS = [
@@ -46,7 +47,7 @@ function Card({ c, onMove }: { c: ContactCard; onMove: (id: number, status: Cont
       </header>
       <p className="small"><span className="fact">{KIND[c.kind] ?? c.kind}</span></p>
       {c.context && <p className="contact-context">&ldquo;{c.context}&rdquo;</p>}
-      <p className="small muted"><a href={c.sourceUrl} target="_blank" rel="noopener noreferrer">{c.sourceTitle ?? "Source"} ↗</a></p>
+      <p className="small muted"><a href={c.sourceUrl} target="_blank" rel="noopener noreferrer">{c.sourceTitle ?? "Source"} ↗</a>{c.sourceCheck === "ok" && <span className="fact fact-good" title="The source page names this person (checked by the daily audit)"> ✓ source checked</span>}</p>
       <div className="contact-actions">
         <a className="chip" href={linkedinSearch} target="_blank" rel="noopener noreferrer">Find on LinkedIn ↗</a>
         {COLUMNS.filter((col) => col.id !== c.status).map((col) => (
