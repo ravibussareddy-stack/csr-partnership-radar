@@ -40,6 +40,7 @@ export function RegulatoryList({ items }: { items: PolicyItem[] }) {
                 <span className="muted small">{dateFmt.format(new Date(i.date))} · {i.host}</span>
               </header>
               <h3 className="reg-title"><a href={i.url} target="_blank" rel="noopener noreferrer">{i.title}</a></h3>
+              {i.coverage.map((c) => <span key={c.itemId} id={`reg-${c.itemId}`} aria-hidden="true" />)}
               {i.originalTitle && <p className="muted small">Original headline: {i.originalTitle}</p>}
               {i.summary && <p>{i.summary}</p>}
               {i.worthIt && <p className="small"><b>What it means for you:</b> {i.worthIt}</p>}
@@ -50,6 +51,14 @@ export function RegulatoryList({ items }: { items: PolicyItem[] }) {
                   <footer>{q.speaker}{q.role ? `, ${q.role}` : ""} <span className="muted small">· verbatim from the source</span></footer>
                 </blockquote>
               ))}
+              {i.coverage.length > 0 && (
+                <p className="small muted reg-coverage">
+                  Event dated {dateFmt.format(new Date(i.date))}; also covered by {i.coverage.length} later or other article{i.coverage.length === 1 ? "" : "s"}:{" "}
+                  {i.coverage.map((c, k) => (
+                    <span key={c.itemId}>{k > 0 && " · "}<a href={c.url} target="_blank" rel="noopener noreferrer" title={c.title}>{c.host}</a> ({dateFmt.format(new Date(c.date))})</span>
+                  ))}
+                </p>
+              )}
               <button type="button" className="chip" onClick={() => setOpen(open === i.itemId ? null : i.itemId)} aria-expanded={open === i.itemId}>
                 {open === i.itemId ? "Hide discussion" : "Discuss / ask the Radar"}
               </button>

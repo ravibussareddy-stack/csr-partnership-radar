@@ -13,6 +13,7 @@ import {
   signals,
   contacts,
 } from "@/lib/db/schema";
+import { groupStories } from "@/lib/dedupe";
 
 export async function loadCompany(id: number) {
   if (!hasDatabaseUrl() || !Number.isInteger(id)) return null;
@@ -59,8 +60,9 @@ export async function loadCompany(id: number) {
   return {
     company: co,
     stats: stats ?? null,
-    recentSignals: recentSignals.filter((r) => /^https?:/.test(r.url)),
-    announcements,
+    // Same story from several outlets → one line (the first, newest first), with the other outlets counted.
+    recentSignals: groupStories(recentSignals.filter((r) => /^https?:/.test(r.url)), (r) => r.title, (r) => r.date ?? new Date(0), 3).map(({ primary, copies }) => ({ ...primary, outlets: copies.length })),
+    announcements: groupStories(announcements, (a) => a.title, (a) => a.at, 3).map(({ primary, copies }) => ({ ...primary, outlets: copies.length })),
     spend: spend.map((r) => ({ fy: r.fy, total: Number(r.total), sectors: r.sectors })),
     people,
   };
@@ -263,9 +265,31 @@ export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
     .leftJoin(signals, eq(signals.itemId, rawItems.id))
     .where(and(eq(classifications.signalType, "csr_hiring"), eq(rawItems.isDemo, false), sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt}) >= ${since}`))
     .orderBy(desc(sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt})`));
-  const seen = new Set<string>();
+  // One entry per role: the same company + job title from several job boards counts once, keeping the
+  // company's own careers page when it is one of them.
+  const norm = (s: string) => s.toLowerCase().replace(/\b(pvt|private|ltd|limited|india|inc)\b/g, "").replace(/[^a-z0-9]+/g, "");
+  const roleKey = (r: (typeof rows)[number]) => {
+    const co = norm(r.companyName ?? "") || String(r.companyId ?? r.itemId);
+    const title = r.title.toLowerCase().replace(/\s+(at|@)\s+[^,]*$/, "");
+    return `${co}|${norm(title)}`;
+  };
+  const ownSite = (r: (typeof rows)[number]) => {
+    const co = norm(r.companyName ?? "");
+    try {
+      return co.length > 2 && new URL(r.url).hostname.replace(/[^a-z0-9]/g, "").includes(co);
+    } catch {
+      return false;
+    }
+  };
+  const byRole = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    const k = roleKey(r);
+    const prev = byRole.get(k);
+    if (!prev || (!ownSite(prev) && ownSite(r))) byRole.set(k, r);
+  }
+  const keep = new Set(byRole.values());
   return rows
-    .filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true)))
+    .filter((r) => keep.has(r))
     .map((r) => ({
       itemId: r.itemId,
       title: r.title,

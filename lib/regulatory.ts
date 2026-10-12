@@ -2,6 +2,7 @@
 import { and, desc, eq, gte, isNull, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
 import { classifications, modelMetrics, rawItems, type Quote } from "@/lib/db/schema";
+import { canonicalUrl, groupStories } from "@/lib/dedupe";
 
 export const OFFICIAL_HOSTS = /(^|\.)(gov\.in|nic\.in|sebi\.gov\.in|mca\.gov\.in|egazette\.gov\.in|pib\.gov\.in|rbi\.org\.in|sansad\.in|indiacode\.nic\.in)$/i;
 
@@ -20,7 +21,11 @@ export interface PolicyItem {
   worthIt: string | null;
   keyPoints: string[];
   quotes: Quote[];
+  /** Later articles about the same event (one card per event; the date is the event's, not the coverage's). */
+  coverage: { itemId: number; title: string; url: string; host: string; date: string }[];
 }
+
+const STATUS_RANK: Record<PolicyStatus, number> = { inferred: 0, confirmed: 1, executed: 2 };
 
 export interface RegulatorySummary {
   overview: string;
@@ -59,17 +64,18 @@ export async function loadRegulatory(days = 180): Promise<{ items: PolicyItem[];
     )
     .orderBy(desc(rawItems.publishedAt));
   const seen = new Set<string>();
-  const items: PolicyItem[] = [];
+  const all: PolicyItem[] = [];
   for (const r of rows) {
-    if (seen.has(r.url)) continue;
-    seen.add(r.url);
+    const key = canonicalUrl(r.url);
+    if (seen.has(key)) continue;
+    seen.add(key);
     let host = "";
     try {
       host = new URL(r.url).hostname.replace(/^www\./, "");
     } catch {
       host = "";
     }
-    items.push({
+    all.push({
       itemId: r.itemId,
       title: r.headline || r.title,
       originalTitle: r.headline && r.headline !== r.title ? r.title : null,
@@ -83,8 +89,28 @@ export async function loadRegulatory(days = 180): Promise<{ items: PolicyItem[];
       worthIt: r.worthIt,
       keyPoints: r.keyPoints ?? [],
       quotes: r.quotes ?? [],
+      coverage: [],
     });
   }
+  // One card per event: articles about the same development within 45 days are grouped. The primary is
+  // the official source if there is one, else the earliest report, so a later article revisiting an
+  // announcement never shows it as new. The status is the official source's (else the most advanced).
+  const ordered = [...all].sort((a, b) => Number(b.official) - Number(a.official) || a.date.localeCompare(b.date));
+  const items = groupStories(ordered, (i) => i.originalTitle ?? i.title, (i) => new Date(i.date), 45, { minCommon: 2, minShare: 0.4 })
+    .map(({ primary, copies }) => {
+      const members = [primary, ...copies];
+      const official = members.filter((i) => i.official);
+      const status = (official.length ? official : members).reduce<PolicyStatus>((s, i) => (STATUS_RANK[i.status] > STATUS_RANK[s] ? i.status : s), "inferred");
+      const earliest = members.reduce((d, i) => (i.date < d ? i.date : d), primary.date);
+      return {
+        ...primary,
+        status,
+        date: earliest,
+        quotes: primary.quotes.length ? primary.quotes : (copies.find((c) => c.quotes.length)?.quotes ?? []),
+        coverage: copies.sort((a, b) => b.date.localeCompare(a.date)).map((c) => ({ itemId: c.itemId, title: c.title, url: c.url, host: c.host, date: c.date })),
+      };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
   const [m] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, "regulatory-summary"));
   return { items, summary: (m?.data as RegulatorySummary) ?? null };
 }

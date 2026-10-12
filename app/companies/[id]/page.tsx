@@ -220,7 +220,7 @@ async function Company({ id }: { id: number }) {
             {recentSignals.map((s) => (
               <li key={s.id}>
                 <span><a className="company-link" href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a></span>
-                <span>{TIER_LABELS[s.tier]} · {SIGNAL_LABELS[s.signalType]}</span>
+                <span>{TIER_LABELS[s.tier]} · {SIGNAL_LABELS[s.signalType]}{s.outlets > 0 ? ` · +${s.outlets} outlet${s.outlets === 1 ? "" : "s"}` : ""}</span>
               </li>
             ))}
           </ul>
@@ -236,7 +236,7 @@ async function Company({ id }: { id: number }) {
             {announcements.map((a) => (
               <li key={a.url}>
                 <span><a className="company-link" href={a.url} target="_blank" rel="noopener noreferrer">{a.title}</a></span>
-                <span>{dateFmt.format(a.at)} · {KIND_LABELS[a.kind ?? ""] ?? a.kind}</span>
+                <span>{dateFmt.format(a.at)} · {KIND_LABELS[a.kind ?? ""] ?? a.kind}{a.outlets > 0 ? ` · +${a.outlets} outlet${a.outlets === 1 ? "" : "s"}` : ""}</span>
               </li>
             ))}
           </ul>

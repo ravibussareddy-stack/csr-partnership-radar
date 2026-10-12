@@ -30,7 +30,7 @@ async function Body() {
   const { items, summary } = await getRegulatory();
   return (
     <>
-      <RegulatoryHighlights summary={summary} titles={new Map(items.map((i) => [i.itemId, i.title]))} anchor />
+      <RegulatoryHighlights summary={summary} titles={new Map(items.flatMap((i) => [[i.itemId, i.title] as const, ...i.coverage.map((c) => [c.itemId, i.title] as const)]))} anchor />
       <section className="section" aria-labelledby="h-reg-items">
         <h2 id="h-reg-items" className="section-title">Articles <span className="muted">· last 6 months</span></h2>
         <RegulatoryList items={items} />
