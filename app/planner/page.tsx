@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { fmtCr, MonthStrip, StackedYearBars } from "@/app/components/charts";
-import { Hero, Icon } from "@/app/components/illustrations";
+import { Hero, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
 import { bestWindow, windowLabel } from "@/lib/history/predict";
 import { getPlanner, getRegionTrend, getSectorSeasonality } from "@/lib/data";
@@ -27,6 +27,7 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
     <main className="wrap wide">
+      <PageBackdrop variant="map" />
       <Hero eyebrow="Where the money is going" title="Expansion planner" variant="planner">
         Eleven years of reported CSR spend (National CSR Portal, FY2014-15 to FY2024-25) and dated announcements: who funds your
         sectors, where the money is growing, and when companies tend to announce.

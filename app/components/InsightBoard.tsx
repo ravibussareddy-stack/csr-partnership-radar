@@ -3,10 +3,12 @@
  * Filterable cue-card board. Data arrives pre-rendered from the (cached) server page; filters run
  * instantly in the browser: source group, tier, sector, company.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
+import { track } from "./Ambient";
+import { InfoTip } from "./InfoTip";
 import { Logo } from "./Logo";
 
 const TIERS = [
@@ -15,12 +17,24 @@ const TIERS = [
   { id: "background", label: "Background" },
 ] as const;
 
+const TIER_HELP: Record<string, string> = {
+  call_this_week: "A company is allocating money or looking for partners right now, in your sectors, recently enough that a call can still change the outcome. Reach out before Friday.",
+  watch: "Relevant but not urgent, or an early sign: an ongoing programme, CSR outside your sectors, a company hiring CSR staff, or a new plant near you (a future funder).",
+  background: "Context only: older or loosely related CSR activity. No action needed this week.",
+};
+
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
 export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<string, string> }) {
   const company = i.company ?? "Company not identified";
+  const dialog = useRef<HTMLDialogElement>(null);
+  const open = () => {
+    dialog.current?.showModal();
+    track("opens");
+  };
+  const tierLabel = TIERS.find((t) => t.id === i.tier)?.label;
   return (
-    <article className={`cue tier-${i.tier}`}>
+    <article className={`cue spot tier-${i.tier}`}>
       <header className="cue-head">
         <Logo name={company} domain={i.domain} />
         <div className="cue-who">
@@ -31,19 +45,36 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
           )}
           <span className="cue-type">{i.signalLabel}</span>
         </div>
-        <span className={`tier-pill tier-${i.tier}`}>{TIERS.find((t) => t.id === i.tier)?.label}</span>
+        <span className={`tier-pill tier-${i.tier}`}>
+          {tierLabel}
+          <InfoTip text={TIER_HELP[i.tier]} label={`What does ${tierLabel} mean?`} />
+        </span>
       </header>
       <h3 className="cue-title">{i.title}</h3>
       <p className="cue-summary">{i.summary}</p>
       <footer className="cue-meta">
         {i.date && <span>{dateFmt.format(new Date(i.date))}</span>}
         <span className={`src src-${i.sourceGroup}`}>{i.sourceLabel}</span>
-        {i.sectors.map((s) => sectorLabels[s] && <span key={s} className="sector-dot">{sectorLabels[s]}</span>)}
+        {i.sectors.slice(0, 2).map((s) => sectorLabels[s] && <span key={s} className="sector-dot">{sectorLabels[s]}</span>)}
         {!i.classified && <span className="badge-warn">unclassified</span>}
       </footer>
-      <details className="cue-more">
-        <summary>Open breakdown</summary>
-        <div className="cue-body">
+      <button type="button" className="cue-open" onClick={open}>
+        {i.nextStep ? "Job to be done & breakdown" : "Open breakdown"} <span aria-hidden="true">↗</span>
+      </button>
+
+      <dialog ref={dialog} className="cue-dialog glass" onClick={(e) => e.target === dialog.current && dialog.current?.close()}>
+        <div className="dialog-inner">
+          <header className="cue-head">
+            <Logo name={company} domain={i.domain} size={52} />
+            <div className="cue-who">
+              <span className="cue-company big-co">{company}</span>
+              <span className="cue-type">{i.signalLabel} · {i.date ? dateFmt.format(new Date(i.date)) : ""} · {i.sourceLabel}</span>
+            </div>
+            <span className={`tier-pill tier-${i.tier}`}>{tierLabel}</span>
+            <button type="button" className="dialog-close" onClick={() => dialog.current?.close()} aria-label="Close">×</button>
+          </header>
+          <h3 className="dialog-title">{i.title}</h3>
+          <p>{i.summary}</p>
           {i.nextStep && (
             <div className="jtbd">
               <span className="jtbd-label">Job to be done</span>
@@ -72,10 +103,10 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
           <p className="reason"><span className="label">Why this tier:</span> {i.reason}</p>
           <div className="cue-links">
             {i.url && <a href={i.url} target="_blank" rel="noopener noreferrer" className="pill-link">Read the source ↗</a>}
-            {i.companyId && <Link href={`/companies/${i.companyId}`} className="pill-link">Company profile →</Link>}
+            {i.companyId && <Link href={`/companies/${i.companyId}`} className="pill-link strong">Company profile →</Link>}
           </div>
         </div>
-      </details>
+      </dialog>
     </article>
   );
 }
@@ -114,6 +145,7 @@ export function InsightBoard({
     <div className="board">
       <div className="filter-bar glass" role="search">
         <div className="chips" aria-label="Source">
+          <InfoTip text="Where each insight came from. News feeds: CSR news sites read automatically. Google search: your saved searches, job searches and Google Alerts. LinkedIn: your LinkedIn alert emails. Personal messages: anything pasted into the message drop or forwarded with [CSR-IN]." label="About sources" />
           <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{signals.length}</b></button>
           {groups.map((g) => (
             <button key={g.id} className={group === g.id ? "chip on" : "chip"} onClick={() => setGroup(g.id)} title={g.hint}>
@@ -139,7 +171,7 @@ export function InsightBoard({
       </div>
 
       <section aria-labelledby="h-week" className="section">
-        <h2 id="h-week" className="section-title">This week <span className="muted">· {shownSignals.length} insight{shownSignals.length === 1 ? "" : "s"}</span></h2>
+        <h2 id="h-week" className="section-title">This week <span className="muted">· {shownSignals.length} insight{shownSignals.length === 1 ? "" : "s"}</span> <InfoTip text="New CSR signals from the last 7 days, highest score first. Each card ends in a decision (Call this week, Watch or Background) with the reason inside its breakdown." /></h2>
         {shownSignals.length === 0 ? (
           <p className="muted">Nothing matches these filters this week.</p>
         ) : (
@@ -149,7 +181,7 @@ export function InsightBoard({
 
       {shownWarm.length > 0 && (
         <section aria-labelledby="h-warm" className="section">
-          <h2 id="h-warm" className="section-title">Warm all year <span className="muted">· active in your sectors in the last 12 months</span></h2>
+          <h2 id="h-warm" className="section-title">Warm all year <span className="muted">· active in your sectors in the last 12 months</span> <InfoTip text="Companies that announced education, skilling, digital literacy or youth-employment CSR in the past year, or spend on it in Maharashtra. A company that has been active recently is a warm conversation, even without news this week." /></h2>
           <div className="cue-grid">{shownWarm.map((i) => <CueCard key={i.key} i={i} sectorLabels={sectorLabels} />)}</div>
         </section>
       )}

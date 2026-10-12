@@ -3,8 +3,9 @@
 // plus the statutory CSR deadlines pinned on their dates.
 import { Suspense } from "react";
 import Link from "next/link";
+import { InfoTip } from "@/app/components/InfoTip";
 import { Logo } from "@/app/components/Logo";
-import { Hero, Icon } from "@/app/components/illustrations";
+import { Hero, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { getCachedNow, getUpcomingCycles, getYearEvents } from "@/lib/data";
 import type { CalendarEvent, UpcomingCycle } from "@/lib/history/queries";
 
@@ -32,6 +33,7 @@ type SP = Promise<Record<string, string | string[] | undefined>>;
 export default function Page({ searchParams }: { searchParams: SP }) {
   return (
     <main className="wrap wide">
+      <PageBackdrop variant="seasons" />
       <Hero eyebrow="The recurring cycle" title="CSR calendar" variant="calendar">
         Which companies are likely to start an initiative each month, based on when they announced in past years, with the
         statutory CSR deadlines on their dates. Past months show what actually happened.
@@ -207,12 +209,12 @@ function MonthView({ y, m0, now, past, events, opens, during }: { y: number; m0:
       <aside className="month-side">
         {deadlines.length > 0 && (
           <div className="glass card-pad">
-            <h3 className="side-title"><Icon name="sun" /> Statutory dates</h3>
+            <h3 className="side-title"><Icon name="sun" /> Statutory dates <InfoTip text="Fixed dates in every Indian CSR year (Companies Act 2013, section 135; CSR Policy Rules 2014, amended 2021). Budgets and partners are usually decided around them." /></h3>
             <ul className="kv">{deadlines.map((d) => <li key={d.short}><span>{d.d} {MONTHS[m0]}</span><span>{d.label}</span></li>)}</ul>
           </div>
         )}
         <div className="glass card-pad">
-          <h3 className="side-title"><Icon name="calendar" /> {past ? "Usually announced this month" : "Likely to start an initiative"}</h3>
+          <h3 className="side-title"><Icon name="calendar" /> {past ? "Usually announced this month" : "Likely to start an initiative"} <InfoTip text="Companies whose dated CSR announcements since 2009 cluster in a 3-month window that opens this month. Clear = the window was hit in at least 60% of 4+ active years; mild = 40% of 3+. Highlighted years are the evidence." /></h3>
           {opens.length === 0 ? <p className="muted small">No recurring windows open this month.</p> : (
             <ul className="likely-list">
               {opens.slice(0, 12).map((c) => {

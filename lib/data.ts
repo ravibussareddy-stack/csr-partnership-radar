@@ -86,6 +86,7 @@ export async function getAnnouncementGrid(focusOnly: boolean) {
 
 export interface ImpactStats {
   itemsThisWeek: number;
+  dropsThisWeek: number;
   hoursSaved: number;
   companiesTracked: number;
   announcementsTracked: number;
@@ -103,8 +104,9 @@ export async function getImpactStats(): Promise<ImpactStats | null> {
     const db = await getDb();
     const since = new Date(Date.now() - 7 * 86400_000);
     const focus = DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []).map((s) => s.toLowerCase());
-    const [[items], [tracked], [news], [pune]] = await Promise.all([
+    const [[items], [drops], [tracked], [news], [pune]] = await Promise.all([
       db.select({ n: count() }).from(rawItems).where(gte(rawItems.fetchedAt, since)),
+      db.select({ n: count() }).from(rawItems).where(sql`${rawItems.source} = 'pasted' and ${rawItems.fetchedAt} >= ${since}`),
       db.select({ n: count() }).from(companyStats),
       db.select({ n: count() }).from(companyNews),
       db
@@ -119,6 +121,7 @@ export async function getImpactStats(): Promise<ImpactStats | null> {
     const itemsThisWeek = Number(items.n);
     return {
       itemsThisWeek,
+      dropsThisWeek: Number(drops.n),
       // ~40 seconds to find, open and skim one article, alert or message by hand
       hoursSaved: Math.round((itemsThisWeek * 40) / 360) / 10,
       companiesTracked: Number(tracked.n),

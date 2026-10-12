@@ -5,6 +5,7 @@
  * pre-filter → classify → score pipeline. Google's Search Suggestions HTML is kept per run
  * (search_runs) so the digest can display it, as the grounding terms require.
  */
+import { isNull } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
 import { rawItems, searchRuns } from "@/lib/db/schema";
@@ -95,10 +96,11 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
       const body = truncate(`${s.kind === "jobs" ? "Job posting: " : ""}${it.summary}${it.publisher ? ` (${it.publisher})` : ""}`, 1000);
       const out = await db
         .insert(rawItems)
-        .values({ source: s.kind === "jobs" ? "gemini-jobs" : "gemini-search", url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
-        .onConflictDoNothing({ target: rawItems.url })
-        .returning({ id: rawItems.id });
-      fresh += out.length;
+        .values({ source: s.kind === "jobs" ? "gemini-jobs" : "gemini-search", searchId: s.id, url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
+        // Already stored (e.g. by another feed or an earlier run)? Tag it with this search if untagged.
+        .onConflictDoUpdate({ target: rawItems.url, set: { searchId: s.id }, setWhere: isNull(rawItems.searchId) })
+        .returning({ id: rawItems.id, fetchedAt: rawItems.fetchedAt });
+      fresh += out.filter((o) => now.getTime() - o.fetchedAt.getTime() < 120_000).length;
     }
     await db.insert(searchRuns).values({
       searchId: s.id,

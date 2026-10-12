@@ -1,6 +1,6 @@
 // Message drop: paste many messages at once (WhatsApp, LinkedIn, Telegram, SMS…), no integrations needed.
 import { Suspense } from "react";
-import { Icon, PeopleFrames } from "@/app/components/illustrations";
+import { Icon, PageBackdrop, PeopleFrames } from "@/app/components/illustrations";
 import { getRecentPasted } from "@/lib/data";
 import { hasSession, passcodeConfigured } from "@/lib/session";
 import { DropForm, UnlockForm } from "./forms";
@@ -11,6 +11,7 @@ const STATUS: Record<string, string> = { pending: "queued", classified: "read", 
 export default function Page() {
   return (
     <main className="wrap wide">
+      <PageBackdrop variant="messages" />
       <header className="hero-glass glass compact">
         <div className="hero-copy">
           <p className="eyebrow">Message drop</p>

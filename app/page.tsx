@@ -4,7 +4,10 @@ import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { Greeting } from "@/app/components/Greeting";
 import { InsightBoard } from "@/app/components/InsightBoard";
-import { Icon, PeopleFrames } from "@/app/components/illustrations";
+import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustrations";
+import { InfoTip } from "@/app/components/InfoTip";
+import { KeepUp } from "@/app/components/KeepUp";
+import { SearchSuggestions } from "@/app/components/SearchSuggestions";
 import { fmtCr } from "@/app/components/charts";
 import { getHomeInsights, getImpactStats, getSearches } from "@/lib/data";
 import { SOURCE_GROUPS } from "@/lib/sources";
@@ -16,6 +19,7 @@ const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "shor
 export default function Page() {
   return (
     <main className="wrap wide">
+      <PageBackdrop variant="classroom" />
       <Suspense fallback={<div className="hero-glass glass skeleton" />}>
         <Home />
       </Suspense>
@@ -49,19 +53,22 @@ async function Home() {
             classroom. Here is who to call this week.
           </p>
           <ul className="impact">
-            <li className="glass-chip"><b>{calls}</b> to call · <b>{watch}</b> to watch</li>
+            <li className="glass-chip"><b>{calls}</b> to call · <b>{watch}</b> to watch <InfoTip text="Call this week: a company is allocating money or seeking partners right now. Watch: relevant but not urgent, or an early sign (hiring CSR staff, a new plant nearby). Tap any card's tier for its reason." /></li>
             {stats && (
               <li className="glass-chip">
                 Read <b>{stats.itemsThisWeek.toLocaleString("en-IN")}</b> articles, alerts &amp; messages for you this week ≈ <b>{stats.hoursSaved} h</b> of searching saved
+                <InfoTip text="Everything the Radar fetched in the last 7 days: news feeds, your Google searches and alerts, LinkedIn emails and dropped messages. Hours saved assumes about 40 seconds to find, open and skim each one by hand." />
               </li>
             )}
             {stats?.puneFocusCr != null && (
               <li className="glass-chip">
                 <b>{fmtCr(stats.puneFocusCr)}</b> went to education &amp; skilling in Pune in {fyLabel(stats.lastFy ?? 2024)}, from {stats.puneCompanies?.toLocaleString("en-IN")} companies
+                <InfoTip text="National CSR Portal (Ministry of Corporate Affairs): CSR spent in Pune district on education, special education, vocational skills and livelihoods in the latest reported year. This is the pool your programmes compete for." />
               </li>
             )}
-            {stats && <li className="glass-chip"><b>{stats.companiesTracked.toLocaleString("en-IN")}</b> funders tracked across 11 years</li>}
+            {stats && <li className="glass-chip"><b>{stats.companiesTracked.toLocaleString("en-IN")}</b> funders tracked across 11 years <InfoTip text="Companies that spent at least ₹1 crore on CSR in the last 3 reported years, with history back to FY2014-15 and forecasts on their profile pages." /></li>}
           </ul>
+          {stats && <KeepUp name="Ananya" dropsThisWeek={stats.dropsThisWeek} />}
           <p className="time-note muted small">
             Your time this week: about 15 minutes with this digest, instead of {stats ? `~${Math.max(1, Math.round(stats.hoursSaved))} hours` : "hours"} of searching and reading.
           </p>
@@ -70,48 +77,38 @@ async function Home() {
             <Link href="/calendar" className="pill-link"><Icon name="calendar" /> CSR calendar</Link>
           </div>
         </div>
-        <div className="hero-art"><PeopleFrames /></div>
+        <div className="hero-art classroom-art"><ClassroomScene /></div>
       </header>
 
-      <details className="tier-legend glass">
-        <summary>What do Call this week, Watch and Background mean?</summary>
-        <div className="legend-grid">
-          <div className="legend-item tier-call_this_week">
-            <span className="tier-pill tier-call_this_week">Call this week</span>
-            <p>A company is <b>allocating money or looking for partners right now</b>, in your sectors, recently enough that a call can still change the outcome: a new programme, an RFP, a funder ramping up near Pune.</p>
-            <p className="muted small">Do: reach out before Friday; the card&rsquo;s &ldquo;job to be done&rdquo; says how.</p>
-          </div>
-          <div className="legend-item tier-watch">
-            <span className="tier-pill tier-watch">Watch</span>
-            <p><b>Relevant but not urgent, or an early sign</b>: an ongoing programme, CSR outside your sectors (for review), a company hiring CSR staff, a company opening a plant in Maharashtra (future funder).</p>
-            <p className="muted small">Do: keep an eye on it; plan outreach for when it matures.</p>
-          </div>
-          <div className="legend-item tier-background">
-            <span className="tier-pill tier-background">Background</span>
-            <p><b>Context only</b>: older or loosely related CSR activity that helps you understand the landscape.</p>
-            <p className="muted small">Do: nothing this week.</p>
-          </div>
-        </div>
-        <p className="muted small">Tiers come from a points score (signal type, recency, sector fit, location, source, NGO partnering). Each card shows its breakdown under &ldquo;Why this tier&rdquo;.</p>
-      </details>
 
       <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} />
 
       {searches.length > 0 && (
         <section className="section" aria-labelledby="h-search">
-          <h2 id="h-search" className="section-title"><Icon name="compass" /> Searched on Google this week</h2>
-          <p className="muted small">Saved searches run daily by Gemini with Google Search grounding; results count only when Google returned a source.</p>
-          <ul className="search-runs">
-            {searches.map((r) => (
-              <li key={r.searchId} className="glass card-pad">
-                <p><strong>{r.query}</strong></p>
-                <p className="muted small">{r.itemsFound} sourced result{r.itemsFound === 1 ? "" : "s"} · {r.itemsNew} new this week</p>
-                {r.entryPointHtml && (
-                  <iframe className="search-suggestions" title={`Google Search suggestions for ${r.query}`} srcDoc={r.entryPointHtml} sandbox="allow-popups allow-popups-to-escape-sandbox" loading="lazy" />
-                )}
-              </li>
+          <h2 id="h-search" className="section-title">
+            <Icon name="compass" /> Searched on Google this week
+            <InfoTip text="Your saved searches, run every morning by Gemini with Google Search. A result counts only when Google returned a source for it; each one is then scored like any other item. Google's own search chips are shown under each search, as Google requires." />
+          </h2>
+          <div className="search-grid">
+            {searches.filter((r) => r.results.length > 0).map((r) => (
+              <article key={r.searchId} className="glass card-pad search-card spot">
+                <p className="search-q">{r.query}</p>
+                <p className="muted small">{r.results.length} result{r.results.length === 1 ? "" : "s"} this week</p>
+                <ul className="search-results">
+                  {r.results.slice(0, 4).map((x) => (
+                    <li key={x.url}>
+                      <a href={x.url} target="_blank" rel="noopener noreferrer">{x.title}</a>
+                      <span className="muted small">{x.company ? `${x.company} · ` : ""}{x.tier ? <span className={`tier-pill tier-${x.tier} mini-pill`}>{x.tier === "call_this_week" ? "Call" : x.tier === "watch" ? "Watch" : "Background"}</span> : "not CSR"}</span>
+                    </li>
+                  ))}
+                </ul>
+                {r.entryPointHtml && <SearchSuggestions html={r.entryPointHtml} label={`Google search suggestions for ${r.query}`} />}
+              </article>
             ))}
-          </ul>
+          </div>
+          {searches.some((r) => r.results.length === 0) && (
+            <p className="muted small">Nothing new this week for: {searches.filter((r) => r.results.length === 0).map((r) => `“${r.query}”`).join(" · ")}</p>
+          )}
         </section>
       )}
     </>

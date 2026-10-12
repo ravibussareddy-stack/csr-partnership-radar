@@ -130,26 +130,38 @@ export interface SearchRunSummary {
   searchId: string;
   query: string;
   ranAt: Date;
-  itemsFound: number;
-  itemsNew: number;
+  runs: number;
+  /** results found this week (all runs), newest first, with their digest tier if scored */
+  results: { title: string; url: string; date: Date | null; company: string | null; tier: Tier | null }[];
   entryPointHtml: string | null;
 }
 
-/** Latest grounded-search run per saved search in the last 7 days (for the digest's search panel). */
+/** Saved searches run in the last 7 days, with the results each one actually found. */
 export async function loadRecentSearches(now = new Date()): Promise<SearchRunSummary[]> {
   if (!hasDatabaseUrl()) return [];
   const db = await getDb();
   const since = new Date(now.getTime() - DIGEST_WINDOW_DAYS * 86400_000);
-  const rows = await db.select().from(searchRuns).where(gte(searchRuns.ranAt, since)).orderBy(desc(searchRuns.ranAt));
+  const runs = await db.select().from(searchRuns).where(gte(searchRuns.ranAt, since)).orderBy(desc(searchRuns.ranAt));
   const latest = new Map<string, SearchRunSummary>();
-  for (const r of rows) {
+  for (const r of runs) {
     const prev = latest.get(r.searchId);
     if (prev) {
-      prev.itemsFound = Math.max(prev.itemsFound, r.itemsFound);
-      prev.itemsNew += r.itemsNew;
+      prev.runs++;
       continue;
     }
-    latest.set(r.searchId, { searchId: r.searchId, query: r.query, ranAt: r.ranAt, itemsFound: r.itemsFound, itemsNew: r.itemsNew, entryPointHtml: r.entryPointHtml });
+    latest.set(r.searchId, { searchId: r.searchId, query: r.query, ranAt: r.ranAt, runs: 1, results: [], entryPointHtml: r.entryPointHtml });
   }
-  return [...latest.values()];
+  if (latest.size === 0) return [];
+  const found = await db
+    .select({ searchId: rawItems.searchId, title: rawItems.title, url: rawItems.url, date: rawItems.publishedAt, company: companies.canonicalName, tier: signals.tier })
+    .from(rawItems)
+    .leftJoin(signals, eq(signals.itemId, rawItems.id))
+    .leftJoin(companies, eq(companies.id, signals.companyId))
+    .where(and(inArray(rawItems.searchId, [...latest.keys()]), gte(rawItems.fetchedAt, since)))
+    .orderBy(desc(rawItems.fetchedAt));
+  for (const f of found) {
+    const s = f.searchId ? latest.get(f.searchId) : undefined;
+    if (s) s.results.push({ title: f.title, url: f.url, date: f.date, company: f.company, tier: f.tier });
+  }
+  return [...latest.values()].sort((a, b) => b.results.length - a.results.length);
 }

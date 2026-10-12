@@ -60,6 +60,8 @@ export const rawItems = pgTable("raw_items", {
   channel: text("channel"),
   // Personal/forwarded items: when Gemini + Google Search last looked for corroborating sources.
   researchedAt: timestamp("researched_at", { withTimezone: true }),
+  // Saved-search results: which config.searches entry found this item.
+  searchId: text("search_id"),
   classifyStatus: text("classify_status").$type<ClassifyStatus>().notNull().default("pending"),
 });
 

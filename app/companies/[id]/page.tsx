@@ -2,7 +2,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { fmtCr, StackedYearBars, YearMonthCalendar } from "@/app/components/charts";
-import { Hero, Icon } from "@/app/components/illustrations";
+import { Hero, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
 import { getCachedNow, getCompany } from "@/lib/data";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
@@ -19,6 +19,7 @@ const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
   return (
     <main className="wrap">
+      <PageBackdrop variant="skyline" />
       <Suspense fallback={<p className="muted">Loading company…</p>}>
         {params.then(({ id }) => <Company id={Number(id)} />)}
       </Suspense>

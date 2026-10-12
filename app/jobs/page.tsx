@@ -2,8 +2,9 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
+import { InfoTip } from "@/app/components/InfoTip";
 import { Logo } from "@/app/components/Logo";
-import { Icon, PeopleFrames } from "@/app/components/illustrations";
+import { Icon, PageBackdrop, PeopleFrames } from "@/app/components/illustrations";
 import { getHiring } from "@/lib/data";
 
 const SOURCE_NAMES = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
@@ -13,6 +14,7 @@ const PRIORITY = /pune|maharashtra|mumbai|thane|nashik|nagpur/i;
 export default function Page() {
   return (
     <main className="wrap wide">
+      <PageBackdrop variant="network" />
       <header className="hero-glass glass compact">
         <div className="hero-copy">
           <p className="eyebrow">Hiring radar</p>
@@ -59,7 +61,7 @@ async function Hiring() {
         {topCities.map(([c, n]) => <li key={c} className="glass-chip">{c} <b>{n}</b></li>)}
       </ul>
       <section className="section">
-        <h2 className="section-title"><Icon name="people" /> Open roles <span className="muted">· Maharashtra first</span></h2>
+        <h2 className="section-title"><Icon name="people" /> Open roles <span className="muted">· Maharashtra first</span> <InfoTip text="Why hiring matters: a company recruiting a CSR manager or foundation lead is building or expanding its CSR team, usually ahead of new programmes and implementation partners. These are Watch-tier leads: note the company, then reach out once the role is filled." /></h2>
         <div className="cue-grid">
           {sorted.map((p) => {
             const company = p.company ?? "Company not identified";

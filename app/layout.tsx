@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito, Outfit } from "next/font/google";
 import Link from "next/link";
+import { Ambient } from "./components/Ambient";
 import "./globals.css";
 
 const display = Outfit({ subsets: ["latin"], variable: "--font-display", weight: ["300", "400", "500", "600"] });
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ))}
         </nav>
         <div className="content">{children}</div>
+        <Ambient />
       </body>
     </html>
   );
