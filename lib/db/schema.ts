@@ -91,6 +91,13 @@ export const classifications = pgTable("classifications", {
   keyPoints: text("key_points").array().notNull().default([]),
   nextStep: text("next_step"),
   companyDomain: text("company_domain"),
+  // v6: a specific headline (who · what · where · how much) and why it is worth her time.
+  headline: text("headline"),
+  worthIt: text("worth_it"),
+  // v6, policy items: confirmed (officially notified), executed (in force), inferred (draft, debate, expectation).
+  policyStatus: text("policy_status").$type<"confirmed" | "executed" | "inferred">(),
+  // Verbatim quotes from officials / experts, kept only if found word for word in the text.
+  quotes: jsonb("quotes").$type<Quote[]>().notNull().default([]),
   whyItMatters: text("why_it_matters").notNull().default(""),
   confidence: real("confidence").notNull(),
   // "<GEMINI_MODEL>@<PROMPT_VERSION>"
@@ -278,6 +285,7 @@ export const feedback = pgTable(
     // snapshot of features used for learning (source, signal type, sectors) at the time of feedback
     source: text("source"),
     signalType: text("signal_type"),
+    memberId: integer("member_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("feedback_item_action_idx").on(t.itemId, t.action)],
@@ -330,6 +338,7 @@ export const contacts = pgTable(
     isDemo: boolean("is_demo").notNull().default(false),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
     statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }),
+    updatedBy: integer("updated_by"),
   },
   (t) => [uniqueIndex("contacts_person_idx").on(t.nameKey, t.companyKey)],
 );
@@ -341,4 +350,93 @@ export const contactScans = pgTable("contact_scans", {
     .references(() => rawItems.id, { onDelete: "cascade" }),
   found: integer("found").notNull(),
   scannedAt: timestamp("scanned_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export interface Quote {
+  speaker: string;
+  role: string;
+  quote: string;
+}
+
+/**
+ * Team members. The lead (Ananya) signs in with INTAKE_PASSCODE and creates teammates, each with
+ * their own passcode (scrypt hash only). No emails or phone numbers are stored.
+ */
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  role: text("role").$type<"lead" | "member">().notNull().default("member"),
+  passcodeHash: text("passcode_hash"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+});
+
+/** Seconds of active (visible-tab) time per member per day. */
+export const memberTime = pgTable(
+  "member_time",
+  {
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => teamMembers.id, { onDelete: "cascade" }),
+    day: text("day").notNull(), // YYYY-MM-DD, IST
+    seconds: integer("seconds").notNull().default(0),
+    pages: jsonb("pages").$type<Record<string, number>>().notNull().default({}),
+  },
+  (t) => [uniqueIndex("member_time_idx").on(t.memberId, t.day)],
+);
+
+/** What each member did: comments, questions, feedback marks, contact moves, sector changes. */
+export const activity = pgTable(
+  "activity",
+  {
+    id: serial("id").primaryKey(),
+    memberId: integer("member_id").references(() => teamMembers.id, { onDelete: "set null" }),
+    kind: text("kind").notNull(),
+    itemId: integer("item_id").references(() => rawItems.id, { onDelete: "set null" }),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("activity_created_idx").on(t.createdAt)],
+);
+
+/**
+ * Discussion on an article: team comments (with @mentions) and questions to the AI. A question
+ * is answered by the intake workflow (Gemini + Google Search grounding) as a reply.
+ */
+export const comments = pgTable(
+  "comments",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => rawItems.id, { onDelete: "cascade" }),
+    memberId: integer("member_id").references(() => teamMembers.id, { onDelete: "set null" }),
+    parentId: integer("parent_id"),
+    kind: text("kind").$type<"comment" | "question" | "answer">().notNull().default("comment"),
+    body: text("body").notNull(),
+    mentions: integer("mentions").array().notNull().default([]),
+    sources: jsonb("sources").$type<{ title: string; url: string }[]>().notNull().default([]),
+    status: text("status").$type<"open" | "answered" | "failed">(),
+    model: text("model"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("comments_item_idx").on(t.itemId)],
+);
+
+/**
+ * Feedback on the dashboard itself. The lead confirms or declines; confirmed items are triaged by
+ * Gemini into a safe config change (applied automatically) or a request for the designer/developer.
+ */
+export const dashboardFeedback = pgTable("dashboard_feedback", {
+  id: serial("id").primaryKey(),
+  memberId: integer("member_id").references(() => teamMembers.id, { onDelete: "set null" }),
+  page: text("page").notNull(),
+  kind: text("kind").$type<"pro" | "con" | "idea">().notNull(),
+  body: text("body").notNull(),
+  status: text("status").$type<"new" | "confirmed" | "declined" | "applied" | "routed" | "failed">().notNull().default("new"),
+  route: text("route").$type<"config" | "developer" | "designer">(),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });

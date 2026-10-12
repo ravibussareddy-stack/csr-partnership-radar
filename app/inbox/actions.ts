@@ -7,7 +7,7 @@ import { getDb } from "@/lib/db/client";
 import { rawItems } from "@/lib/db/schema";
 import { contentHash } from "@/lib/hash";
 import { splitMessages } from "@/lib/paste";
-import { checkPasscode, hasSession, startSession } from "@/lib/session";
+import { hasSession, signIn } from "@/lib/session";
 
 export interface DropState {
   ok: boolean;
@@ -21,9 +21,9 @@ const CHANNELS = new Set(["whatsapp", "linkedin", "telegram", "email", "sms", "o
 
 export async function unlock(_: DropState, form: FormData): Promise<DropState> {
   const pass = String(form.get("passcode") ?? "");
-  if (!checkPasscode(pass)) return { ok: false, message: "That passcode doesn't match." };
-  await startSession();
-  return { ok: true, message: "Unlocked." };
+  const member = await signIn(String(form.get("name") ?? ""), pass);
+  if (!member) return { ok: false, message: "That name and passcode don't match." };
+  return { ok: true, message: `Signed in as ${member.name}.` };
 }
 
 export async function dropMessages(_: DropState, form: FormData): Promise<DropState> {

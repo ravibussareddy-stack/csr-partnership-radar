@@ -8,10 +8,12 @@ export function UnlockForm() {
   const [state, action, pending] = useActionState(unlock, initial);
   return (
     <form action={action} className="unlock">
+      <label htmlFor="who">Your name <span className="muted small">(teammates; the lead can leave it blank)</span></label>
+      <input id="who" name="name" type="text" autoComplete="username" />
       <label htmlFor="passcode">Passcode</label>
       <div className="row">
         <input id="passcode" name="passcode" type="password" autoComplete="current-password" required />
-        <button className="pill-link strong" disabled={pending}>{pending ? "Checking…" : "Unlock"}</button>
+        <button className="pill-link strong" disabled={pending}>{pending ? "Checking…" : "Sign in"}</button>
       </div>
       {state.message && <p className={state.ok ? "ok-msg" : "err-msg"} role="status">{state.message}</p>}
     </form>
