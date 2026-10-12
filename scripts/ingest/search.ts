@@ -14,7 +14,7 @@ import { contentHash } from "@/lib/hash";
 import { checkJobLink } from "@/lib/joblinks";
 import { canonicalUrl, truncate } from "@/lib/text";
 import { PoliteFetcher } from "./robots";
-import { buildJobsSearchPrompt, buildSearchPrompt, JOBS_WINDOW_DAYS, SEARCH_PROMPT_VERSION, SEARCH_WINDOW_DAYS } from "@/prompts/search";
+import { buildJobsSearchPrompt, buildPolicySearchPrompt, buildSearchPrompt, JOBS_WINDOW_DAYS, POLICY_WINDOW_DAYS, SEARCH_PROMPT_VERSION, SEARCH_WINDOW_DAYS } from "@/prompts/search";
 
 interface Found {
   linkStatus: string | null;
@@ -68,6 +68,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
   }
   const minNews = new Date(now.getTime() - (SEARCH_WINDOW_DAYS + 2) * 86400_000);
   const minJobs = new Date(now.getTime() - (JOBS_WINDOW_DAYS + 2) * 86400_000);
+  const minPolicy = new Date(now.getTime() - (POLICY_WINDOW_DAYS + 2) * 86400_000);
   let found = 0;
   let inserted = 0;
   let runs = 0;
@@ -75,7 +76,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
   for (const s of searches) {
     let res;
     try {
-      res = await pool.generateGrounded(s.kind === "jobs" ? buildJobsSearchPrompt(s.query, now) : buildSearchPrompt(s.query, now));
+      res = await pool.generateGrounded(s.kind === "jobs" ? buildJobsSearchPrompt(s.query, now) : s.kind === "policy" ? buildPolicySearchPrompt(s.query, now) : buildSearchPrompt(s.query, now));
     } catch (err) {
       const stop = err instanceof GeminiError && err.kind !== "transient";
       console.warn(`search ${s.id}: failed (${(err as Error).message})${stop ? "; stopping searches for this run" : ""}`);
@@ -91,7 +92,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
         const url = await resolveRedirect(chunkUris[0]);
         if (!title || !url) continue;
         const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : null;
-        if (d && d < (s.kind === "jobs" ? minJobs : minNews)) continue; // outside the window
+        if (d && d < (s.kind === "jobs" ? minJobs : s.kind === "policy" ? minPolicy : minNews)) continue; // outside the window
         let linkStatus: string | null = null;
         if (s.kind === "jobs") {
           linkStatus = await checkJobLink(url, fetcher);

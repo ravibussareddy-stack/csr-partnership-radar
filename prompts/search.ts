@@ -1,5 +1,6 @@
 /** Bump when the prompt changes. Stored in search_runs.model. */
-export const SEARCH_PROMPT_VERSION = "search-v2";
+export const SEARCH_PROMPT_VERSION = "search-v3";
+export const POLICY_WINDOW_DAYS = 45;
 export const SEARCH_WINDOW_DAYS = 14;
 export const JOBS_WINDOW_DAYS = 14;
 
@@ -29,4 +30,19 @@ List each posting on its own line, exactly in this format, with nothing else bef
 ROLE at COMPANY || SITE || YYYY-MM-DD || city, and one sentence on what the role will do
 
 If nothing relevant was posted in the window, reply with exactly: NONE`;
+}
+
+/**
+ * Regulatory variant: official notifications, circulars and guidelines (MCA, SEBI, the Gazette, PIB)
+ * plus debates and named officials' or experts' statements on CSR rules. Wider window: rules move slowly.
+ */
+export function buildPolicySearchPrompt(query: string, today: Date): string {
+  return `Always run Google searches before answering (try a few phrasings; include official sites such as mca.gov.in, sebi.gov.in, egazette.gov.in, pib.gov.in). Search Google for: ${query}
+
+Only include items from the last ${POLICY_WINDOW_DAYS} days (today is ${today.toISOString().slice(0, 10)}) about Indian CSR regulation: Companies Act Section 135, Schedule VII, CSR rules and amendments, MCA or SEBI notifications, circulars, FAQs, guidelines, the Social Stock Exchange, BRSR CSR disclosures, unspent CSR rules, or debates, consultations, parliamentary answers, court rulings and statements by officials or industry experts about them. Prefer the official source page when one exists.
+
+List each item on its own line, exactly in this format, with nothing else before or after the list:
+TITLE || PUBLISHER || YYYY-MM-DD || one-sentence summary saying whether it is official (notified / in force) or a proposal, debate or opinion
+
+If nothing relevant was published in the window, reply with exactly: NONE`;
 }

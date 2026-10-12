@@ -425,7 +425,7 @@ export function ClassroomScene() {
 }
 
 /** Subtle full-page backdrop per page, in one shared palette. */
-export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "map" | "network" | "messages" | "skyline" | "funding" }) {
+export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "map" | "network" | "messages" | "skyline" | "funding" | "gazette" | "team" }) {
   return (
     <div className={`page-backdrop pb-${variant}`} aria-hidden="true">
       {variant === "classroom" && (
@@ -476,6 +476,31 @@ export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "
             <g key={i} className={`pb-float f${i % 3}`}>
               <rect x={x} y={y} width={w} height={w * 0.42} rx="26" />
               <path d={`M${x + 30} ${y + w * 0.42} l0 26 l26 -26 Z`} />
+            </g>
+          ))}
+        </svg>
+      )}
+      {variant === "gazette" && (
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMax slice">
+          {/* a civic building: pediment, columns, steps; floating documents with seals */}
+          <path className="pb-civic" d="M760 360 L980 250 L1200 360 Z M780 380 H1180 V400 H780 Z M760 700 H1200 V720 H760 Z M740 720 H1200 V745 H740 Z" />
+          {[800, 870, 940, 1010, 1080, 1150].map((x) => <rect key={x} className="pb-civic" x={x - 12} y={410} width="24" height="285" rx="6" />)}
+          {[[120, 140, -6], [320, 420, 5], [560, 180, -3]].map(([x, y, r], i) => (
+            <g key={i} className={`pb-float f${i % 3}`} transform={`rotate(${r} ${x} ${y})`}>
+              <rect className="pb-doc" x={x} y={y} width="170" height="220" rx="14" />
+              {[0, 1, 2, 3, 4].map((k) => <rect key={k} className="pb-line" x={x + 24} y={y + 40 + k * 28} width={k === 4 ? 70 : 120} height="8" rx="4" />)}
+              <circle className="pb-seal" cx={x + 130} cy={y + 180} r="20" />
+            </g>
+          ))}
+        </svg>
+      )}
+      {variant === "team" && (
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+          {[[220, 220, 120], [380, 300, 90], [940, 180, 110], [1040, 560, 140], [160, 600, 100], [620, 680, 80]].map(([x, y, r], i) => (
+            <g key={i} className={`pb-float f${i % 3}`}>
+              <circle className="pb-ring" cx={x} cy={y} r={r} />
+              <circle className="pb-head" cx={x} cy={y - r * 0.18} r={r * 0.26} />
+              <path className="pb-head" d={`M${x - r * 0.48} ${y + r * 0.55} Q${x} ${y + r * 0.02} ${x + r * 0.48} ${y + r * 0.55} Z`} />
             </g>
           ))}
         </svg>

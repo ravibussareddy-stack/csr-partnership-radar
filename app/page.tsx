@@ -10,9 +10,9 @@ import { Logo } from "@/app/components/Logo";
 import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { fmtCr } from "@/app/components/charts";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { getImpactStats, getSummary } from "@/lib/data";
+import { getImpactStats, getRegulatory, getSectors, getSummary } from "@/lib/data";
+import { RegulatoryHighlights } from "@/app/components/RegulatoryHighlights";
 
-const SECTOR_LABELS = Object.fromEntries(DEFAULT_CONFIG.sectors.map((s) => [s.id, s.label]));
 const SOURCE_NAMES = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
@@ -29,7 +29,8 @@ export default function Page() {
 }
 
 async function Summary() {
-  const [data, stats] = await Promise.all([getSummary(), getImpactStats()]);
+  const [data, stats, sectorRows, reg] = await Promise.all([getSummary(), getImpactStats(), getSectors(), getRegulatory()]);
+  const SECTOR_LABELS = Object.fromEntries(sectorRows.map((s) => [s.id, s.label]));
   if (!data) {
     return <div className="notice glass"><h2>No database configured</h2><p>Set DATABASE_URL and run npm run ingest.</p></div>;
   }
@@ -133,6 +134,15 @@ async function Summary() {
           </div>
         )}
         <p className="more-link"><Link href="/calendar">CSR calendar →</Link></p>
+      </section>
+
+      <section className="section" aria-labelledby="h-reg">
+        <h2 id="h-reg" className="section-title">
+          <span className="step">4</span> Regulatory watch
+          <InfoTip text="What changed in CSR rules recently, labelled Executed (in force), Confirmed (officially notified, not yet in force) or Inferred (draft, debate or expert view). Each point links to its sources on the Regulatory page." />
+        </h2>
+        <RegulatoryHighlights summary={reg.summary} titles={new Map(reg.items.map((i) => [i.itemId, i.title]))} />
+        <p className="more-link"><Link href="/regulatory">All regulatory news ({reg.items.length}) →</Link></p>
       </section>
 
       <section className="section" aria-labelledby="h-eng">
