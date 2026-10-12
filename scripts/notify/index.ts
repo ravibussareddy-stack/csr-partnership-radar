@@ -12,9 +12,10 @@
  */
 import "../env";
 import nodemailer from "nodemailer";
-import { inArray } from "drizzle-orm";
+import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
-import { notifications } from "@/lib/db/schema";
+import { activity, memberTime, notifications, relationshipAlerts, relationships, teamMembers } from "@/lib/db/schema";
+import { loadRegulatory } from "@/lib/regulatory";
 import { loadDigest, type DigestItem } from "@/lib/digest";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 import { loadWarmList, type WarmItem } from "@/lib/warm";
@@ -38,8 +39,8 @@ function itemHtml(i: DigestItem): string {
   const company = i.company && i.companyId ? `<a href="${SITE}/companies/${i.companyId}" style="color:#1f2a24">${esc(i.company)}</a>` : esc(i.company ?? "Company not identified");
   return `<tr><td style="padding:12px 14px;border-left:4px solid ${TIER_COLOR[i.tier]};background:#fffdf8;border-radius:10px">
     <div style="font-size:13px;color:#5f6a62"><strong style="color:#1f2a24">${company}</strong> · ${esc(SIGNAL_LABELS[i.signalType])} · ${dateFmt.format(i.date)}</div>
-    <div style="font-size:15px;font-weight:600;margin:4px 0"><a href="${esc(i.url)}" style="color:#128a63;text-decoration:none">${esc(i.title)}</a></div>
-    ${i.whyItMatters ? `<div style="font-size:14px;margin:2px 0 4px">${esc(i.whyItMatters)}</div>` : ""}
+    <div style="font-size:15px;font-weight:600;margin:4px 0"><a href="${esc(i.url)}" style="color:#128a63;text-decoration:none">${esc(i.headline ?? i.title)}</a></div>
+    ${i.worthIt || i.whyItMatters ? `<div style="font-size:14px;margin:2px 0 4px">${esc(i.worthIt ?? i.whyItMatters ?? "")}</div>` : ""}
     <div style="font-size:12px;color:#5f6a62"><strong>Why this tier:</strong> ${esc(i.reason)}</div>
   </td></tr><tr><td style="height:8px"></td></tr>`;
 }
@@ -49,6 +50,51 @@ function warmHtml(w: WarmItem): string {
     <div style="font-size:14px"><a href="${SITE}/companies/${w.companyId}" style="color:#1f2a24;font-weight:600">${esc(w.company)}</a> · <span style="color:${TIER_COLOR[w.tier]}">${TIER_LABELS[w.tier]}</span></div>
     <div style="font-size:12px;color:#5f6a62">${esc(w.reason)}</div>
   </td></tr><tr><td style="height:6px"></td></tr>`;
+}
+
+const LEVEL_COLOR = { risk: "#c2462a", opportunity: "#128a63", watch: "#8a6100" } as const;
+const STATUS_LABEL = { executed: "Executed", confirmed: "Confirmed", inferred: "Inferred" } as const;
+
+function line(color: string, head: string, body: string): string {
+  return `<tr><td style="padding:8px 12px;border-left:4px solid ${color};background:#fffdf8">
+    <div style="font-size:14px">${head}</div>${body ? `<div style="font-size:12px;color:#5f6a62">${body}</div>` : ""}
+  </td></tr><tr><td style="height:6px"></td></tr>`;
+}
+
+/** Extra Monday sections: partner alerts (last 7 days), regulatory highlights, the team's week. */
+async function mondayExtras(db: Awaited<ReturnType<typeof getDb>>): Promise<string[]> {
+  const weekAgo = new Date(Date.now() - 7 * 86400_000);
+  const out: string[] = [];
+  const alerts = await db
+    .select({ a: relationshipAlerts, company: relationships.companyName })
+    .from(relationshipAlerts)
+    .innerJoin(relationships, eq(relationships.id, relationshipAlerts.relationshipId))
+    .where(and(eq(relationshipAlerts.dismissed, false), gte(relationshipAlerts.createdAt, weekAgo)))
+    .orderBy(desc(relationshipAlerts.createdAt))
+    .limit(10);
+  if (alerts.length) {
+    out.push(section(`Your partners: what changed (${alerts.length})`, alerts.map(({ a, company }) => line(LEVEL_COLOR[a.level], `<strong>${esc(company)}</strong> · <span style="color:${LEVEL_COLOR[a.level]}">${a.level === "risk" ? "At risk" : a.level === "opportunity" ? "Opportunity" : "Watch"}</span>: ${esc(a.title)}`, `${esc(a.impact)} <em>Why: ${esc(a.reasoning.slice(0, 220))}${a.reasoning.length > 220 ? "…" : ""}</em>`)).join("")));
+  }
+  const reg = await loadRegulatory(120).catch(() => null);
+  if (reg?.summary) {
+    out.push(section("Rules & regulation", [
+      line("#3f6a8a", esc(reg.summary.overview), ""),
+      ...reg.summary.highlights.slice(0, 3).map((h) => line("#3f6a8a", `<strong>${STATUS_LABEL[h.status]}</strong>: ${esc(h.text)}`, "")),
+    ].join("")));
+  }
+  const members = await db.select().from(teamMembers).where(eq(teamMembers.active, true));
+  if (members.length > 1) {
+    const from = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(weekAgo);
+    const times = await db.select().from(memberTime).where(gte(memberTime.day, from));
+    const acts = await db.select({ memberId: activity.memberId, kind: activity.kind }).from(activity).where(gte(activity.createdAt, weekAgo));
+    out.push(section("Team this week", members.map((m) => {
+      const secs = times.filter((t) => t.memberId === m.id).reduce((x, t) => x + t.seconds, 0);
+      const mine = acts.filter((a) => a.memberId === m.id && a.kind !== "mention");
+      const c = (k: string) => mine.filter((a) => a.kind === k).length;
+      return line("#128a63", `<strong>${esc(m.name)}</strong> · ${Math.round(secs / 60)} min active`, `${c("comment")} comments · ${c("question")} questions · ${c("read")} read · ${c("irrelevant")} not relevant · ${c("contact")} outreach updates`);
+    }).join("")));
+  }
+  return out;
 }
 
 function shell(title: string, inner: string): string {
@@ -61,7 +107,7 @@ function shell(title: string, inner: string): string {
     </td></tr>
     <tr><td style="height:14px"></td></tr>
     ${inner}
-    <tr><td style="padding:18px 4px;font-size:12px;color:#5f6a62">Open the full digest, calendar and planner: <a href="${SITE}" style="color:#128a63">${SITE.replace(/^https:\/\//, "")}</a></td></tr>
+    <tr><td style="padding:18px 4px;font-size:12px;color:#5f6a62">Open the summary, digest, relationships and regulatory pages: <a href="${SITE}" style="color:#128a63">${SITE.replace(/^https:\/\//, "")}</a></td></tr>
   </table></td></tr></table></body></html>`;
 }
 
@@ -109,6 +155,7 @@ async function main() {
       const html = shell(`Monday digest · week ${week}`, [
         calls.length ? section(`Call this week (${calls.length})`, calls.map(itemHtml).join("")) : section("Call this week", `<tr><td style="font-size:14px;color:#5f6a62">Nothing new to call this week.</td></tr>`),
         watch.length ? section(`Watch (${watch.length}, top 8)`, watch.slice(0, 8).map(itemHtml).join("")) : "",
+        ...(await mondayExtras(db)),
         warm.length ? section("Warm list: active in your sectors this year", warm.map(warmHtml).join("")) : "",
       ].join(""));
       const text = [subject, "", ...calls.map((c) => `CALL: ${c.company ?? "?"}: ${c.title}\n  ${c.url}\n  ${c.reason}`), "", `Full digest: ${SITE}`].join("\n");

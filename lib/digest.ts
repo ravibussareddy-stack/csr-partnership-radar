@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { classifications, companies, feedback, itemResearch, rawItems, searchRuns, signals, type Quote, type SignalType, type Tier } from "@/lib/db/schema";
+import { classifications, companies, feedback, itemResearch, pitchKits, rawItems, searchRuns, signals, type PitchKit, type Quote, type SignalType, type Tier } from "@/lib/db/schema";
 import { sourceGroup, type SourceGroup } from "@/lib/sources";
 
 export const DIGEST_WINDOW_DAYS = 7;
@@ -35,6 +35,8 @@ export interface DigestItem {
   geographies: string[];
   policyStatus: "confirmed" | "executed" | "inferred" | null;
   quotes: Quote[];
+  /** Sourced pitch material for the company (scripts/history/pitch.ts), if any. */
+  pitch: PitchKit | null;
   domain: string | null;
   sourceGroup: SourceGroup;
   channel: string | null;
@@ -110,6 +112,9 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
       ? await db.select({ itemId: feedback.itemId }).from(feedback).where(and(inArray(feedback.itemId, itemIds), eq(feedback.action, "read")))
       : [];
     const readSet = new Set(readRows.map((r) => r.itemId));
+    const coIds = [...new Set(rows.map((r) => r.companyId).filter((x): x is number => x != null))];
+    const kits = coIds.length ? await db.select().from(pitchKits).where(inArray(pitchKits.companyId, coIds)) : [];
+    const kitBy = new Map(kits.map((k) => [k.companyId, k.data]));
     const researchBy = new Map<number, { url: string; title: string; publisher: string | null }[]>();
     for (const r of research) (researchBy.get(r.itemId) ?? researchBy.set(r.itemId, []).get(r.itemId)!).push(r);
     return {
@@ -127,6 +132,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           geographies: c ? (geographies ?? []) : [],
           policyStatus: c ? (policyStatus ?? null) : null,
           quotes: c ? (quotes ?? []) : [],
+          pitch: r.companyId ? (kitBy.get(r.companyId) ?? null) : null,
           domain: coDomain ?? clsDomain ?? null,
           sourceGroup: sourceGroup(r.source),
           research: researchBy.get(itemId) ?? [],

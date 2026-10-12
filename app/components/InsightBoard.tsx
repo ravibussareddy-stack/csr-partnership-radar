@@ -10,6 +10,7 @@ import type { Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
 import { track } from "./Ambient";
 import { Discussion } from "./Discussion";
+import { PitchKitView } from "./PitchKitView";
 import { POLICY_STATUS } from "@/lib/policy";
 import { InfoTip } from "./InfoTip";
 import { Logo } from "./Logo";
@@ -130,6 +131,12 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
               <span className="jtbd-label">Job to be done</span>
               <p>{i.nextStep}</p>
             </div>
+          )}
+          {i.pitch && (
+            <details className="pitch-wrap" open>
+              <summary>Pitch kit: what they want, recent news, proof to cite</summary>
+              <PitchKitView kit={i.pitch} compact />
+            </details>
           )}
           {i.keyPoints.length > 0 && (
             <>
