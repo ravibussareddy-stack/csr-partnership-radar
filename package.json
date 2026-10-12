@@ -25,7 +25,10 @@
     "test:email": "tsx tests/email.test.ts",
     "test:paste": "tsx tests/paste.test.ts",
     "intake:check": "tsx scripts/ingest/intake-check.ts",
-    "searches": "tsx scripts/run-searches.ts"
+    "searches": "tsx scripts/run-searches.ts",
+    "jobs:validate": "tsx scripts/history/validate-jobs.ts",
+    "test:joblinks": "tsx tests/joblinks.test.ts",
+    "contacts": "tsx scripts/history/contacts.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

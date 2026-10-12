@@ -49,6 +49,16 @@ jobs:
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
+      - name: Community builder (people publicly named in new CSR items)
+        run: npm run contacts
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          GEMINI_KEY_PRIMARY: ${{ secrets.GEMINI_KEY_PRIMARY }}
+          GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
+          GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
+          GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
       - name: Refresh company stats and forecasts
         run: npm run history:stats
         env:

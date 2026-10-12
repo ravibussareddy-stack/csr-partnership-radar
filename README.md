@@ -7,7 +7,7 @@ A weekly CSR intelligence digest for a Pune education NGO. It surfaces new CSR i
 - **Data:** Postgres on Neon via Drizzle ORM.
 - **Ingestion:** TypeScript scripts in `scripts/ingest/`, run daily by GitHub Actions at 00:30 UTC (06:00 IST).
 
-**Live:** https://csr-partnership-radar-two.vercel.app/ (digest) · [/planner](https://csr-partnership-radar-two.vercel.app/planner) (expansion planner)
+**Live:** https://csr-partnership-radar-two.vercel.app/ (1 · Summary) · [/digest](https://csr-partnership-radar-two.vercel.app/digest) · [/inbox](https://csr-partnership-radar-two.vercel.app/inbox) (people messages) · [/calendar](https://csr-partnership-radar-two.vercel.app/calendar) · [/funding](https://csr-partnership-radar-two.vercel.app/funding) (funding insights) · [/jobs](https://csr-partnership-radar-two.vercel.app/jobs) · [/community](https://csr-partnership-radar-two.vercel.app/community) (community builder)
 
 Components map: [docs/COMPONENTS.md](docs/COMPONENTS.md).
 
@@ -93,7 +93,7 @@ Why not Google Drive backups? WhatsApp's Drive backups are encrypted and only Wh
 
 ## 10-year history and forecasts
 
-The **Expansion planner** (`/planner`) and **company profiles** (`/companies/[id]`) use two historical sources:
+**Funding insights** (`/funding`) and **company profiles** (`/companies/[id]`) use two historical sources:
 
 1. **National CSR Portal** (MCA): company-wise CSR spend by FY, state, district and sector, FY2014-15 to FY2024-25. The portal's company-wise reports are behind a CAPTCHA, so download the "Dynamic CSR Report" CSV from https://www.csr.gov.in by hand, then:
    ```bash
