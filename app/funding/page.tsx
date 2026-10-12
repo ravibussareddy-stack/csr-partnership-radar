@@ -156,7 +156,7 @@ async function Planner({ sp }: { sp: Record<string, string | string[] | undefine
               <li key={c.id} className="card">
                 <div className="corr-head">
                   <strong>{c.label}</strong>
-                  <span className={`corr-r ${c.r != null && Math.abs(c.r) >= 0.3 ? "strong" : ""}`}>r = {c.r ?? "–"}</span>
+                  <span className={`corr-r ${c.r != null && Math.abs(c.r) >= 0.3 ? "strong" : ""}`}>r = {c.r == null ? "–" : c.r.toFixed(2)}</span>
                 </div>
                 <p className="muted small">{c.strength} · {c.n.toLocaleString("en-IN")} companies. {c.detail}</p>
                 <span className="corr-meter" aria-hidden="true"><span style={{ left: `${50 + (c.r ?? 0) * 50}%` }} /></span>
