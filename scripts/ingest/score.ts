@@ -3,6 +3,7 @@ import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
 import { classifications, companies, companyNews, feedback, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
 import { loadCompanyIndex, resolveCompany } from "@/lib/resolve";
+import { isPublisher } from "@/lib/publishers";
 import { scoreItem } from "@/lib/scoring";
 
 export interface ScoreStats {
@@ -67,7 +68,9 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       stats.removed += del.length;
       continue;
     }
-    const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
+    // The funder is the first named company that is not a news publisher or platform.
+    const funder = cls?.companies.find((c) => !isPublisher(c));
+    const companyId = funder ? await resolveCompany(db, funder, companyIdx) : null;
     const r = scoreItem(
       {
         feedback: {

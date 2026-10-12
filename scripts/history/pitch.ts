@@ -9,6 +9,7 @@ import { and, desc, gte, inArray, isNotNull } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
 import { companies, pitchKits, relationships, signals, type PitchKit } from "@/lib/db/schema";
 import { GeminiError, GeminiPool } from "@/lib/gemini";
+import { isPublisher } from "@/lib/publishers";
 import { buildPitchPrompt, PITCH_PROMPT_VERSION } from "@/prompts/pitch";
 import { parseGrounded, resolveRedirect } from "../ingest/search";
 
@@ -33,7 +34,7 @@ async function main() {
   let made = 0;
   for (const id of todo) {
     const name = names.get(id);
-    if (!name) continue;
+    if (!name || isPublisher(name)) continue;
     let res;
     try {
       res = await pool.generateGrounded(buildPitchPrompt(name, new Date()));

@@ -43,6 +43,14 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | **No LinkedIn search via Google.** Five LinkedIn-restricted grounded searches were built and tested; Google grounding returned no linkedin.com sources at all (queries targeted linkedin.com/posts; every source was another site). They were removed rather than left running uselessly. | Grounding doesn't expose LinkedIn content, and scraping LinkedIn is against its terms. | Scraping LinkedIn; keeping dead daily searches. |
 | LinkedIn content arrives through her **LinkedIn alert emails** (already wired). For demonstration, `npm run demo:seed` adds **12 LinkedIn samples and 15 personal messages**, each built from a real recent article (link kept), labelled **Demo**, removable with `npm run demo:clear`, and hidden with "Hide demo". | The brief asked for 10–20 visible items in those views; demo items must be clearly labelled and invent nothing (no people, quotes or facts beyond the article). | Unlabelled synthetic posts or messages. |
 
+| Demo items are excluded from Summary counts, email alerts, the Monday digest and the relationship watch; they stay visible (with the Demo badge) in the Digest and People messages views. | Each demo item restates a real story that is already counted; counting it again inflated "Call this week" from 12 to 35 and would have emailed her duplicates. | Capping demo items' tier (still double-counted). |
+
+## Data quality
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| A deterministic **publisher list** (`lib/publishers.ts`): news sites, wire services, CSR news portals and platforms can never be resolved as the funding company; the funder is the first named company that isn't one. | The prompt rule wasn't enough: "Sportskeeda" (a sports news site) kept becoming a "call", an email alert and a pitch kit. A list is cheap, testable and certain. | Relying only on the prompt. Treating "company name appears in the URL host" as the publisher: wrongly drops companies' own press releases. |
+
 ## Pitch kit (job to be done)
 
 | Decision | Why | Rejected alternative |
