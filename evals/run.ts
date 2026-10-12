@@ -1,5 +1,5 @@
 /**
- * npm run eval — runs pre-filter → Gemini classifier → scoring on evals/labelled.jsonl
+ * npm run eval:classifier — runs pre-filter → Gemini classifier → scoring on evals/labelled.jsonl
  * and compares against hand labels. No database needed.
  *
  * Label format per line: "label": { "is_signal": true|false, "tier": "call_this_week"|"watch"|"background"|null }

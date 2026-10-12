@@ -53,7 +53,9 @@ npm run dev          # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `npm run ingest` | Full pipeline. Flags: `--refilter` (re-run the pre-filter on the lookback window after keyword changes), `--no-fetch` (re-classify and re-score only). |
-| `npm run eval` | Runs the pipeline on `evals/labelled.jsonl` and reports precision/recall of `is_signal` and tier accuracy. `--db-config` uses the DB config instead of defaults. |
+| `npm run eval:sheet` | Exports ~30 recent real digest items (no demo) to `evals/sheet.csv` / `.json` with empty `label_tier` (call / watch / background), `label_call_type` (open / warm) and `label_notes` columns for a person to fill. |
+| `npm run eval` | Scores the system's tiers against the filled sheet: Call precision and recall, tier agreement (Cohen's kappa), confusion matrix, Call-vs-Background contradictions, Open/Warm agreement. No AI or database; `--live` re-reads current tiers from the DB. |
+| `npm run eval:classifier` | Runs the pipeline on `evals/labelled.jsonl` and reports precision/recall of `is_signal` and tier accuracy. `--db-config` uses the DB config instead of defaults. |
 | `npm run sources:check [-- <feed-url> …]` | Verify feeds (robots.txt, reachability, freshness, pre-filter yield) before adding them. |
 | `npm run history:import -- <csv>` | Import the National CSR Portal "Dynamic CSR Report" CSV (FY2014-15 onward). |
 | `npm run history:aliases` | Set company short names (manual list in `config/aliases.ts` + Gemini proposals, collision-checked). |
