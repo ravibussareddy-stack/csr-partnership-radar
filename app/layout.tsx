@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Nunito, Outfit } from "next/font/google";
 import Link from "next/link";
+import { Suspense } from "react";
 import { Ambient } from "./components/Ambient";
 import "./globals.css";
 
@@ -52,7 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           ))}
         </nav>
         <div className="content">{children}</div>
-        <Ambient />
+        <Suspense fallback={null}>
+          <Ambient />
+        </Suspense>
       </body>
     </html>
   );
