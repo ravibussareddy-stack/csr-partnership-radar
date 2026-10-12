@@ -64,6 +64,18 @@ export interface AppConfig {
     /** CSR policy/regulation terms. These pass the pre-filter on their own. */
     policy: string[];
     /**
+     * Community-impact phrases that signal social good without saying "CSR" ("villages",
+     * "underprivileged", "donated"…), incl. Hindi and Marathi. Pass with 2+ hits, or 1 hit plus a
+     * focus-sector keyword, so business uses ("rural demand") alone don't qualify.
+     */
+    communityImpact?: string[];
+    /**
+     * Second stage for items that fail the keyword check: Gemini reads headline + first lines,
+     * BATCH per call, and lets through anything plausibly about social good by a company or
+     * foundation in India. Only those reach full classification.
+     */
+    contextScreen?: { enabled: boolean; maxCalls: number };
+    /**
      * true: items must also mention a focus-sector keyword to reach Gemini.
      * false (default): CSR in any sector reaches Gemini; outside-sector items are kept "for review".
      */
@@ -206,6 +218,21 @@ export const DEFAULT_CONFIG: AppConfig = {
       "Social Stock Exchange", "BRSR", "SEBI",
     ],
     requireSectorMatch: false,
+    communityImpact: [
+      "community", "communities", "underprivileged", "underserved", "marginalised", "marginalized",
+      "disadvantaged", "low-income", "rural youth", "villages", "villagers", "tribal", "slum",
+      "beneficiaries", "beneficiary", "empower", "empowers", "empowering", "empowerment",
+      "upliftment", "welfare", "outreach", "volunteer", "volunteers", "volunteering", "donated",
+      "donates", "donation", "donations", "sponsored", "adopted", "adopts", "free of cost",
+      "free training", "scholarship", "scholarships", "giving back", "philanthropic", "charitable",
+      "trust", "impact report", "sustainability report", "inclusive", "first-generation learners",
+      "girls' education", "anganwadi", "zilla parishad", "government schools", "civic",
+      // Hindi
+      "सीएसआर", "सामाजिक", "समुदाय", "ग्रामीण", "कौशल", "छात्रवृत्ति", "दान", "युवाओं",
+      // Marathi
+      "सामाजिक बांधिलकी", "कौशल्य", "शिष्यवृत्ती", "ग्रामीण", "समाज", "स्वयंसेवी", "युवकांसाठी",
+    ],
+    contextScreen: { enabled: true, maxCalls: 6 },
     followedPages: ["Youth Seva", "India CSR", "The CSR Journal", "CSRBOX", "Sattva", "Dasra", "GuideStar India", "NSDC"],
     signalHints: {
       partner_search: [

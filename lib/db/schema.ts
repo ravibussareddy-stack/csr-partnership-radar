@@ -54,6 +54,8 @@ export const rawItems = pgTable("raw_items", {
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
   // Pipeline state (not in the original brief; needed so failed items are retried next run).
   prefilterPassed: boolean("prefilter_passed"),
+  // Why it passed/failed: "keywords: …" (stage 1) or "context: …" (stage 2 Gemini screen).
+  prefilterNote: text("prefilter_note"),
   classifyStatus: text("classify_status").$type<ClassifyStatus>().notNull().default("pending"),
 });
 

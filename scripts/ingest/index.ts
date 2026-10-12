@@ -19,6 +19,7 @@ import { fetchRssSource } from "./rss";
 import { scoreRecent } from "./score";
 import { runSearches } from "./search";
 import { fetchIntakeEmail } from "./email";
+import { contextScreen } from "./screen";
 
 async function main() {
   const args = new Set(process.argv.slice(2));
@@ -77,19 +78,25 @@ async function main() {
     );
   const sources = new Map(cfg.sources.map((s) => [s.id, s]));
   let passed = 0;
+  const failed: { id: number; title: string; body: string }[] = [];
   for (const it of toFilter) {
     const pf = prefilter(it, sources.get(it.source), cfg);
     if (pf.passed) passed++;
+    else failed.push({ id: it.id, title: it.title, body: it.body });
     await db
       .update(rawItems)
       .set({
         prefilterPassed: pf.passed,
+        prefilterNote: `keywords: ${pf.reason}`,
         // Failing items never reach Gemini. Don't downgrade an already-classified item.
         ...(pf.passed ? (it.classifyStatus === "filtered_out" ? { classifyStatus: "pending" as const } : {}) : { classifyStatus: "filtered_out" as const }),
       })
       .where(eq(rawItems.id, it.id));
   }
-  console.log(`prefilter: ${passed}/${toFilter.length} passed`);
+  console.log(`prefilter: ${passed}/${toFilter.length} passed keywords`);
+  // Stage 2: context screen (Gemini, batched, headline + first lines) for keyword misses.
+  const sc = await contextScreen(db, cfg, failed);
+  console.log(`context screen: ${sc.status}${sc.screened ? `, ${sc.released}/${sc.screened} released to classification in ${sc.calls} call(s)` : ""}`);
 
   // 4. Classify (Gemini; failures → unclassified, run continues)
   const limit = Number(process.env.MAX_CLASSIFY_PER_RUN ?? 60);
