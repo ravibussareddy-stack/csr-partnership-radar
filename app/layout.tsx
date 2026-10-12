@@ -27,6 +27,7 @@ const NAV = [
   { href: "/", label: "Digest", d: "M4 11 L12 4 L20 11 V20 H14 V14 H10 V20 H4 Z" },
   { href: "/calendar", label: "Calendar", d: "M5 6 H19 V20 H5 Z M5 10 H19 M9 3 V7 M15 3 V7" },
   { href: "/planner", label: "Planner", d: "M12 3 A9 9 0 1 0 12.01 3 Z M15.5 8.5 L13 13 L8.5 15.5 L11 11 Z" },
+  { href: "/jobs", label: "Hiring radar", d: "M4 8 H20 V19 H4 Z M9 8 V5 H15 V8 M4 13 H20" },
   { href: "/inbox", label: "Message drop", d: "M4 6 H20 V16 H13 L8 20 V16 H4 Z" },
 ];
 

@@ -1,43 +1,31 @@
-// CSR calendar: the recurring cycle. Statutory CSR year + each company's recurring announcement
-// window (year-consistency, with the years as justification) + the year × month evidence.
+// CSR calendar: a real year / month calendar. Past months show dated announcements that happened;
+// current and future months show companies likely to announce (recurring windows, with evidence),
+// plus the statutory CSR deadlines pinned on their dates.
 import { Suspense } from "react";
 import Link from "next/link";
-import { fmtCr, YearMonthCalendar } from "@/app/components/charts";
+import { Logo } from "@/app/components/Logo";
 import { Hero, Icon } from "@/app/components/illustrations";
-import { getAnnouncementGrid, getCachedNow, getUpcomingCycles } from "@/lib/data";
-import type { UpcomingCycle } from "@/lib/history/queries";
+import { getCachedNow, getUpcomingCycles, getYearEvents } from "@/lib/data";
+import type { CalendarEvent, UpcomingCycle } from "@/lib/history/queries";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const PER_MONTH = 8;
+const SHORT = MONTHS.map((m) => m.slice(0, 3));
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-/** The legal rhythm of an Indian CSR year (Companies Act 2013 s.135; CSR Policy Rules 2014, amended 2021). */
-const STATUTORY: { months: string; title: string; detail: string }[] = [
-  {
-    months: "Apr – Jun",
-    title: "New CSR year starts; budgets approved",
-    detail: "The financial year starts 1 April. Boards typically approve the CSR policy and annual action plan (Rule 5(2)) early in the year, so implementing partners are often chosen now.",
-  },
-  {
-    months: "Apr 30",
-    title: "Unspent money on ongoing projects parked",
-    detail: "Unspent CSR for ongoing projects must move to an Unspent CSR Account within 30 days of the year end (s.135(6)), and is then spent over the next three years.",
-  },
-  {
-    months: "Jul – Oct",
-    title: "Annual reports and CSR disclosures",
-    detail: "AGMs fall by 30 September (within six months of the year end), with the CSR annexure in the Board Report and AOC-4 filed within 30 days of the AGM. Spend figures and new commitments hit the news.",
-  },
-  {
-    months: "Sep 30",
-    title: "Other unspent CSR leaves the company",
-    detail: "Unspent CSR not tied to ongoing projects goes to a Schedule VII fund within six months of the year end (s.135(5)), so companies prefer to commit it to projects before then.",
-  },
-  {
-    months: "Jan – Mar",
-    title: "Year-end spending push",
-    detail: "Companies close gaps against their 2% obligation before 31 March: a good time to offer ready-to-fund, well-documented programmes.",
-  },
+/** Statutory CSR dates (Companies Act 2013 s.135; CSR Policy Rules 2014, amended 2021). month is 1-based. */
+const DEADLINES: { m: number; d: number; short: string; label: string }[] = [
+  { m: 3, d: 31, short: "FY ends", label: "Financial year ends: last day to spend this year's 2% CSR obligation" },
+  { m: 4, d: 1, short: "New CSR year", label: "New financial year: boards approve CSR policy and annual action plans (Rule 5(2))" },
+  { m: 4, d: 30, short: "Unspent → account", label: "Unspent CSR for ongoing projects moves to the Unspent CSR Account (s.135(6))" },
+  { m: 9, d: 30, short: "AGM · unspent → fund", label: "AGM deadline; other unspent CSR goes to a Schedule VII fund (s.135(5))" },
+  { m: 10, d: 30, short: "AOC-4 filing", label: "AOC-4 with CSR disclosures, about 30 days after the AGM" },
 ];
+/** Seasons of the CSR year, shown as ribbons on month tiles. */
+const SEASON: Record<number, string> = {
+  1: "Year-end push", 2: "Year-end push", 3: "Year-end push",
+  4: "Budgets approved", 5: "Budgets approved", 6: "Budgets approved",
+  7: "Disclosure season", 8: "Disclosure season", 9: "Disclosure season", 10: "Disclosure season",
+};
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
@@ -45,122 +33,212 @@ export default function Page({ searchParams }: { searchParams: SP }) {
   return (
     <main className="wrap wide">
       <Hero eyebrow="The recurring cycle" title="CSR calendar" variant="calendar">
-        When companies tend to announce, month by month. Each window comes with the years that back it, so you can plan outreach
-        before decisions are made, not after.
+        Which companies are likely to start an initiative each month, based on when they announced in past years, with the
+        statutory CSR deadlines on their dates. Past months show what actually happened.
       </Hero>
-      <Suspense fallback={<p className="muted">Loading the calendar…</p>}>
+      <Suspense fallback={<div className="glass card-pad">Loading the calendar…</div>}>
         {searchParams.then((sp) => <Calendar sp={sp} />)}
       </Suspense>
     </main>
   );
 }
 
-function monthIndex(now: Date, offset: number) {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
-  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), key: d.getUTCFullYear() * 12 + d.getUTCMonth() };
+function windowStart(c: UpcomingCycle): number {
+  return SHORT.indexOf(c.window.slice(0, 3)); // 0-based
 }
 
-function CycleRow({ c }: { c: UpcomingCycle }) {
-  const hit = new Set(c.yearsHit);
-  return (
-    <div className="cycle">
-      <span>
-        <Link className="company-link" href={`/companies/${c.companyId}`}>{c.name}</Link>{" "}
-        <span className={`strength ${c.strength}`}>{c.strength === "clear" ? "clear cycle" : "mild cycle"}</span>
-      </span>
-      <span className="muted small">{c.window}</span>
-      <p className="why">
-        Announced in {c.window} in {c.yearsHit.length} of {c.activeYears.length} active years{" "}
-        <span className="years">
-          {c.activeYears.map((y) => (
-            <span key={y} className={`yr${hit.has(y) ? " hit" : ""}`}>{y}</span>
-          ))}
-        </span>
-        {c.predictedFocusCr > 0 ? ` · forecast ${fmtCr(c.predictedFocusCr)} in your sectors next year` : ` · forecast ${fmtCr(c.predictedTotalCr)} CSR next year`}
-      </p>
-    </div>
-  );
+function href(p: { y: number; m?: number; scope: string }) {
+  const q = new URLSearchParams({ y: String(p.y) });
+  if (p.m) q.set("m", String(p.m));
+  if (p.scope === "all") q.set("scope", "all");
+  return `/calendar?${q.toString()}`;
+}
+
+/** Monday-first weeks for a month: arrays of day numbers (0 = padding). */
+function weeksOf(y: number, m0: number): number[][] {
+  const first = (new Date(Date.UTC(y, m0, 1)).getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+  const cells = [...Array(first).fill(0), ...Array.from({ length: days }, (_, i) => i + 1)];
+  while (cells.length % 7) cells.push(0);
+  return Array.from({ length: cells.length / 7 }, (_, w) => cells.slice(w * 7, w * 7 + 7));
+}
+
+function evidence(c: UpcomingCycle) {
+  return `${c.window} in ${c.yearsHit.length} of ${c.activeYears.length} yrs`;
 }
 
 async function Calendar({ sp }: { sp: Record<string, string | string[] | undefined> }) {
   const scope = sp.scope === "all" ? "all" : "focus";
-  const [cycles, grid, nowIso] = await Promise.all([getUpcomingCycles(scope === "focus"), getAnnouncementGrid(scope === "focus"), getCachedNow()]);
+  const nowIso = await getCachedNow();
   const now = new Date(nowIso);
-  if (!cycles || !grid) {
-    return <div className="notice"><h2>No history loaded</h2><p>Run the history scripts (see README).</p></div>;
-  }
+  const thisY = now.getUTCFullYear();
+  const thisM = now.getUTCMonth();
+  const y = Math.min(thisY + 2, Math.max(2009, Number(sp.y) || thisY));
+  const mParam = Number(sp.m);
+  const month = mParam >= 1 && mParam <= 12 ? mParam - 1 : null;
+  const [cycles, events] = await Promise.all([getUpcomingCycles(scope === "focus"), getYearEvents(y, scope === "focus")]);
+  if (!cycles || !events) return <div className="notice glass"><h2>No history loaded</h2><p>Run the history scripts (see README).</p></div>;
 
-  // Group by the month the next window opens; windows already open fall into the current month.
-  const nowKey = monthIndex(now, 0).key;
-  const months = Array.from({ length: 12 }, (_, i) => ({ ...monthIndex(now, i), items: [] as UpcomingCycle[] }));
-  for (const c of cycles) {
-    const d = new Date(c.nextWindowStart);
-    const key = Math.max(nowKey, d.getUTCFullYear() * 12 + d.getUTCMonth());
-    months.find((m) => m.key === key)?.items.push(c);
-  }
   const rank = (c: UpcomingCycle) => (c.strength === "clear" ? 1e9 : 0) + c.yearsHit.length * 1e6 + c.predictedFocusCr;
-  for (const m of months) m.items.sort((a, b) => rank(b) - rank(a));
+  const opensIn = (m0: number) => cycles.filter((c) => windowStart(c) === m0).sort((a, b) => rank(b) - rank(a));
+  const inWindow = (m0: number) => cycles.filter((c) => [1, 2].some((k) => (windowStart(c) + k) % 12 === m0)).sort((a, b) => rank(b) - rank(a));
+  const isPast = (m0: number) => y < thisY || (y === thisY && m0 < thisM);
+  const eventsIn = (m0: number) => events.filter((e) => new Date(e.date).getUTCMonth() === m0);
 
   return (
     <>
+      <nav className="cal-controls glass" aria-label="Calendar navigation">
+        <div className="chips">
+          <Link className="chip" href={month === null ? href({ y: y - 1, scope }) : href({ y: month === 0 ? y - 1 : y, m: month === 0 ? 12 : month, scope })} aria-label="Previous">‹</Link>
+          <strong className="cal-title">{month === null ? y : `${MONTHS[month]} ${y}`}</strong>
+          <Link className="chip" href={month === null ? href({ y: y + 1, scope }) : href({ y: month === 11 ? y + 1 : y, m: month === 11 ? 1 : month + 2, scope })} aria-label="Next">›</Link>
+          <Link className="chip" href={href({ y: thisY, m: month === null ? undefined : thisM + 1, scope })}>Today</Link>
+        </div>
+        <div className="chips">
+          <Link className={month === null ? "chip on" : "chip"} href={href({ y, scope })}>Year</Link>
+          <Link className={month !== null ? "chip on" : "chip"} href={href({ y, m: (month ?? (y === thisY ? thisM : 0)) + 1, scope })}>Month</Link>
+          <span className="sep" />
+          <Link className={scope === "focus" ? "chip on" : "chip"} href={href({ y, m: month === null ? undefined : month + 1, scope: "focus" })}>Your sectors</Link>
+          <Link className={scope === "all" ? "chip on" : "chip"} href={href({ y, m: month === null ? undefined : month + 1, scope: "all" })}>All sectors</Link>
+        </div>
+      </nav>
+
+      {month === null ? (
+        <div className="year-grid">
+          {MONTHS.map((name, m0) => {
+            const past = isPast(m0);
+            const opens = opensIn(m0);
+            const happened = eventsIn(m0);
+            const eventDays = new Set(happened.map((e) => new Date(e.date).getUTCDate()));
+            const deadlines = DEADLINES.filter((d) => d.m === m0 + 1);
+            const current = y === thisY && m0 === thisM;
+            const names = [...new Set(happened.map((e) => e.company))];
+            return (
+              <Link key={name} href={href({ y, m: m0 + 1, scope })} className={`month-tile glass${current ? " current" : ""}${past ? " past" : ""}`}>
+                <div className="tile-head">
+                  <span className="tile-name">{name}</span>
+                  {SEASON[m0 + 1] && <span className="season">{SEASON[m0 + 1]}</span>}
+                </div>
+                <table className="mini" aria-hidden="true">
+                  <thead><tr>{WEEKDAYS.map((w) => <th key={w}>{w[0]}</th>)}</tr></thead>
+                  <tbody>
+                    {weeksOf(y, m0).map((wk, i) => (
+                      <tr key={i}>
+                        {wk.map((d, j) => (
+                          <td key={j} className={[d && deadlines.some((x) => x.d === d) ? "dl" : "", d && eventDays.has(d) ? "ev" : "", current && d === now.getUTCDate() ? "today" : ""].join(" ").trim() || undefined}>
+                            {d || ""}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {deadlines.map((d) => <p key={d.short} className="tile-deadline">◆ {d.d} {SHORT[m0]}: {d.short}</p>)}
+                {past ? (
+                  <p className="tile-line">{happened.length ? <><b>{happened.length}</b> announcement{happened.length === 1 ? "" : "s"}: {names.slice(0, 2).join(", ")}{names.length > 2 ? "…" : ""}</> : <span className="muted">No dated announcements</span>}</p>
+                ) : opens.length ? (
+                  <div className="tile-likely">
+                    <span className="likely-label">Likely to start</span>
+                    <ul>
+                      {opens.slice(0, 3).map((c) => (
+                        <li key={c.companyId}><Logo name={c.name} domain={c.domain} size={20} /> <span>{c.name}</span></li>
+                      ))}
+                    </ul>
+                    {opens.length > 3 && <span className="muted small">+{opens.length - 3} more</span>}
+                  </div>
+                ) : (
+                  <p className="tile-line muted">No recurring windows open</p>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <MonthView y={y} m0={month} now={now} past={isPast(month)} events={eventsIn(month)} opens={opensIn(month)} during={inWindow(month)} />
+      )}
+
       <section className="section">
-        <h2 className="section-title"><Icon name="sun" /> The CSR year</h2>
-        <p className="muted small">The legal rhythm behind the calendar (Companies Act 2013, section 135; CSR Policy Rules 2014, amended 2021).</p>
-        <div className="grid2">
-          {STATUTORY.map((s) => (
-            <div key={s.title} className="card">
-              <h3>{s.months}</h3>
-              <p><strong>{s.title}</strong></p>
-              <p className="muted small">{s.detail}</p>
-            </div>
-          ))}
+        <div className="cal-legend glass card-pad">
+          <span><span className="k k-dl" /> statutory CSR date</span>
+          <span><span className="k k-ev" /> dated announcement (past)</span>
+          <span><span className="k k-today" /> today</span>
+          <span className="muted small">
+            &ldquo;Likely to start&rdquo; = the company&rsquo;s recurring 3-month announcement window opens that month: a <b>clear</b> cycle repeats in ≥ 60% of
+            4+ active years, a <b>mild</b> one in ≥ 40% of 3+. Source: CSR news archives since 2009.
+          </span>
         </div>
       </section>
-
-      <section className="section">
-        <h2 className="section-title"><Icon name="calendar" /> The next 12 months</h2>
-        <nav className="filters" aria-label="Scope">
-          <Link href="/calendar" className={scope === "focus" ? "on" : undefined}>Companies funding your sectors</Link>
-          <Link href="/calendar?scope=all" className={scope === "all" ? "on" : undefined}>All sectors (for expansion)</Link>
-        </nav>
-        <p className="muted small">
-          A company is listed when its dated CSR announcements since 2009 repeat in the same 3-month window: a <strong>clear cycle</strong> is
-          hit in at least 60% of 4+ active years, a <strong>mild cycle</strong> in at least 40% of 3+ years. Ticked years are the evidence.
-        </p>
-        <ol className="timeline" style={{ marginTop: 14 }}>
-          {months.map((m) => (
-            <li key={m.key} className={`month-card${m.key === nowKey ? " now" : ""}${m.items.length === 0 ? " quiet" : ""}`}>
-              <h3>
-                {MONTHS[m.month]} {m.year}
-                <span className="muted">
-                  {m.key === nowKey ? "windows open now · " : ""}
-                  {m.items.length} compan{m.items.length === 1 ? "y" : "ies"}
-                </span>
-              </h3>
-              {m.items.length === 0 ? null : (
-                <>
-                  {m.items.slice(0, PER_MONTH).map((c) => <CycleRow key={c.companyId} c={c} />)}
-                  {m.items.length > PER_MONTH && <p className="muted small">and {m.items.length - PER_MONTH} more</p>}
-                </>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="section">
-        <h2 className="section-title"><Icon name="leaf" /> The evidence: announcements by month and year</h2>
-        <YearMonthCalendar
-          grid={grid}
-          now={now}
-          fromYear={2014}
-          title={`Dated CSR announcements ${scope === "focus" ? "in your focus sectors" : "in all sectors"} (CSR news archives, all tracked companies)`}
-        />
-        <p className="method">
-          Coverage grows over time: the archives are thinner before 2019, and the last 12 months are complete for every company. Counts
-          are announcements (new initiatives, partnerships, spend/allocation news, partner searches), not ongoing activity.
-        </p>
-      </section>
     </>
+  );
+}
+
+function MonthView({ y, m0, now, past, events, opens, during }: { y: number; m0: number; now: Date; past: boolean; events: CalendarEvent[]; opens: UpcomingCycle[]; during: UpcomingCycle[] }) {
+  const byDay = new Map<number, CalendarEvent[]>();
+  for (const e of events) {
+    const d = new Date(e.date).getUTCDate();
+    (byDay.get(d) ?? byDay.set(d, []).get(d)!).push(e);
+  }
+  const deadlines = DEADLINES.filter((d) => d.m === m0 + 1);
+  const isToday = (d: number) => now.getUTCFullYear() === y && now.getUTCMonth() === m0 && now.getUTCDate() === d;
+
+  return (
+    <div className="month-layout">
+      <div className="month-grid glass">
+        <div className="mg-head">{WEEKDAYS.map((w) => <span key={w}>{w}</span>)}</div>
+        {weeksOf(y, m0).map((wk, i) => (
+          <div key={i} className="mg-week">
+            {wk.map((d, j) => {
+              const dl = deadlines.filter((x) => x.d === d);
+              const ev = byDay.get(d) ?? [];
+              return (
+                <div key={j} className={`mg-day${d ? "" : " pad"}${isToday(d) ? " today" : ""}${dl.length ? " has-dl" : ""}`}>
+                  {d > 0 && <span className="mg-num">{d}</span>}
+                  {dl.map((x) => <span key={x.short} className="mg-dl" title={x.label}>◆ {x.short}</span>)}
+                  {ev.slice(0, 2).map((e) => (
+                    <a key={e.url} className="mg-ev" href={e.url} target="_blank" rel="noopener noreferrer" title={e.title}>{e.company}</a>
+                  ))}
+                  {ev.length > 2 && <span className="mg-more">+{ev.length - 2} more</span>}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <aside className="month-side">
+        {deadlines.length > 0 && (
+          <div className="glass card-pad">
+            <h3 className="side-title"><Icon name="sun" /> Statutory dates</h3>
+            <ul className="kv">{deadlines.map((d) => <li key={d.short}><span>{d.d} {MONTHS[m0]}</span><span>{d.label}</span></li>)}</ul>
+          </div>
+        )}
+        <div className="glass card-pad">
+          <h3 className="side-title"><Icon name="calendar" /> {past ? "Usually announced this month" : "Likely to start an initiative"}</h3>
+          {opens.length === 0 ? <p className="muted small">No recurring windows open this month.</p> : (
+            <ul className="likely-list">
+              {opens.slice(0, 12).map((c) => {
+                const hit = new Set(c.yearsHit);
+                return (
+                  <li key={c.companyId}>
+                    <Logo name={c.name} domain={c.domain} size={28} />
+                    <div>
+                      <Link href={`/companies/${c.companyId}`} className="cue-company">{c.name}</Link>
+                      <span className="muted small"> · <span className={`strength ${c.strength}`}>{c.strength}</span> · {evidence(c)}</span>
+                      <span className="years">{c.activeYears.slice(-8).map((yy) => <span key={yy} className={`yr${hit.has(yy) ? " hit" : ""}`}>{yy}</span>)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {during.length > 0 && <p className="muted small" style={{ marginTop: 10 }}>Also inside their window this month: {during.slice(0, 6).map((c) => c.name).join(", ")}{during.length > 6 ? ` +${during.length - 6}` : ""}.</p>}
+        </div>
+        <div className="glass card-pad">
+          <h3 className="side-title"><Icon name="leaf" /> {past ? "What happened" : "So far this month"}</h3>
+          {events.length === 0 ? <p className="muted small">No dated announcements{past ? "" : " yet"}.</p> : (
+            <ul className="kv">{events.slice(0, 10).map((e) => <li key={e.url}><span><a href={e.url} target="_blank" rel="noopener noreferrer">{e.title}</a></span><span>{new Date(e.date).getUTCDate()} {SHORT[m0]}</span></li>)}</ul>
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }

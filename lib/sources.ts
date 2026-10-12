@@ -9,7 +9,7 @@ export type SourceGroup = (typeof SOURCE_GROUPS)[number]["id"];
 
 export function sourceGroup(source: string): SourceGroup {
   if (source.startsWith("pasted") || source === "email-intake") return "personal";
-  if (source === "gemini-search" || source === "google-alerts") return "search";
+  if (source === "gemini-search" || source === "gemini-jobs" || source === "google-alerts") return "search";
   if (source === "linkedin-email") return "linkedin";
   return "news";
 }

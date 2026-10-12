@@ -73,6 +73,28 @@ async function Home() {
         <div className="hero-art"><PeopleFrames /></div>
       </header>
 
+      <details className="tier-legend glass">
+        <summary>What do Call this week, Watch and Background mean?</summary>
+        <div className="legend-grid">
+          <div className="legend-item tier-call_this_week">
+            <span className="tier-pill tier-call_this_week">Call this week</span>
+            <p>A company is <b>allocating money or looking for partners right now</b>, in your sectors, recently enough that a call can still change the outcome: a new programme, an RFP, a funder ramping up near Pune.</p>
+            <p className="muted small">Do: reach out before Friday; the card&rsquo;s &ldquo;job to be done&rdquo; says how.</p>
+          </div>
+          <div className="legend-item tier-watch">
+            <span className="tier-pill tier-watch">Watch</span>
+            <p><b>Relevant but not urgent, or an early sign</b>: an ongoing programme, CSR outside your sectors (for review), a company hiring CSR staff, a company opening a plant in Maharashtra (future funder).</p>
+            <p className="muted small">Do: keep an eye on it; plan outreach for when it matures.</p>
+          </div>
+          <div className="legend-item tier-background">
+            <span className="tier-pill tier-background">Background</span>
+            <p><b>Context only</b>: older or loosely related CSR activity that helps you understand the landscape.</p>
+            <p className="muted small">Do: nothing this week.</p>
+          </div>
+        </div>
+        <p className="muted small">Tiers come from a points score (signal type, recency, sector fit, location, source, NGO partnering). Each card shows its breakdown under &ldquo;Why this tier&rdquo;.</p>
+      </details>
+
       <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} />
 
       {searches.length > 0 && (

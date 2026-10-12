@@ -12,6 +12,8 @@ import { loadDigest, loadRecentSearches } from "@/lib/digest";
 import {
   loadAnnouncementGrid,
   loadCompany,
+  loadEventsForYear,
+  loadHiring,
   loadPlanner,
   loadRegionTrend,
   loadSectorSeasonality,
@@ -162,4 +164,16 @@ export async function getCachedNow(): Promise<string> {
   "use cache";
   tag();
   return new Date().toISOString();
+}
+
+export async function getHiring() {
+  "use cache";
+  tag();
+  return loadHiring(60);
+}
+
+export async function getYearEvents(year: number, focusOnly: boolean) {
+  "use cache";
+  tag();
+  return loadEventsForYear(year, focusOnly ? DEFAULT_CONFIG.sectors.map((s) => s.id) : null);
 }

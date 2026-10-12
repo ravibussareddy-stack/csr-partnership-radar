@@ -11,7 +11,7 @@ import { rawItems, searchRuns } from "@/lib/db/schema";
 import { GeminiError, GeminiPool, type GroundingMetadata } from "@/lib/gemini";
 import { contentHash } from "@/lib/hash";
 import { canonicalUrl, truncate } from "@/lib/text";
-import { buildSearchPrompt, SEARCH_PROMPT_VERSION, SEARCH_WINDOW_DAYS } from "@/prompts/search";
+import { buildJobsSearchPrompt, buildSearchPrompt, JOBS_WINDOW_DAYS, SEARCH_PROMPT_VERSION, SEARCH_WINDOW_DAYS } from "@/prompts/search";
 
 interface Found {
   title: string;
@@ -62,14 +62,15 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
     console.warn(`search: Gemini not configured (${(err as Error).message}); skipping`);
     return { runs: 0, found: 0, inserted: 0 };
   }
-  const minDate = new Date(now.getTime() - (SEARCH_WINDOW_DAYS + 2) * 86400_000);
+  const minNews = new Date(now.getTime() - (SEARCH_WINDOW_DAYS + 2) * 86400_000);
+  const minJobs = new Date(now.getTime() - (JOBS_WINDOW_DAYS + 2) * 86400_000);
   let found = 0;
   let inserted = 0;
   let runs = 0;
   for (const s of searches) {
     let res;
     try {
-      res = await pool.generateGrounded(buildSearchPrompt(s.query, now));
+      res = await pool.generateGrounded(s.kind === "jobs" ? buildJobsSearchPrompt(s.query, now) : buildSearchPrompt(s.query, now));
     } catch (err) {
       const stop = err instanceof GeminiError && err.kind !== "transient";
       console.warn(`search ${s.id}: failed (${(err as Error).message})${stop ? "; stopping searches for this run" : ""}`);
@@ -85,16 +86,16 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
         const url = await resolveRedirect(chunkUris[0]);
         if (!title || !url) continue;
         const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : null;
-        if (d && d < minDate) continue; // outside the window
+        if (d && d < (s.kind === "jobs" ? minJobs : minNews)) continue; // outside the window
         items.push({ title, publisher: publisher ?? "", date: d, summary: rest.join(" ").trim(), url: canonicalUrl(url) });
       }
     }
     let fresh = 0;
     for (const it of items) {
-      const body = truncate(`${it.summary}${it.publisher ? ` (${it.publisher})` : ""}`, 1000);
+      const body = truncate(`${s.kind === "jobs" ? "Job posting: " : ""}${it.summary}${it.publisher ? ` (${it.publisher})` : ""}`, 1000);
       const out = await db
         .insert(rawItems)
-        .values({ source: "gemini-search", url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
+        .values({ source: s.kind === "jobs" ? "gemini-jobs" : "gemini-search", url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
         .onConflictDoNothing({ target: rawItems.url })
         .returning({ id: rawItems.id });
       fresh += out.length;

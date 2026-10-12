@@ -51,6 +51,8 @@ export interface SearchConfig {
   /** What Ananya would type into Google. Gemini runs it with Google Search grounding. */
   query: string;
   enabled: boolean;
+  /** "news" (default): CSR news. "jobs": job postings for CSR / foundation / community roles. */
+  kind?: "news" | "jobs";
 }
 
 export interface AppConfig {
@@ -149,6 +151,11 @@ export const DEFAULT_CONFIG: AppConfig = {
     { id: "allocation", query: "company increases CSR budget education skilling crore", enabled: true },
     { id: "policy", query: "CSR rules amendment Ministry of Corporate Affairs Schedule VII", enabled: true },
     { id: "pune-schools", query: "CSR school dropouts Pune company foundation", enabled: true },
+    // Hiring radar: companies building CSR teams are planning programmes.
+    { id: "jobs-csr-manager", kind: "jobs", query: "CSR manager job India company foundation", enabled: true },
+    { id: "jobs-csr-mh", kind: "jobs", query: "CSR executive OR CSR lead job Pune Mumbai Maharashtra", enabled: true },
+    { id: "jobs-csr-south", kind: "jobs", query: "CSR programme manager job Bengaluru Hyderabad", enabled: true },
+    { id: "jobs-community", kind: "jobs", query: "community development OR social impact manager job corporate foundation India", enabled: true },
   ],
   sectors: [
     {
@@ -281,6 +288,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   // (timeout), education-news feeds (no CSR items pass the pre-filter).
   sources: [
     { id: "gemini-search", name: "Google Search (via Gemini)", url: "https://www.google.com/", type: "search", weight: 5, csrFocused: true, enabled: true },
+    { id: "gemini-jobs", name: "Job sites (via Google search)", url: "https://www.google.com/", type: "search", weight: 4, csrFocused: true, enabled: true },
     { id: "google-alerts", name: "Google Alerts", url: "imap://intake", type: "email", weight: 5, csrFocused: true, enabled: true },
     { id: "linkedin-email", name: "LinkedIn (email notifications)", url: "imap://intake", type: "email", weight: 4, csrFocused: false, enabled: true },
     { id: "email-intake", name: "Forwarded to the intake inbox", url: "imap://intake", type: "email", weight: 6, csrFocused: true, enabled: true },

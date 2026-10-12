@@ -119,6 +119,7 @@ export async function loadSectorSeasonality() {
 export interface UpcomingCycle {
   companyId: number;
   name: string;
+  domain: string | null;
   window: string;
   nextWindowStart: string;
   strength: "clear" | "mild" | "none";
@@ -135,7 +136,7 @@ export async function loadUpcomingCycles(opts: { focusOnly: boolean }): Promise<
   if (!hasDatabaseUrl()) return null;
   const db = await getDb();
   const rows = await db
-    .select({ id: companies.id, name: companies.canonicalName, s: companyStats })
+    .select({ id: companies.id, name: companies.canonicalName, domain: companies.domain, s: companyStats })
     .from(companyStats)
     .innerJoin(companies, eq(companies.id, companyStats.companyId))
     .where(
@@ -151,6 +152,7 @@ export async function loadUpcomingCycles(opts: { focusOnly: boolean }): Promise<
       return {
         companyId: r.id,
         name: r.name,
+        domain: r.domain,
         window: t.window ?? "",
         nextWindowStart: t.nextWindowStart ?? "",
         strength: t.strength,
@@ -186,4 +188,88 @@ export async function loadAnnouncementGrid(focusSectorIds: string[] | null) {
     by.set(y, row);
   }
   return [...by.entries()].sort((a, b) => a[0] - b[0]).map(([year, months]) => ({ year, months }));
+}
+
+export interface HiringPost {
+  itemId: number;
+  title: string;
+  url: string;
+  source: string;
+  date: Date;
+  company: string | null;
+  companyId: number | null;
+  domain: string | null;
+  geographies: string[];
+  why: string;
+}
+
+/** CSR / foundation / community job postings (csr_hiring) from all sources in the last `days`. */
+export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const since = new Date(Date.now() - days * 86400_000);
+  const rows = await db
+    .select({
+      itemId: rawItems.id,
+      title: rawItems.title,
+      url: rawItems.url,
+      source: rawItems.source,
+      publishedAt: rawItems.publishedAt,
+      fetchedAt: rawItems.fetchedAt,
+      companyName: sql<string | null>`${classifications.companies}[1]`,
+      geographies: classifications.geographies,
+      why: classifications.whyItMatters,
+      domain: classifications.companyDomain,
+      companyId: signals.companyId,
+    })
+    .from(classifications)
+    .innerJoin(rawItems, eq(rawItems.contentHash, classifications.contentHash))
+    .leftJoin(signals, eq(signals.itemId, rawItems.id))
+    .where(and(eq(classifications.signalType, "csr_hiring"), sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt}) >= ${since}`))
+    .orderBy(desc(sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt})`));
+  const seen = new Set<string>();
+  return rows
+    .filter((r) => (seen.has(r.url) ? false : (seen.add(r.url), true)))
+    .map((r) => ({
+      itemId: r.itemId,
+      title: r.title,
+      url: r.url,
+      source: r.source,
+      date: r.publishedAt ?? r.fetchedAt,
+      company: r.companyName,
+      companyId: r.companyId,
+      domain: r.domain,
+      geographies: r.geographies,
+      why: r.why,
+    }));
+}
+
+export interface CalendarEvent {
+  date: string; // ISO
+  companyId: number;
+  company: string;
+  title: string;
+  url: string;
+  kind: string | null;
+}
+
+/** Dated CSR announcements in one calendar year (for the calendar's past months). */
+export async function loadEventsForYear(year: number, focusSectorIds: string[] | null): Promise<CalendarEvent[] | null> {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const from = new Date(Date.UTC(year, 0, 1));
+  const to = new Date(Date.UTC(year + 1, 0, 1));
+  const rows = await db
+    .select({ at: companyNews.publishedAt, companyId: companyNews.companyId, company: companies.canonicalName, title: companyNews.title, url: companyNews.url, kind: companyNews.kind })
+    .from(companyNews)
+    .innerJoin(companies, eq(companies.id, companyNews.companyId))
+    .where(
+      and(
+        inArray(companyNews.kind, ANNOUNCEMENT_KINDS),
+        sql`${companyNews.publishedAt} >= ${from} and ${companyNews.publishedAt} < ${to}`,
+        focusSectorIds ? inArray(companyNews.sector, focusSectorIds) : undefined,
+      ),
+    )
+    .orderBy(companyNews.publishedAt);
+  return rows.map((r) => ({ date: r.at.toISOString(), companyId: r.companyId, company: r.company, title: r.title, url: r.url, kind: r.kind }));
 }

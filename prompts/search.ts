@@ -1,6 +1,7 @@
 /** Bump when the prompt changes. Stored in search_runs.model. */
-export const SEARCH_PROMPT_VERSION = "search-v1";
+export const SEARCH_PROMPT_VERSION = "search-v2";
 export const SEARCH_WINDOW_DAYS = 14;
+export const JOBS_WINDOW_DAYS = 14;
 
 /**
  * Asks Gemini to run the saved search on Google (grounding tool) and list what it found,
@@ -8,7 +9,7 @@ export const SEARCH_WINDOW_DAYS = 14;
  * source are dropped, so no URL ever comes from the model's own text.
  */
 export function buildSearchPrompt(query: string, today: Date): string {
-  return `Search Google for recent Indian news matching: ${query}
+  return `Always run Google searches before answering (try a few phrasings). Search Google for recent Indian news matching: ${query}
 
 Only include items published in the last ${SEARCH_WINDOW_DAYS} days (today is ${today.toISOString().slice(0, 10)}) that are about a company's or corporate foundation's CSR activity, a company looking for NGO partners, or a change to CSR rules in India.
 
@@ -16,4 +17,16 @@ List each item on its own line, exactly in this format, with nothing else before
 TITLE || PUBLISHER || YYYY-MM-DD || one-sentence summary
 
 If nothing relevant was published in the window, reply with exactly: NONE`;
+}
+
+/** Job-posting variant: CSR / foundation / community roles at companies in India. */
+export function buildJobsSearchPrompt(query: string, today: Date): string {
+  return `Always run Google searches before answering (try a few phrasings, e.g. with "hiring", "job", "careers", the city names). Search Google for job postings in India matching: ${query}
+
+Only include postings from the last ${JOBS_WINDOW_DAYS} days (today is ${today.toISOString().slice(0, 10)}) for CSR, corporate foundation, social impact, sustainability-CSR or community development roles at a company or its foundation (not at NGOs or government bodies). Job boards (LinkedIn Jobs, Naukri, Indeed, foundit) and company career pages are all fine.
+
+List each posting on its own line, exactly in this format, with nothing else before or after the list:
+ROLE at COMPANY || SITE || YYYY-MM-DD || city, and one sentence on what the role will do
+
+If nothing relevant was posted in the window, reply with exactly: NONE`;
 }
