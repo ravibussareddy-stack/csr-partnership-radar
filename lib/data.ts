@@ -132,8 +132,9 @@ export async function getImpactStats(): Promise<ImpactStats | null> {
     const since = new Date(Date.now() - 7 * 86400_000);
     const focus = (await sectorList()).flatMap((s) => s.portalSectors ?? []).map((s) => s.toLowerCase());
     const [[items], [drops], [tracked], [news], [pune]] = await Promise.all([
-      db.select({ n: count() }).from(rawItems).where(gte(rawItems.fetchedAt, since)),
-      db.select({ n: count() }).from(rawItems).where(sql`${rawItems.source} = 'pasted' and ${rawItems.fetchedAt} >= ${since}`),
+      // Demo samples are never counted (same rule as the Summary, Digest and email).
+      db.select({ n: count() }).from(rawItems).where(sql`${rawItems.fetchedAt} >= ${since} and not ${rawItems.isDemo}`),
+      db.select({ n: count() }).from(rawItems).where(sql`${rawItems.source} = 'pasted' and ${rawItems.fetchedAt} >= ${since} and not ${rawItems.isDemo}`),
       db.select({ n: count() }).from(companyStats),
       db.select({ n: count() }).from(companyNews),
       db

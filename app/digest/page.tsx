@@ -40,8 +40,10 @@ async function Home() {
   }
   const { signals, warm: warmCards } = home;
   const digest = { lastUpdated: home.lastUpdated };
-  const calls = signals.filter((s) => s.tier === "call_this_week").length;
-  const watch = signals.filter((s) => s.tier === "watch").length;
+  // Demo samples never count (the Summary and the Monday email use the same rule).
+  const real = signals.filter((s) => !s.isDemo);
+  const calls = real.filter((s) => s.tier === "call_this_week").length;
+  const watch = real.filter((s) => s.tier === "watch").length;
 
   return (
     <>

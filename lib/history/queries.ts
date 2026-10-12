@@ -238,7 +238,7 @@ export interface HiringPost {
   linkStatus: string | null;
 }
 
-/** CSR / foundation / community job postings (csr_hiring) from all sources in the last `days`. */
+/** CSR / foundation / community job postings (csr_hiring) from all sources in the last `days` (demo samples excluded). */
 export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
   if (!hasDatabaseUrl()) return null;
   const db = await getDb();
@@ -261,7 +261,7 @@ export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
     .from(classifications)
     .innerJoin(rawItems, eq(rawItems.contentHash, classifications.contentHash))
     .leftJoin(signals, eq(signals.itemId, rawItems.id))
-    .where(and(eq(classifications.signalType, "csr_hiring"), sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt}) >= ${since}`))
+    .where(and(eq(classifications.signalType, "csr_hiring"), eq(rawItems.isDemo, false), sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt}) >= ${since}`))
     .orderBy(desc(sql`coalesce(${rawItems.publishedAt}, ${rawItems.fetchedAt})`));
   const seen = new Set<string>();
   return rows

@@ -236,7 +236,7 @@ export function InsightBoard({
 
   const placeCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const i of signals) for (const p of i.places) m.set(p, (m.get(p) ?? 0) + 1);
+    for (const i of signals) if (!i.isDemo) for (const p of i.places) m.set(p, (m.get(p) ?? 0) + 1);
     return m;
   }, [signals]);
   const states = [...placeCounts].filter(([k]) => k.startsWith("state:")).sort((a, b) => b[1] - a[1]);
@@ -251,18 +251,21 @@ export function InsightBoard({
     !(hideRead && i.read) &&
     !(hideDemo && i.isDemo);
   const shownSignals = signals.filter(match);
+  const shownReal = shownSignals.filter((i) => !i.isDemo).length;
   const filtered = group !== "all" || tier !== "all" || sector !== "all" || Boolean(company) || place !== "all";
   const passing = new Set(shownSignals.map((i) => i.url).filter((u): u is string => Boolean(u)));
   const shownWarm = group === "all" || group === "news" ? warm.filter(match) : [];
-  const visible = signals.filter((s) => !(hideDemo && s.isDemo));
-  const counts = Object.fromEntries(groups.map((g) => [g.id, visible.filter((s) => s.groups.includes(g.id)).length]));
+  // Counts are real items only, whether or not demo samples are shown (same rule as every page).
+  const real = signals.filter((s) => !s.isDemo);
+  const counts = Object.fromEntries(groups.map((g) => [g.id, real.filter((s) => s.groups.includes(g.id)).length]));
+  const tierCounts = Object.fromEntries(TIERS.map((t) => [t.id, real.filter((s) => s.tier === t.id).length]));
 
   return (
     <div className="board">
       <div className="filter-bar glass" role="search">
         <div className="chips" aria-label="Source">
           <InfoTip text="Where each insight came from. News feeds: CSR news sites read automatically. Google search: your saved searches, job searches and Google Alerts. LinkedIn: your LinkedIn alert emails. Personal messages: anything pasted into the message drop or forwarded with [CSR-IN]." label="About sources" />
-          <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{visible.length}</b></button>
+          <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{real.length}</b></button>
           {groups.map((g) => (
             <button key={g.id} className={group === g.id ? "chip on" : "chip"} onClick={() => setGroup(g.id)} title={g.hint}>
               {g.label} <b>{counts[g.id] ?? 0}</b>
@@ -274,7 +277,7 @@ export function InsightBoard({
             <button className={tier === "all" ? "chip on" : "chip"} onClick={() => setTier("all")}>All tiers</button>
             {TIERS.map((t) => (
               <span key={t.id} className={`tier-chip tier-${t.id}${tier === t.id ? " on" : ""}`}>
-                <button className="chip" onClick={() => setTier(t.id)} aria-pressed={tier === t.id}>{t.label}</button>
+                <button className="chip" onClick={() => setTier(t.id)} aria-pressed={tier === t.id}>{t.label} <b>{tierCounts[t.id]}</b></button>
                 <InfoTip text={<><b>{t.label}:</b> {TIER_HELP[t.id]}</>} label={`What does ${t.label} mean?`} />
               </span>
             ))}
@@ -306,7 +309,7 @@ export function InsightBoard({
       )}
 
       <section aria-labelledby="h-week" className="section">
-        <h2 id="h-week" className="section-title">This week <span className="muted">· {shownSignals.length} insight{shownSignals.length === 1 ? "" : "s"}</span> <InfoTip text="New CSR signals from the last 7 days, highest score first. Each card ends in a decision (Call this week, Watch or Background) with the reason inside its breakdown." /></h2>
+        <h2 id="h-week" className="section-title">This week <span className="muted">· {shownReal} insight{shownReal === 1 ? "" : "s"}{shownSignals.length > shownReal ? ` + ${shownSignals.length - shownReal} demo` : ""}</span> <InfoTip text="New CSR signals from the last 7 days, highest score first. Each card ends in a decision (Call this week, Watch or Background) with the reason inside its breakdown." /></h2>
         {shownSignals.length === 0 ? (
           <p className="muted">Nothing matches these filters this week.</p>
         ) : (
