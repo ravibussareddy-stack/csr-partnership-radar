@@ -49,12 +49,19 @@ function windowStart(c: UpcomingCycle): number {
   return SHORT.indexOf(c.window.slice(0, 3)); // 0-based
 }
 
-function href(p: { y: number; m?: number; scope: string }) {
+function href(p: { y: number; m?: number; scope: string; geo?: string }) {
   const q = new URLSearchParams({ y: String(p.y) });
   if (p.m) q.set("m", String(p.m));
   if (p.scope === "all") q.set("scope", "all");
+  if (p.geo && p.geo !== "india") q.set("geo", p.geo);
   return `/calendar?${q.toString()}`;
 }
+
+const GEOS = [
+  { id: "india", label: "All India", help: "All companies with a recurring announcement window." },
+  { id: "maharashtra", label: "Maharashtra", help: "Only companies that reported CSR spend in Maharashtra in the latest National CSR Portal year." },
+  { id: "pune", label: "Pune district", help: "Only companies that reported CSR spend in Pune district in the latest National CSR Portal year." },
+] as const;
 
 /** Monday-first weeks for a month: arrays of day numbers (0 = padding). */
 function weeksOf(y: number, m0: number): number[][] {
@@ -71,6 +78,9 @@ function evidence(c: UpcomingCycle) {
 
 async function Calendar({ sp }: { sp: Record<string, string | string[] | undefined> }) {
   const scope = sp.scope === "all" ? "all" : "focus";
+  const geo = sp.geo === "pune" ? "pune" : sp.geo === "maharashtra" ? "maharashtra" : "india";
+  // Every link keeps the current geography unless it sets its own.
+  const link = (p: { y: number; m?: number; scope: string; geo?: string }): string => href({ geo, ...p });
   const nowIso = await getCachedNow();
   const now = new Date(nowIso);
   const thisY = now.getUTCFullYear();
@@ -78,7 +88,10 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
   const y = Math.min(thisY + 2, Math.max(2009, Number(sp.y) || thisY));
   const mParam = Number(sp.m);
   const month = mParam >= 1 && mParam <= 12 ? mParam - 1 : null;
-  const [cycles, events] = await Promise.all([getUpcomingCycles(scope === "focus"), getYearEvents(y, scope === "focus")]);
+  const [allCycles, events] = await Promise.all([getUpcomingCycles(scope === "focus"), getYearEvents(y, scope === "focus")]);
+  // Geography: where the company actually spends CSR (portal, latest year). Announcements in the
+  // past months are not filtered, because a news item rarely states where the money will go.
+  const cycles = allCycles?.filter((c) => geo === "india" || (geo === "pune" ? c.puneLastCr > 0 : c.maharashtraLastCr > 0));
   if (!cycles || !events) return <div className="notice glass"><h2>No history loaded</h2><p>Run the history scripts (see README).</p></div>;
 
   const rank = (c: UpcomingCycle) => (c.strength === "clear" ? 1e9 : 0) + c.yearsHit.length * 1e6 + c.predictedFocusCr;
@@ -91,17 +104,22 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
     <>
       <nav className="cal-controls glass" aria-label="Calendar navigation">
         <div className="chips">
-          <Link className="chip" href={month === null ? href({ y: y - 1, scope }) : href({ y: month === 0 ? y - 1 : y, m: month === 0 ? 12 : month, scope })} aria-label="Previous">‹</Link>
+          <Link className="chip" href={month === null ? link({ y: y - 1, scope }) : link({ y: month === 0 ? y - 1 : y, m: month === 0 ? 12 : month, scope })} aria-label="Previous">‹</Link>
           <strong className="cal-title">{month === null ? y : `${MONTHS[month]} ${y}`}</strong>
-          <Link className="chip" href={month === null ? href({ y: y + 1, scope }) : href({ y: month === 11 ? y + 1 : y, m: month === 11 ? 1 : month + 2, scope })} aria-label="Next">›</Link>
-          <Link className="chip" href={href({ y: thisY, m: month === null ? undefined : thisM + 1, scope })}>Today</Link>
+          <Link className="chip" href={month === null ? link({ y: y + 1, scope }) : link({ y: month === 11 ? y + 1 : y, m: month === 11 ? 1 : month + 2, scope })} aria-label="Next">›</Link>
+          <Link className="chip" href={link({ y: thisY, m: month === null ? undefined : thisM + 1, scope })}>Today</Link>
         </div>
         <div className="chips">
-          <Link className={month === null ? "chip on" : "chip"} href={href({ y, scope })}>Year</Link>
-          <Link className={month !== null ? "chip on" : "chip"} href={href({ y, m: (month ?? (y === thisY ? thisM : 0)) + 1, scope })}>Month</Link>
+          <Link className={month === null ? "chip on" : "chip"} href={link({ y, scope })}>Year</Link>
+          <Link className={month !== null ? "chip on" : "chip"} href={link({ y, m: (month ?? (y === thisY ? thisM : 0)) + 1, scope })}>Month</Link>
           <span className="sep" />
-          <Link className={scope === "focus" ? "chip on" : "chip"} href={href({ y, m: month === null ? undefined : month + 1, scope: "focus" })}>Your sectors</Link>
-          <Link className={scope === "all" ? "chip on" : "chip"} href={href({ y, m: month === null ? undefined : month + 1, scope: "all" })}>All sectors</Link>
+          <Link className={scope === "focus" ? "chip on" : "chip"} href={link({ y, m: month === null ? undefined : month + 1, scope: "focus" })}>Your sectors</Link>
+          <Link className={scope === "all" ? "chip on" : "chip"} href={link({ y, m: month === null ? undefined : month + 1, scope: "all" })}>All sectors</Link>
+          <span className="sep" />
+          {GEOS.map((g) => (
+            <Link key={g.id} className={geo === g.id ? "chip on" : "chip"} title={g.help} href={link({ y, m: month === null ? undefined : month + 1, scope, geo: g.id })}>{g.label}</Link>
+          ))}
+          <InfoTip text="Filters the companies likely to start an initiative by where they reported CSR spend in the latest National CSR Portal year (Maharashtra or Pune district). Past announcements are not filtered, because news rarely says where the money will be spent." />
         </div>
       </nav>
 
@@ -116,7 +134,7 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
             const current = y === thisY && m0 === thisM;
             const names = [...new Set(happened.map((e) => e.company))];
             return (
-              <Link key={name} href={href({ y, m: m0 + 1, scope })} className={`month-tile glass${current ? " current" : ""}${past ? " past" : ""}`}>
+              <Link key={name} href={link({ y, m: m0 + 1, scope })} className={`month-tile glass${current ? " current" : ""}${past ? " past" : ""}`}>
                 <div className="tile-head">
                   <span className="tile-name">{name}</span>
                   {SEASON[m0 + 1] && <span className="season">{SEASON[m0 + 1]}</span>}
@@ -143,7 +161,7 @@ async function Calendar({ sp }: { sp: Record<string, string | string[] | undefin
                     <span className="likely-label">Likely to start</span>
                     <ul>
                       {opens.slice(0, 3).map((c) => (
-                        <li key={c.companyId}><Logo name={c.name} domain={c.domain} size={20} /> <span>{c.name}</span></li>
+                        <li key={c.companyId}><Logo name={c.name} domain={c.domain} size={20} /> <span>{c.name}</span>{c.topSectors[0] && <span className={c.topSectors[0].focus ? "tile-sector focus" : "tile-sector"}>{c.topSectors[0].sector}</span>}</li>
                       ))}
                     </ul>
                     {opens.length > 3 && <span className="muted small">+{opens.length - 3} more</span>}
@@ -226,6 +244,11 @@ function MonthView({ y, m0, now, past, events, opens, during }: { y: number; m0:
                       <Link href={`/companies/${c.companyId}`} className="cue-company">{c.name}</Link>
                       <span className="muted small"> · <span className={`strength ${c.strength}`}>{c.strength}</span> · {evidence(c)}</span>
                       <span className="years">{c.activeYears.slice(-8).map((yy) => <span key={yy} className={`yr${hit.has(yy) ? " hit" : ""}`}>{yy}</span>)}</span>
+                      {c.topSectors.length > 0 && (
+                        <ul className="facts" aria-label="Where their CSR money goes (latest 3 years)">
+                          {c.topSectors.map((t) => <li key={t.sector} className={t.focus ? "fact fact-good" : "fact"}>{t.sector} {t.share}%</li>)}
+                        </ul>
+                      )}
                     </div>
                   </li>
                 );

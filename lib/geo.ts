@@ -63,3 +63,24 @@ export function placeKeys(geographies: string[]): string[] {
   }
   return [...out];
 }
+
+const title = (s: string) => s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
+/**
+ * Place keys for a company from where it actually spends CSR (National CSR Portal top states and
+ * districts). Used where the item itself has no location (contacts, announcement cycles).
+ */
+export function companyPlaceKeys(topStates: { state: string; amount: number }[] = [], topDistricts: { district: string; state: string; amount: number }[] = []): string[] {
+  const out = new Set<string>();
+  for (const s of topStates.filter((x) => x.amount > 0).slice(0, 4)) {
+    const p = normalisePlace(s.state);
+    if (p?.state) out.add(`state:${p.state}`);
+  }
+  for (const d of topDistricts.filter((x) => x.amount > 0 && !/pan india|not mentioned/i.test(x.district)).slice(0, 6)) {
+    const p = normalisePlace(d.district);
+    out.add(`city:${p?.city ?? title(d.district)}`);
+    const st = normalisePlace(d.state)?.state;
+    if (st) out.add(`state:${st}`);
+  }
+  return [...out];
+}

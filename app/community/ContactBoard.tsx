@@ -3,6 +3,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { updateContact } from "@/app/actions";
 import { Logo } from "@/app/components/Logo";
+import { PlaceSelect } from "@/app/components/PlaceSelect";
 
 export interface ContactCard {
   id: number;
@@ -18,6 +19,7 @@ export interface ContactCard {
   status: "new" | "reached_out" | "connected" | "failed" | "not_useful";
   notes: string | null;
   isDemo: boolean;
+  places: string[];
 }
 
 const COLUMNS = [
@@ -66,6 +68,7 @@ function Card({ c, onMove }: { c: ContactCard; onMove: (id: number, status: Cont
 export function ContactBoard({ initial }: { initial: ContactCard[] }) {
   const [items, setItems] = useState(initial.filter((c) => c.status !== "not_useful"));
   const [q, setQ] = useState("");
+  const [place, setPlace] = useState("all");
   const [msg, setMsg] = useState<string | null>(null);
   const [, start] = useTransition();
   const move = (id: number, status: ContactCard["status"], notes?: string) =>
@@ -74,7 +77,7 @@ export function ContactBoard({ initial }: { initial: ContactCard[] }) {
       if (!r.ok) return setMsg(r.needsUnlock ? "unlock" : (r.message ?? "Couldn't save."));
       setItems((xs) => (status === "not_useful" ? xs.filter((x) => x.id !== id) : xs.map((x) => (x.id === id ? { ...x, status, notes: notes ?? x.notes } : x))));
     });
-  const shown = items.filter((c) => !q || `${c.name} ${c.companyName ?? ""} ${c.title ?? ""}`.toLowerCase().includes(q.toLowerCase()));
+  const shown = items.filter((c) => (place === "all" || c.places.includes(place)) && (!q || `${c.name} ${c.companyName ?? ""} ${c.title ?? ""}`.toLowerCase().includes(q.toLowerCase())));
   const count = (s: string) => items.filter((c) => c.status === s).length;
   const reached = count("reached_out") + count("connected") + count("failed");
   return (
@@ -83,6 +86,7 @@ export function ContactBoard({ initial }: { initial: ContactCard[] }) {
         <li className="glass-chip"><b>{items.length}</b> people found</li>
         <li className="glass-chip"><b>{reached}</b> reached out</li>
         <li className="glass-chip"><b>{count("connected")}</b> connected{reached ? ` · ${Math.round((count("connected") / reached) * 100)}% of outreach` : ""}</li>
+        <li className="search-inline"><PlaceSelect keys={items.map((c) => c.places)} value={place} onChange={setPlace} label="Where their company funds CSR" /></li>
         <li className="search-inline"><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by name, company, title" aria-label="Filter contacts" /></li>
       </ul>
       {msg && <p className="cue-note">{msg === "unlock" ? <>Unlock first on <Link href="/inbox">People messages</Link> to save changes.</> : msg}</p>}

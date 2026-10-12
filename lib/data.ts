@@ -68,7 +68,10 @@ export async function getWarm() {
 export async function getSearches() {
   "use cache";
   tag();
-  return loadRecentSearches(new Date()).catch(() => []);
+  // Only searches that are still configured (retired or removed searches drop out of the panel).
+  const [runs, saved] = await Promise.all([loadRecentSearches(new Date()).catch(() => []), getSavedSearches()]);
+  const ids = new Set(saved.filter((s) => s.enabled).map((s) => s.id));
+  return runs.filter((r) => ids.has(r.searchId));
 }
 
 export async function getCompany(id: number) {
@@ -272,16 +275,21 @@ export async function getContacts() {
   if (!hasDatabaseUrl()) return [];
   const db = await getDb();
   const { contacts, companies: co } = await import("@/lib/db/schema");
-  return db
+  const { companyPlaceKeys } = await import("@/lib/geo");
+  const rows = await db
     .select({
       id: contacts.id, name: contacts.name, title: contacts.title, companyName: contacts.companyName, companyId: contacts.companyId,
       domain: co.domain, kind: contacts.kind, sourceUrl: contacts.sourceUrl, sourceTitle: contacts.sourceTitle, context: contacts.context,
       status: contacts.status, notes: contacts.notes, isDemo: contacts.isDemo, firstSeenAt: contacts.firstSeenAt, statusUpdatedAt: contacts.statusUpdatedAt,
+      stats: companyStats.data,
     })
     .from(contacts)
     .leftJoin(co, eq(co.id, contacts.companyId))
+    .leftJoin(companyStats, eq(companyStats.companyId, contacts.companyId))
     .orderBy(sql`${contacts.firstSeenAt} desc`)
     .limit(300);
+  // Where the person's company spends CSR (National CSR Portal), for the city / state filter.
+  return rows.map(({ stats, ...r }) => ({ ...r, places: stats ? companyPlaceKeys(stats.topStates, stats.topDistricts) : [] }));
 }
 
 export async function getRegulatory() {
@@ -289,4 +297,14 @@ export async function getRegulatory() {
   tag();
   const { loadRegulatory } = await import("@/lib/regulatory");
   return loadRegulatory(180);
+}
+
+export async function getPitchKit(companyId: number) {
+  "use cache";
+  tag();
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const { pitchKits } = await import("@/lib/db/schema");
+  const [k] = await db.select().from(pitchKits).where(eq(pitchKits.companyId, companyId));
+  return k ? { kit: k.data, at: k.createdAt.toISOString() } : null;
 }

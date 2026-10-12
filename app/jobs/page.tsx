@@ -1,14 +1,12 @@
 // Hiring radar: CSR / foundation / community job postings = companies building CSR teams (planning programmes).
 import { Suspense } from "react";
-import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { InfoTip } from "@/app/components/InfoTip";
-import { Logo } from "@/app/components/Logo";
 import { Icon, PageBackdrop, PeopleFrames } from "@/app/components/illustrations";
 import { getHiring } from "@/lib/data";
+import { JobsBoard } from "./JobsBoard";
 
 const SOURCE_NAMES = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
-const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 const PRIORITY = /pune|maharashtra|mumbai|thane|nashik|nagpur/i;
 
 export default function Page() {
@@ -62,38 +60,7 @@ async function Hiring() {
       </ul>
       <section className="section">
         <h2 className="section-title"><Icon name="people" /> Open roles <span className="muted">· Maharashtra first</span> <InfoTip text="Why hiring matters: a company recruiting a CSR manager or foundation lead is building or expanding its CSR team, usually ahead of new programmes and implementation partners. These are Watch-tier leads: note the company, then reach out once the role is filled." /></h2>
-        <div className="cue-grid">
-          {sorted.map((p) => {
-            const company = p.company ?? "Company not identified";
-            const multi = p.company ? (companies.get(p.company) ?? 1) : 1;
-            return (
-              <article key={p.itemId} className="cue tier-watch">
-                <header className="cue-head">
-                  <Logo name={company} domain={p.domain} />
-                  <div className="cue-who">
-                    {p.companyId ? <Link href={`/companies/${p.companyId}`} className="cue-company">{company}</Link> : <span className="cue-company">{company}</span>}
-                    <span className="cue-type">Hiring for CSR{multi > 1 ? ` · ${multi} roles` : ""}</span>
-                  </div>
-                  <span className="tier-pill tier-watch">Watch</span>
-                </header>
-                <h3 className="cue-title">{p.title}</h3>
-                <p className="cue-summary">{p.why}</p>
-                <footer className="cue-meta">
-                  <span>{dateFmt.format(p.date)}</span>
-                  <span className="src src-search">{SOURCE_NAMES.get(p.source) ?? p.source}</span>
-                  {p.geographies.slice(0, 2).map((g) => <span key={g} className="sector-dot">{g}</span>)}
-                </footer>
-                {p.url.startsWith("http") && (
-                  <div className="cue-links">
-                    <a className="pill-link" href={p.url} target="_blank" rel="noopener noreferrer">View posting ↗</a>
-                    {p.linkStatus === "unverified" && <span className="badge-warn" title="This job site doesn't allow automated checks; open the link to confirm it's still open">check link</span>}
-                    {p.linkStatus === "ok" && <span className="fact fact-good">link verified</span>}
-                  </div>
-                )}
-              </article>
-            );
-          })}
-        </div>
+        <JobsBoard posts={sorted} sourceNames={Object.fromEntries(SOURCE_NAMES)} />
       </section>
     </>
   );

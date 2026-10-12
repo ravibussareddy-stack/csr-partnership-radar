@@ -1,10 +1,12 @@
 // Company profile: 11-year CSR history (National CSR Portal), forecasts and announcement timing.
 import { Suspense } from "react";
 import Link from "next/link";
+import { InfoTip } from "@/app/components/InfoTip";
 import { fmtCr, StackedYearBars, YearMonthCalendar } from "@/app/components/charts";
 import { Hero, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
-import { getCachedNow, getCompany } from "@/lib/data";
+import { getCachedNow, getCompany, getPitchKit } from "@/lib/data";
+import { PitchKitView } from "@/app/components/PitchKitView";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 
 const KIND_LABELS: Record<string, string> = {
@@ -28,7 +30,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 }
 
 async function Company({ id }: { id: number }) {
-  const [data, nowIso] = await Promise.all([getCompany(id), getCachedNow()]);
+  const [data, nowIso, pitch] = await Promise.all([getCompany(id), getCachedNow(), getPitchKit(id)]);
   const now = new Date(nowIso);
   if (!data) {
     return (
@@ -52,6 +54,31 @@ async function Company({ id }: { id: number }) {
           : "No National CSR Portal history for this company (it may report under a different legal name, or spend under ₹1 cr)."}
         {company.aliases.length > 0 && ` Also known as ${company.aliases.join(", ")}.`}
       </Hero>
+
+      {d && d.sectorsRecent.length > 0 && (() => {
+        const total = d.sectorsRecent.reduce((a, x) => a + x.amount, 0) || 1;
+        const focus = d.sectorsRecent.filter((x) => x.focusId).reduce((a, x) => a + x.amount, 0);
+        return (
+          <section className="sector-focus glass card-pad" aria-label="Sector focus">
+            <p className="small">
+              <b>Sector focus</b> (share of CSR spend, last 3 reported years) · <b>{Math.round((focus / total) * 100)}%</b> in your sectors{" "}
+              <InfoTip text="From the National CSR Portal: how this company's reported CSR money split across development sectors over its last three reported financial years. Green chips are your focus sectors." />
+            </p>
+            <ul className="facts">
+              {d.sectorsRecent.slice(0, 8).map((x) => (
+                <li key={x.sector} className={x.focusId ? "fact fact-good" : "fact"}>{x.sector} {Math.round((x.amount / total) * 100)}%</li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
+
+      {pitch && (
+        <section className="section glass card-pad" aria-labelledby="h-pitch">
+          <h2 id="h-pitch" className="section-title">Pitch kit <span className="muted small">· researched {new Date(pitch.at).toISOString().slice(0, 10)}, every line sourced</span></h2>
+          <PitchKitView kit={pitch.kit} />
+        </section>
+      )}
 
       {d && p && (
         <>
