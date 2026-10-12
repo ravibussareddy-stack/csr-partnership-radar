@@ -8,7 +8,7 @@ import { updateTag } from "next/cache";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { RADAR_TAG } from "@/lib/data";
 import { getDb } from "@/lib/db/client";
-import { activity, comments, config, contacts, dashboardFeedback, feedback, memberTime, rawItems, signals, teamMembers } from "@/lib/db/schema";
+import { activity, comments, companies, config, contacts, dashboardFeedback, feedback, memberTime, rawItems, relationshipAlerts, relationships, signals, teamMembers } from "@/lib/db/schema";
 import { currentMember, hashPasscode, hasSession, signOut, type Member } from "@/lib/session";
 
 const SIGN_IN = "Sign in on the People messages page first.";
@@ -304,4 +304,88 @@ export async function removeSector(id: string): Promise<FeedbackResult> {
 
 export async function sessionInfo(): Promise<Member | null> {
   return (await hasSession()) ? currentMember() : null;
+}
+
+// ---------- relationships (existing funders / contracts; team-only) ----------
+
+export interface RelationshipInput {
+  id?: number;
+  companyName: string;
+  programme?: string;
+  sectors?: string[];
+  districts?: string[];
+  valueLakh?: number | null;
+  startDate?: string;
+  renewalDate?: string;
+  status?: string;
+  contactRole?: string;
+  notes?: string;
+}
+
+const REL_STATUS = new Set(["active", "renewal_due", "lapsed", "prospect"]);
+const isoDate = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
+
+/** Matches a typed company name to the National CSR Portal / news company list (exact key, then base name, then alias). */
+async function resolveCompanyId(name: string): Promise<number | null> {
+  const { baseKey, nameKey } = await import("@/lib/companies");
+  const db = await getDb();
+  const nk = nameKey(name);
+  const bk = baseKey(name);
+  const [exact] = await db.select({ id: companies.id }).from(companies).where(eq(companies.nameKey, nk)).limit(1);
+  if (exact) return exact.id;
+  const base = await db.select({ id: companies.id }).from(companies).where(eq(companies.baseKey, bk)).limit(2);
+  if (base.length === 1) return base[0].id;
+  const [alias] = await db.select({ id: companies.id }).from(companies).where(sql`${name.trim()} = any(${companies.aliases})`).limit(1);
+  return alias?.id ?? null;
+}
+
+export async function saveRelationship(input: RelationshipInput): Promise<FeedbackResult & { id?: number }> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  const companyName = input.companyName.trim().slice(0, 120);
+  if (companyName.length < 2) return { ok: false, message: "Add the company or foundation name." };
+  const values = {
+    companyName,
+    companyId: await resolveCompanyId(companyName),
+    programme: input.programme?.trim().slice(0, 200) || null,
+    sectors: (input.sectors ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 10),
+    districts: (input.districts ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 15),
+    valueLakh: input.valueLakh != null && Number.isFinite(input.valueLakh) && input.valueLakh >= 0 ? input.valueLakh : null,
+    startDate: isoDate(input.startDate),
+    renewalDate: isoDate(input.renewalDate),
+    status: (REL_STATUS.has(input.status ?? "") ? input.status : "active") as "active",
+    contactRole: input.contactRole?.trim().slice(0, 120) || null,
+    notes: input.notes?.trim().slice(0, 2000) || null,
+    updatedAt: new Date(),
+  };
+  const db = await getDb();
+  let id = input.id;
+  if (id) {
+    await db.update(relationships).set(values).where(eq(relationships.id, id));
+    await log(me.id, "relationship", `Updated the relationship with ${companyName}`);
+  } else {
+    const [row] = await db.insert(relationships).values({ ...values, createdBy: me.id }).returning({ id: relationships.id });
+    id = row.id;
+    await log(me.id, "relationship", `Added ${companyName} to current relationships`);
+    await dispatchIntake();
+  }
+  return { ok: true, id, message: values.companyId ? "Saved and matched to the company's CSR records." : "Saved. The company wasn't found in the CSR Portal records, so spend and timing checks are skipped; news and regulatory checks still run." };
+}
+
+export async function deleteRelationship(id: number): Promise<FeedbackResult> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  const db = await getDb();
+  const [r] = await db.select({ name: relationships.companyName }).from(relationships).where(eq(relationships.id, id));
+  await db.delete(relationships).where(eq(relationships.id, id));
+  if (r) await log(me.id, "relationship", `Removed the relationship with ${r.name}`);
+  return { ok: true };
+}
+
+export async function dismissAlert(id: number): Promise<FeedbackResult> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  const db = await getDb();
+  await db.update(relationshipAlerts).set({ dismissed: true }).where(eq(relationshipAlerts.id, id));
+  return { ok: true };
 }
