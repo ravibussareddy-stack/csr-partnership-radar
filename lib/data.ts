@@ -4,7 +4,7 @@
  * the end of each ingest workflow) refresh the tag immediately.
  */
 import { cacheLife, cacheTag } from "next/cache";
-import { count, eq, gte, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
 import { companyNews, companyStats, csrSpend, rawItems } from "@/lib/db/schema";
