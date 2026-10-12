@@ -197,6 +197,12 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = w.expansionMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (future CSR funder)`);
   }
+  // A new plant or office is a future CSR funder only where the NGO works: outside Pune / Maharashtra
+  // (a neighbouring state included) it is market context → Background.
+  if (signalType === "regional_expansion" && c && tier !== "background" && !(geo && (geo.id === "pune" || geo.id === "maharashtra"))) {
+    tier = "background";
+    parts.push("expansion outside Pune / Maharashtra → Background");
+  }
   if (signalType === "csr_hiring" && TIER_RANK[tier] > TIER_RANK[w.hiringMaxTier]) {
     tier = w.hiringMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (job post)`);
