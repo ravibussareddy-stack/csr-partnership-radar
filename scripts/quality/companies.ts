@@ -98,4 +98,7 @@ export async function mergeCompany(db: DB, fromId: number, toId: number) {
   const aliases = [...new Set([...(to.aliases ?? []), from.canonicalName, ...(from.aliases ?? [])])].filter((a) => a !== to.canonicalName);
   await db.update(companies).set({ aliases, domain: to.domain ?? from.domain }).where(eq(companies.id, toId));
   await db.delete(companies).where(eq(companies.id, fromId)); // company_news, company_stats, pitch kit of the old record cascade
+  // Old profile links keep working: /companies/<old id> redirects to the merged record.
+  await db.execute(sql`insert into model_metrics (key, data) values ('company-redirects', jsonb_build_object(${String(fromId)}::text, ${toId}::int))
+    on conflict (key) do update set data = model_metrics.data || excluded.data, updated_at = now()`);
 }

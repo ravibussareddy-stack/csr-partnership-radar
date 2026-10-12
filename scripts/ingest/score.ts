@@ -26,6 +26,9 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
   const sources = new Map(cfg.sources.map((s) => [s.id, s]));
 
   const companyIdx = await loadCompanyIndex(db);
+  // Companies that reported CSR spend in Maharashtra in their latest portal year (credible Pune pitch).
+  const mh = await db.execute(sql`select company_id from company_stats where (data->'byYear'->-1->>'maharashtra')::float > 0 or pune_last_cr > 0`);
+  const inMaharashtra = new Set((((mh as { rows?: unknown[] }).rows ?? (mh as unknown as unknown[])) as { company_id: number }[]).map((r) => r.company_id));
 
   // Feedback learning: what Ananya marked "not relevant" recently, by company / source / signal type.
   const fbSince = new Date(now.getTime() - cfg.scoringWeights.feedback.days * 86400_000);
@@ -73,6 +76,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
     const companyId = funder ? await resolveCompany(db, funder, companyIdx) : null;
     const r = scoreItem(
       {
+        companyInMaharashtra: companyId != null && inMaharashtra.has(companyId),
         feedback: {
           company: companyId ? (byCompany.get(companyId) ?? 0) : 0,
           source: bySource.get(item.source) ?? 0,
@@ -94,7 +98,9 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
               partners: cls.partners,
               programmeStartYear: cls.programmeStartYear,
               amountInrCrore: cls.amountInrCrore,
-              hasCompany: cls.companies.length > 0,
+              // A publisher alone (e.g. "Sportskeeda") is not a funder: counts as no company named.
+              hasCompany: Boolean(funder),
+              recommendedAction: cls.recommendedAction,
             }
           : null,
       },

@@ -1,5 +1,7 @@
 // Company profile: 11-year CSR history (National CSR Portal), forecasts and announcement timing.
 import { PageTransition } from "@/app/components/PageTransition";
+import { redirect } from "next/navigation";
+import { loadCompanyRedirect } from "@/lib/history/queries";
 import { Suspense } from "react";
 import Link from "next/link";
 import { InfoTip } from "@/app/components/InfoTip";
@@ -36,6 +38,9 @@ async function Company({ id }: { id: number }) {
   const [data, nowIso, pitch] = await Promise.all([getCompany(id), getCachedNow(), getPitchKit(id)]);
   const now = new Date(nowIso);
   if (!data) {
+    // Merged by the data-quality audit: send old links to the merged record.
+    const to = await loadCompanyRedirect(id);
+    if (to) redirect(`/companies/${to}`);
     return (
       <div className="notice">
         <h2>Company not found</h2>

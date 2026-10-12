@@ -16,7 +16,7 @@ const MESSAGES = 15;
 const LINKEDIN = 12;
 
 const MSG_TEMPLATES: { channel: string; text: (h: string, s: string, url: string) => string }[] = [
-  { channel: "whatsapp", text: (h, s, url) => `Fwd from the Pune NGO network group: ${h}. ${s} Worth a call? ${url}` },
+  { channel: "whatsapp", text: (h, s, url) => `Fwd from an NGO network group: ${h}. ${s} Worth a call? ${url}` },
   { channel: "whatsapp", text: (h, s, url) => `Saw this today, could fit our skilling work: ${h}\n${url}` },
   { channel: "telegram", text: (h, s, url) => `CSR update shared in the funders channel: ${h}. ${s} ${url}` },
   { channel: "sms", text: (h, _s, url) => `FYI ${h} ${url}` },

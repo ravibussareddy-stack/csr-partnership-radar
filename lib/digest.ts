@@ -201,17 +201,31 @@ export async function loadRecentSearches(now = new Date()): Promise<SearchRunSum
 }
 
 /**
- * One card per story: items about the same company with the same signal type within 3 days are the
- * same news from different outlets. The highest-scored one stays; the rest become "also reported by".
+ * One card per story: same company, same initiative (same signal type, or headlines sharing most of
+ * their distinctive words), within 3 days. Real articles stay primary; other outlets, alerts and
+ * pasted or demo copies become "also reported by", so every source is kept.
  */
+const STOP = new Set(["the", "and", "for", "with", "to", "of", "in", "on", "a", "an", "its", "launches", "launch", "csr", "india", "limited", "ltd", "foundation"]);
+const words = (s: string) => new Set(s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w)));
+function sameInitiative(a: DigestItem, b: DigestItem): boolean {
+  if (a.signalType === b.signalType) return true;
+  const x = words(a.headline ?? a.title);
+  const y = words(b.headline ?? b.title);
+  const common = [...x].filter((w) => y.has(w)).length;
+  return common / Math.max(1, Math.min(x.size, y.size)) >= 0.5;
+}
+
 function mergeSameStory(items: DigestItem[]): DigestItem[] {
   const out: DigestItem[] = [];
-  for (const it of items) {
-    const twin = it.companyId != null && !it.isDemo
-      ? out.find((o) => o.companyId === it.companyId && !o.isDemo && o.signalType === it.signalType && Math.abs(new Date(o.date).getTime() - new Date(it.date).getTime()) <= 3 * 86400_000)
-      : undefined;
-    if (twin) twin.alsoReported.push({ title: it.title, url: it.url, source: it.source });
+  // Real items first (by score), then demo / pasted copies, so a copy never becomes the primary card.
+  const ordered = [...items.filter((i) => !i.isDemo), ...items.filter((i) => i.isDemo)];
+  for (const it of ordered) {
+    const twin =
+      it.companyId != null
+        ? out.find((o) => o.companyId === it.companyId && Math.abs(new Date(o.date).getTime() - new Date(it.date).getTime()) <= 3 * 86400_000 && sameInitiative(o, it))
+        : undefined;
+    if (twin) twin.alsoReported.push({ title: it.isDemo ? `${it.title} (demo copy)` : it.title, url: it.url, source: it.source });
     else out.push(it);
   }
-  return out;
+  return out.sort((a, b) => b.score - a.score);
 }

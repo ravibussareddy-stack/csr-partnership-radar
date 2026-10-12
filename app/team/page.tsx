@@ -110,7 +110,11 @@ async function Body() {
             {quality.checks.map((c) => (
               <article key={c.id} className="glass card-pad dq">
                 <p className="small"><b>{c.label}</b></p>
-                <p className="dq-num"><b>{c.fixed}</b> fixed <span className="muted small">of {c.checked} checked</span></p>
+                {c.id.startsWith("consistency_") ? (
+                  <p className="dq-num">{c.found === 0 ? <><b>✓</b> passed</> : <><b>{c.found}</b> to review</>} <span className="muted small">· {c.checked} checked</span></p>
+                ) : (
+                  <p className="dq-num"><b>{c.fixed}</b> fixed <span className="muted small">of {c.checked} checked</span></p>
+                )}
                 {c.examples.length > 0 && <ul className="dq-ex">{c.examples.slice(0, 4).map((e) => <li key={e}>{e}</li>)}</ul>}
               </article>
             ))}

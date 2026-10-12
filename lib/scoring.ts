@@ -44,7 +44,11 @@ export interface ScoreInput {
     amountInrCrore?: number | null;
     /** false when the model found no company or foundation behind the item */
     hasCompany?: boolean;
+    /** v7: the analysis's own recommendation; only reach_out_now can be Call this week */
+    recommendedAction?: "reach_out_now" | "prepare" | "monitor" | "context" | null;
   } | null;
+  /** The company reported CSR spend in Maharashtra in its latest National CSR Portal year. */
+  companyInMaharashtra?: boolean;
 }
 
 export interface ScoreResult {
@@ -119,7 +123,9 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (outsideOnly) parts.push(`outside focus${outsideLabels.length ? `: ${outsideLabels.join(", ")}` : ""}`);
 
   // 4. Geography fit (highest-weighted match only)
-  const geo = c && c.geographies.length > 0 ? geoMatch(cfg, c.geographies) : geoMatch(cfg, [text]);
+  // Location points come only from the places the model extracted; the raw-text scan is used only for
+  // unclassified items (scanning text gave false bonuses, e.g. a forwarded message that mentioned Pune).
+  const geo = c ? (c.geographies.length > 0 ? geoMatch(cfg, c.geographies) : null) : geoMatch(cfg, [text]);
   if (geo) {
     score += geo.weight;
     parts.push(`${geo.label} +${geo.weight}`);
@@ -200,18 +206,30 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = "watch";
     parts.push("capped at Watch (no company named)");
   }
-  // Outside the NGO's region (places named, none in Pune / Maharashtra, not national). A company
-  // funding the NGO's sectors elsewhere is still a lead: pitch it a Pune programme. Only when the
-  // sector doesn't fit either is it capped (Watch), since then there is no angle to call about.
+  // Eligibility for Call this week. Every condition must hold; otherwise the item is at most Watch and
+  // the reason says which condition failed, so the tier always agrees with the analysis.
   const places = c?.geographies ?? [];
   const national = places.some((g) => /^(india|pan[- ]india|nationwide|national|across india|all india|multiple states)$/i.test(g.trim()));
-  const outOfRegion = Boolean(c) && places.length > 0 && !geo && !national && signalType !== "policy_change";
-  if (outOfRegion) {
-    if (sectorLabels.length > 0 && signalType !== "regional_expansion") {
-      parts.push(`outside your region (${places.slice(0, 2).join(", ")}): a chance to pitch a Pune programme`);
-    } else if (TIER_RANK[tier] > TIER_RANK[w.outOfRegionMaxTier ?? "watch"]) {
-      tier = w.outOfRegionMaxTier ?? "watch";
-      parts.push(`capped at ${TIER_LABELS[tier]} (outside your region: ${places.slice(0, 2).join(", ")})`);
+  const outOfRegion = Boolean(c) && places.length > 0 && !geo && !national;
+  const ACTION_LABEL = { reach_out_now: "reach out now", prepare: "prepare an introduction", monitor: "monitor", context: "context only" } as const;
+  if (c && signalType !== "policy_change") {
+    const action = c.recommendedAction ?? null;
+    if (action === "context" && tier !== "background") {
+      tier = "background";
+      parts.push("analysis: context only → Background");
+    } else if (tier === "call_this_week") {
+      const blockers: string[] = [];
+      if (action && action !== "reach_out_now") blockers.push(`analysis recommends “${ACTION_LABEL[action]}”`);
+      if (c.activelyPartnering !== "yes" && signalType !== "partner_search") blockers.push("no NGO partner route stated");
+      if (outOfRegion && !input.companyInMaharashtra) blockers.push(`outside your region (${places.slice(0, 2).join(", ")}) and no CSR spend in Maharashtra`);
+      if (blockers.length) {
+        tier = "watch";
+        parts.push(`not a call: ${blockers.join("; ")} → Watch`);
+      } else if (outOfRegion) {
+        parts.push(`outside your region (${places.slice(0, 2).join(", ")}), but they fund CSR in Maharashtra: pitch a Pune programme`);
+      }
+    } else if (outOfRegion && sectorLabels.length > 0 && input.companyInMaharashtra) {
+      parts.push(`outside your region (${places.slice(0, 2).join(", ")}), but they fund CSR in Maharashtra: pitch a Pune programme`);
     }
   }
   if (outsideOnly && TIER_RANK[tier] > TIER_RANK[w.outsideSectorMaxTier]) {

@@ -1,6 +1,6 @@
 /** One cue card's data (serialisable; built on the server, rendered/filtered on the client). */
 import type { DigestItem } from "@/lib/digest";
-import type { SourceGroup } from "@/lib/sources";
+import { sourceGroup, type SourceGroup } from "@/lib/sources";
 import type { WarmItem } from "@/lib/warm";
 import type { PitchKit, Quote, Tier } from "@/lib/db/schema";
 import { placeKeys } from "@/lib/geo";
@@ -28,6 +28,8 @@ export interface Insight {
   quotes: Quote[];
   pitch: PitchKit | null;
   alsoReported: { title: string; url: string; source: string }[];
+  /** every channel this story arrived through (primary + merged copies), for the source filter */
+  groups: SourceGroup[];
   date: string | null; // ISO
   sourceGroup: SourceGroup;
   sourceLabel: string;
@@ -79,6 +81,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     quotes: i.quotes,
     pitch: i.pitch,
     alsoReported: i.alsoReported.map((a) => ({ ...a, source: sourceNames.get(a.source) ?? a.source })),
+    groups: [...new Set([i.sourceGroup, ...i.alsoReported.map((a) => sourceGroup(a.source))])],
     date: new Date(i.date).toISOString(),
     sourceGroup: i.sourceGroup,
     sourceLabel: sourceNames.get(i.source) ?? i.source,
@@ -122,6 +125,7 @@ export function fromWarm(w: WarmItem): Insight {
     quotes: [],
     pitch: null,
     alsoReported: [],
+    groups: ["news"],
     url: w.activity.last?.url ?? null,
     summary: w.activity.last
       ? `${w.activity.count} announcement${w.activity.count === 1 ? "" : "s"} in your sectors in the last 12 months.${windowText ? ` ${windowText}.` : ""}`

@@ -18,7 +18,13 @@ import type { AppConfig } from "@/config/defaults";
  *     the concrete facts), denser key points; for policy items a status (confirmed / executed /
  *     inferred) and verbatim quotes from officials and experts.
  */
-export const PROMPT_VERSION = "classify-v6";
+export const PROMPT_VERSION = "classify-v7";
+
+/**
+ * v7: recommended_action, so the tier can never contradict the analysis (a card can't say "Call this
+ * week" while its own advice says "monitor"). Scoring only allows Call this week for reach_out_now.
+ */
+export const ACTION_VALUES = ["reach_out_now", "prepare", "monitor", "context"] as const;
 
 /**
  * The stored version also carries a short hash of the tracked sector ids, so adding a sector in the
@@ -86,6 +92,7 @@ const FIELDS = [
   "worth_it",
   "policy_status",
   "quotes",
+  "recommended_action",
   "confidence",
 ];
 
@@ -123,6 +130,7 @@ export function responseSchema(cfg: AppConfig) {
           required: ["speaker", "role", "quote"],
         },
       },
+      recommended_action: { type: "STRING", enum: [...ACTION_VALUES] },
       confidence: { type: "NUMBER" },
     },
     required: FIELDS,
@@ -179,6 +187,7 @@ export function classificationSchema(cfg: AppConfig) {
         )
         .transform((qs) => qs.slice(0, 5))
         .default([]),
+      recommended_action: z.enum(ACTION_VALUES).default("monitor"),
       confidence: z.number().min(0).max(1),
     })
     .transform((v) => {
@@ -239,6 +248,12 @@ Rules:
 - quotes: up to 3 statements by officials, regulators, ministers, CSR heads or industry experts, copied WORD FOR WORD from the text (verbatim, no paraphrase), with the speaker's name and role as given. Empty if the text has no direct quotes.
 - next_step: the job to be done this week, one concrete sentence addressed to the partnerships head (e.g. "Email the Bajaj Finance CSR team this week with the Pune youth-skilling outcomes deck; ask about their FY27 partner intake."). For context-only items, say what to watch for.
 - company_domain: the main company's official website domain (e.g. "bajajfinserv.in"), only if you are confident; otherwise null.
+- recommended_action, what the partnerships head should do (be strict; most items are not reach_out_now):
+  - "reach_out_now": a concrete reason to contact the company THIS WEEK about funding the NGO: an open call for NGO partners / proposals / EOI; or NEW or EXPANDED CSR money in the focus sectors that the company delivers through external NGOs or implementation partners, where the activity is in Pune or Maharashtra, nationwide, or the text gives a reason the company could fund in Pune (e.g. it operates there).
+  - "prepare": relevant and worth an introduction in the coming weeks, but not urgent (e.g. focus-sector CSR in another state with NGO partners, a company building its CSR team).
+  - "monitor": track only (in-house programmes, government or capex projects, completed batches, outside the focus sectors, no partner route).
+  - "context": background only.
+  why_it_matters, worth_it and next_step MUST agree with this choice (never "monitor" wording for reach_out_now, never "reach out now" wording for monitor).
 - confidence: 0 to 1, how sure you are about is_signal and signal_type.
 - The text may be in English, Hindi, Marathi or any other language. Write why_it_matters in English.
 

@@ -98,6 +98,8 @@ export const classifications = pgTable("classifications", {
   policyStatus: text("policy_status").$type<"confirmed" | "executed" | "inferred">(),
   // Verbatim quotes from officials / experts, kept only if found word for word in the text.
   quotes: jsonb("quotes").$type<Quote[]>().notNull().default([]),
+  // v7: reach_out_now / prepare / monitor / context. Only reach_out_now can be Call this week.
+  recommendedAction: text("recommended_action").$type<"reach_out_now" | "prepare" | "monitor" | "context">(),
   whyItMatters: text("why_it_matters").notNull().default(""),
   confidence: real("confidence").notNull(),
   // "<GEMINI_MODEL>@<PROMPT_VERSION>"
@@ -307,6 +309,8 @@ export interface PitchKit {
   proof: { text: string; url: string | null; checked?: boolean }[]; // sourced metrics / evidence only
   /** set by the data-quality audit once every line's source has been checked */
   auditedAt?: string;
+  /** 2 = source-quality rules applied (official / news sources for proof) */
+  auditVersion?: number;
 }
 
 /** Small key/value store for computed model metrics (forecast accuracy, correlations). */

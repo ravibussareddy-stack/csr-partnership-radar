@@ -109,6 +109,7 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
         nextStep: out.data.next_step || null,
         companyDomain: out.data.company_domain,
         headline: out.data.headline || null,
+        recommendedAction: out.data.recommended_action,
         worthIt: out.data.worth_it || null,
         policyStatus: out.data.signal_type === "policy_change" ? (out.data.policy_status ?? "inferred") : null,
         // Keep a quote only if it appears word for word in the item (no paraphrases or inventions).

@@ -24,6 +24,16 @@ export function forecastAmount(last3: [number, number, number]): Range {
   return { low: round(Math.min(low, mid)), mid: round(mid), high: round(Math.max(high, mid)) };
 }
 
+/**
+ * "Same as last year" forecast (persistence), with the last 3 years as the range. Used when the
+ * back-test shows it beats the weighted model (it did: 25.6% vs 28.3% median error on FY2024-25).
+ */
+export function forecastPersistence(last3: [number, number, number]): Range {
+  const [a, b, c] = last3;
+  const mid = c > 0 ? c : b > 0 ? b * 0.75 : a * 0.5;
+  return { low: round(Math.min(a, b, c, mid)), mid: round(mid), high: round(Math.max(a, b, c, mid)) };
+}
+
 /** Laplace-smoothed share of the last N FYs with spend in a sector: (k + 1) / (N + 2). */
 export function sectorOdds(yearsWithSpend: number, window: number): number {
   return round((yearsWithSpend + 1) / (window + 2), 2);

@@ -1,0 +1,1 @@
+ALTER TABLE "classifications" ADD COLUMN "recommended_action" text;

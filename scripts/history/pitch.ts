@@ -11,6 +11,7 @@ import { companies, pitchKits, relationships, signals, type PitchKit } from "@/l
 import { GeminiError, GeminiPool } from "@/lib/gemini";
 import { isPublisher } from "@/lib/publishers";
 import { pageMentions } from "@/lib/verify";
+import { sourceTier } from "@/lib/source-quality";
 import { PoliteFetcher } from "../ingest/robots";
 import { buildPitchPrompt, PITCH_PROMPT_VERSION } from "@/prompts/pitch";
 import { parseGrounded, resolveRedirect } from "../ingest/search";
@@ -54,7 +55,11 @@ async function main() {
       const url = await resolveRedirect(chunkUris[0]);
       if (!url) continue;
       // The cited page must name the company (grounding sometimes attaches a page about someone else).
-      if ((await pageMentions(url, [name, ...(aliasesOf.get(id) ?? [])], fetcher)) === false) continue;
+      const names = [name, ...(aliasesOf.get(id) ?? [])];
+      const tier = sourceTier(url, names);
+      if (tier === "low") continue; // review / listing / broker / social pages are not evidence
+      if (parts[0] === "PROOF" && tier !== "official" && tier !== "news") continue; // proof needs an official or news source
+      if ((await pageMentions(url, names, fetcher)) === false) continue;
       if (parts[0] === "WANTS" && parts[1]) kit.wants.push({ text: parts[1], url });
       else if (parts[0] === "NEWS" && parts[2]) kit.recentNews.push({ text: parts[2], url, date: /^\d{4}-\d{2}-\d{2}$/.test(parts[1]) ? parts[1] : null });
       else if (parts[0] === "PROOF" && parts[1] && /\d/.test(parts[1])) kit.proof.push({ text: parts[1], url }); // proof must contain a number
@@ -63,6 +68,7 @@ async function main() {
     kit.recentNews = kit.recentNews.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")).slice(0, 4);
     kit.proof = kit.proof.slice(0, 4);
     kit.auditedAt = new Date().toISOString();
+    kit.auditVersion = 2;
     if (!kit.wants.length && !kit.recentNews.length && !kit.proof.length) continue;
     await db
       .insert(pitchKits)

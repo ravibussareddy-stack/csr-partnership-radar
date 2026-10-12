@@ -405,3 +405,12 @@ export async function loadModelMetrics() {
     computedAt: string;
   } | null;
 }
+
+/** Where a merged company's old id now lives (data-quality audit merges), or null. */
+export async function loadCompanyRedirect(id: number): Promise<number | null> {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const [m] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, "company-redirects"));
+  const to = (m?.data as Record<string, number> | undefined)?.[String(id)];
+  return typeof to === "number" ? to : null;
+}

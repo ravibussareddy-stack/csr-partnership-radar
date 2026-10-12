@@ -225,7 +225,8 @@ export function InsightBoard({
   const [company, setCompany] = useState("");
   const [place, setPlace] = useState("all");
   const [hideRead, setHideRead] = useState(false);
-  const [hideDemo, setHideDemo] = useState(false);
+  // Demo samples are hidden by default so counts match the Summary (which never counts them).
+  const [hideDemo, setHideDemo] = useState(true);
   const sectorLabels = Object.fromEntries(sectors.map((s) => [s.id, s.label]));
   const companies = useMemo(
     () => [...new Set([...signals, ...warm].map((i) => i.company).filter((c): c is string => Boolean(c)))].sort(),
@@ -242,7 +243,7 @@ export function InsightBoard({
 
   const match = (i: Insight) =>
     (place === "all" || i.places.includes(place)) &&
-    (group === "all" || i.sourceGroup === group) &&
+    (group === "all" || i.groups.includes(group)) &&
     (tier === "all" || i.tier === tier) &&
     (sector === "all" || i.sectors.includes(sector)) &&
     (!company || (i.company ?? "").toLowerCase().includes(company.toLowerCase())) &&
@@ -252,14 +253,15 @@ export function InsightBoard({
   const filtered = group !== "all" || tier !== "all" || sector !== "all" || Boolean(company) || place !== "all";
   const passing = new Set(shownSignals.map((i) => i.url).filter((u): u is string => Boolean(u)));
   const shownWarm = group === "all" || group === "news" ? warm.filter(match) : [];
-  const counts = Object.fromEntries(groups.map((g) => [g.id, signals.filter((s) => s.sourceGroup === g.id).length]));
+  const visible = signals.filter((s) => !(hideDemo && s.isDemo));
+  const counts = Object.fromEntries(groups.map((g) => [g.id, visible.filter((s) => s.groups.includes(g.id)).length]));
 
   return (
     <div className="board">
       <div className="filter-bar glass" role="search">
         <div className="chips" aria-label="Source">
           <InfoTip text="Where each insight came from. News feeds: CSR news sites read automatically. Google search: your saved searches, job searches and Google Alerts. LinkedIn: your LinkedIn alert emails. Personal messages: anything pasted into the message drop or forwarded with [CSR-IN]." label="About sources" />
-          <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{signals.length}</b></button>
+          <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{visible.length}</b></button>
           {groups.map((g) => (
             <button key={g.id} className={group === g.id ? "chip on" : "chip"} onClick={() => setGroup(g.id)} title={g.hint}>
               {g.label} <b>{counts[g.id] ?? 0}</b>
@@ -289,7 +291,7 @@ export function InsightBoard({
           <input list="companies" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Filter by company" aria-label="Company" />
           <datalist id="companies">{companies.map((c) => <option key={c} value={c} />)}</datalist>
           <button className={hideRead ? "chip on" : "chip"} onClick={() => setHideRead(!hideRead)} aria-pressed={hideRead}>Hide read</button>
-          {signals.some((x) => x.isDemo) && <button className={hideDemo ? "chip on" : "chip"} onClick={() => setHideDemo(!hideDemo)} aria-pressed={hideDemo}>Hide demo</button>}
+          {signals.some((x) => x.isDemo) && <button className={hideDemo ? "chip" : "chip on"} onClick={() => setHideDemo(!hideDemo)} aria-pressed={!hideDemo} title="Labelled demo items built from real articles">{hideDemo ? `Show demo samples (${signals.filter((x) => x.isDemo).length})` : "Hide demo samples"}</button>}
           {(group !== "all" || tier !== "all" || sector !== "all" || company || place !== "all") && (
             <button className="chip clear" onClick={() => { setGroup("all"); setTier("all"); setSector("all"); setCompany(""); setPlace("all"); }}>Clear</button>
           )}

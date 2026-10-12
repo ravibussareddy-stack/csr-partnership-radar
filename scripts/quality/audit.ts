@@ -15,8 +15,10 @@ import { companies, contacts, modelMetrics, pitchKits, signals, type PitchKit } 
 import { GeminiPool } from "@/lib/gemini";
 import { isPublisher } from "@/lib/publishers";
 import { pageMentions } from "@/lib/verify";
+import { sourceTier } from "@/lib/source-quality";
 import { PoliteFetcher } from "../ingest/robots";
 import { linkCompanies } from "./companies";
+import { runConsistency } from "./consistency";
 
 export interface QualityCheck {
   id: string;
@@ -65,12 +67,23 @@ async function main() {
   let kitBad = 0;
   const kitEx: string[] = [];
   for (const k of kits) {
-    if (k.data.auditedAt || fetches >= MAX_FETCH) continue;
+    if ((k.data.auditedAt && k.data.auditVersion === 2) || fetches >= MAX_FETCH) continue;
     const names = [k.name, ...(k.aliases ?? [])];
-    const keep = async <T extends { url: string | null; text: string; checked?: boolean }>(rows: T[]) => {
+    const keep = async <T extends { url: string | null; text: string; checked?: boolean }>(rows: T[], proof = false) => {
       const out: T[] = [];
       for (const r of rows) {
         kitLines++;
+        // Source quality: drop review / listing / broker / social pages; proof needs official or news.
+        const tier = r.url ? sourceTier(r.url, names) : "low";
+        if (tier === "low" || (proof && tier !== "official" && tier !== "news")) {
+          kitBad++;
+          if (kitEx.length < 5) kitEx.push(`${k.name}: “${r.text.slice(0, 70)}…” cited ${r.url ? new URL(r.url).hostname : "no source"} (${tier === "low" ? "low-quality source" : "proof needs an official or news source"})`);
+          continue;
+        }
+        if (r.checked) {
+          out.push(r);
+          continue;
+        }
         if (!r.url || fetches >= MAX_FETCH) {
           out.push(r);
           continue;
@@ -86,10 +99,10 @@ async function main() {
       }
       return out;
     };
-    const data: PitchKit = { wants: await keep(k.data.wants), recentNews: await keep(k.data.recentNews), proof: await keep(k.data.proof), auditedAt: new Date().toISOString() };
+    const data: PitchKit = { wants: await keep(k.data.wants), recentNews: await keep(k.data.recentNews), proof: await keep(k.data.proof, true), auditedAt: new Date().toISOString(), auditVersion: 2 };
     await db.update(pitchKits).set({ data }).where(eq(pitchKits.companyId, k.id));
   }
-  checks.push({ id: "pitch_sources", label: "Pitch-kit lines citing a page about someone else", checked: kitLines, found: kitBad, fixed: kitBad, needsHuman: 0, examples: kitEx });
+  checks.push({ id: "pitch_sources", label: "Pitch-kit lines with a wrong-page or low-quality source", checked: kitLines, found: kitBad, fixed: kitBad, needsHuman: 0, examples: kitEx });
 
   // 4. Contact sources
   const todo = await db.select().from(contacts).where(and(isNull(contacts.sourceCheck), sql`${contacts.status} <> 'not_useful'`)).limit(Math.max(0, MAX_FETCH - fetches));
@@ -106,6 +119,11 @@ async function main() {
     }
   }
   checks.push({ id: "contact_sources", label: "Contacts whose source page doesn't name them", checked: todo.length, found: bad, fixed: bad, needsHuman: 0, examples: cEx });
+
+  // 5. End-to-end consistency of the digest (tier vs analysis, location bonus, funder, links…)
+  for (const c of await runConsistency(db)) {
+    checks.push({ id: `consistency_${c.id}`, label: `Rule: ${c.rule}`, checked: c.checked, found: c.violations.length, fixed: 0, needsHuman: c.violations.length, examples: c.violations.slice(0, 4) });
+  }
 
   const data = { ranAt: new Date().toISOString(), checks };
   await db.insert(modelMetrics).values({ key: "data-quality", data }).onConflictDoUpdate({ target: modelMetrics.key, set: { data, updatedAt: new Date() } });

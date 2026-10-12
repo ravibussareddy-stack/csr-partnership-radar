@@ -140,7 +140,7 @@ async function Planner({ sp }: { sp: Record<string, string | string[] | undefine
                 {metrics.forecast.medianAbsPctError != null && metrics.forecast.baselineMedianAbsPctError != null
                   ? metrics.forecast.medianAbsPctError < metrics.forecast.baselineMedianAbsPctError
                     ? "The forecast beats simply assuming last year repeats."
-                    : "The forecast does not beat 'same as last year' on typical error: treat amounts as a rough range."
+                    : "The weighted model did not beat 'same as last year', so the Radar now forecasts amounts as 'same as last year' (the method with the lower back-tested error), with the last 3 years as the range. Treat amounts as a rough guide; the timing windows are the stronger signal."
                   : ""}
               </p>
             </div>

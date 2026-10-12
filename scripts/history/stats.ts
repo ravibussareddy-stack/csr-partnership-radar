@@ -4,13 +4,13 @@
  * FYs, plus every company that appears in the digest. Safe to re-run any time.
  */
 import "../env";
-import { and, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import { loadConfig } from "@/lib/config";
 import { closeDb, getDb, type DB } from "@/lib/db/client";
 import { ANNOUNCEMENT_KINDS, companies, companyNews, companyStats, csrSpend, modelMetrics, signals } from "@/lib/db/schema";
 import { backtestForecast, backtestTiming, pearson, strength } from "@/lib/history/metrics";
-import { forecastAmount, round, sectorOdds, timingFrom } from "@/lib/history/predict";
+import { forecastAmount, forecastPersistence, round, sectorOdds, timingFrom } from "@/lib/history/predict";
 import type { CompanyStatsData, YearRow } from "@/lib/history/types";
 
 const MIN_RECENT_CR = Number(process.env.HISTORY_MIN_RECENT_CR ?? 1);
@@ -36,6 +36,12 @@ async function targetCompanyIds(db: DB, fromFy: number): Promise<number[]> {
 
 async function main() {
   const db = await getDb();
+  // Model selection: use whichever amount method won the last back-test (stored by the previous run).
+  const [prevRow] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, "insights"));
+  const prevF = (prevRow?.data as { forecast?: { medianAbsPctError: number | null; baselineMedianAbsPctError: number | null } } | undefined)?.forecast;
+  const prevErr = prevF?.medianAbsPctError != null && prevF.baselineMedianAbsPctError != null ? { model: prevF.medianAbsPctError, base: prevF.baselineMedianAbsPctError } : null;
+  const usePersistence = prevErr ? prevErr.base < prevErr.model : false;
+  console.log(`stats: amount forecast = ${usePersistence ? "same as last year (won the back-test)" : "weighted model"}`);
   const cfg = await loadConfig(db);
   const focusOf = focusLookup(cfg);
   const now = new Date();
@@ -131,8 +137,9 @@ async function main() {
         .map((y) => ({ ...y, total: round(y.total), focus: round(y.focus), maharashtra: round(y.maharashtra), pune: round(y.pune) }));
       const yr = (fy: number) => years.get(fy) ?? { total: 0, focus: 0, projects: 0 };
       const l3 = [lastFy - 2, lastFy - 1, lastFy].map(yr);
-      const total = forecastAmount([l3[0].total, l3[1].total, l3[2].total]);
-      const focus = forecastAmount([l3[0].focus, l3[1].focus, l3[2].focus]);
+      const fc = usePersistence ? forecastPersistence : forecastAmount;
+      const total = fc([l3[0].total, l3[1].total, l3[2].total]);
+      const focus = fc([l3[0].focus, l3[1].focus, l3[2].focus]);
       const projects = Math.round(0.2 * l3[0].projects + 0.3 * l3[1].projects + 0.5 * l3[2].projects);
 
       const data: CompanyStatsData = {
@@ -156,8 +163,9 @@ async function main() {
           total,
           focus,
           projects,
-          method:
-            "Weighted average of the last 3 reported FYs (20/30/50) adjusted by their growth rate (capped ±25%); range = lowest–highest of those 3 years, widened to include the estimate.",
+          method: usePersistence
+            ? `Same as the last reported FY (chosen because it beat the weighted model in the back-test: ${prevErr?.base}% vs ${prevErr?.model}% median error); range = lowest–highest of the last 3 FYs.`
+            : "Weighted average of the last 3 reported FYs (20/30/50) adjusted by their growth rate (capped ±25%); range = lowest–highest of those 3 years, widened to include the estimate.",
         },
         timing: (() => {
           const e = newsBy.get(companyId);
@@ -262,7 +270,7 @@ async function main() {
   ].map((p) => ({ ...p, strength: strength(p.r) }));
   await db
     .insert(modelMetrics)
-    .values({ key: "insights", data: { forecast, timing, correlations: pairs, computedAt: now.toISOString() }, updatedAt: now })
+    .values({ key: "insights", data: { forecast: { ...forecast, chosen: usePersistence ? "persistence" : "weighted" }, timing, correlations: pairs, computedAt: now.toISOString() }, updatedAt: now })
     .onConflictDoUpdate({ target: modelMetrics.key, set: { data: sql`excluded.data`, updatedAt: now } });
   console.log(`accuracy: forecast median error ${forecast.medianAbsPctError}% (baseline ${forecast.baselineMedianAbsPctError}%), within range ${forecast.withinRangePct}%, timing hit ${timing.hitRatePct}% vs ${timing.baselinePct}% baseline`);
   for (const p of pairs) console.log(`corr ${p.id}: r=${p.r} (n=${p.n}, ${p.strength})`);
