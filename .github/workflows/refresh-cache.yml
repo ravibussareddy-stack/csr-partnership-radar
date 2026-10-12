@@ -1,0 +1,19 @@
+name: Refresh site cache
+
+# Manual "refresh the live site now" (also a quick check that REVALIDATE_SECRET matches Vercel).
+on:
+  workflow_dispatch: {}
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: POST /api/revalidate
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+        run: |
+          if [ -z "$REVALIDATE_SECRET" ]; then echo "REVALIDATE_SECRET is not set in GitHub"; exit 1; fi
+          curl -fsS -X POST "${{ vars.SITE_URL || 'https://csr-partnership-radar-two.vercel.app' }}/api/revalidate" -H "x-revalidate-secret: $REVALIDATE_SECRET"
+          echo
+          echo "Cache refreshed."
