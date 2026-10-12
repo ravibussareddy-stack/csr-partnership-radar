@@ -44,6 +44,20 @@ I agree with the reviewer's central point: the hardest job is deciding which ann
 
 ---
 
+## 2b. Reviewer follow-ups (8.0/10)
+
+Code changes made after the 8.0/10 reassessment. Production is re-scored with the new rules by the daily ingest (00:30 UTC); the numbers below are the rules, not new measurements.
+
+| Follow-up | Change | Where |
+|---|---|---|
+| Summary and Digest counts disagreed (Digest showed 2 calls: a demo Bajaj Finserv pasted message was a call) | Demo items are excluded from **every** count: Digest header, tier / source / place chips, the week heading ("N insights + k demo" when samples are shown), impact stats (articles read, messages dropped) and the hiring list, matching the Summary and the email. Tier chips now show their counts. | `app/digest/page.tsx`, `app/components/InsightBoard.tsx`, `lib/data.ts`, `lib/history/queries.ts` |
+| "Call" mixed open calls with warm approaches | Every call is labelled **Open opportunity** (partner search: call for proposals, RFP, EOI; respond before it closes) or **Warm lead** (funds the sectors through NGOs; introduce the NGO now for the next cycle), derived from the signal type. Shown on cards, the Summary's Call panel, the Monday email and call alerts. | `callType()` in `lib/insights.ts` |
+| Watch was crowded with outside-focus items nobody would act on | Outside-focus items stay on Watch only when the analysis recommends **prepare**; **monitor / context** → Background, with the reason stated. | `lib/scoring.ts` |
+| Publisher guard too broad (Sportskeeda funding a STEM lab is a real funder) | A publisher is dropped as funder only when it is the **outlet that reported the item** (item URL host or feed source matches); wire agencies and aggregators always are. Scoring, the daily audit and the consistency check use the same rule. | `isReportingOutlet()` in `lib/publishers.ts`; `npm run test:publishers` |
+| No human-labelled measure of call quality | `npm run eval:sheet` exports ~30 recent real items (up to 10 calls, 10 watch, the rest background) with empty human-verdict columns (call / watch / background, open / warm, notes). `npm run eval` reports Call precision and recall, tier agreement with Cohen's kappa, the confusion matrix, Call-vs-Background contradictions and Open/Warm agreement. The labels are filled by a person, not by the system. | `evals/export-sheet.ts`, `evals/score.ts` |
+
+---
+
 ## 3. What works well (unchanged strengths)
 
 - Source-linked cards with a specific headline, "why it's worth your time", key points, a job to be done, and a **pitch kit** where every line links to a source.
@@ -79,6 +93,9 @@ Resolved during the final check: the Monday email was sent and received (W42), a
 npm run test:consistency     # 7 end-to-end rules against the live digest
 npm run test:joblinks        # job-link classifier tests
 npm run test:paste           # message splitting tests
+npm run test:publishers      # publisher-as-funder guard tests
+npm run eval:sheet           # export the 30-item labelling sheet (needs DATABASE_URL)
+npm run eval                 # score the filled sheet: Call precision, agreement, contradictions
 npm run notify -- --digest --preview=monday.html   # render the Monday email without sending
 ```
 
