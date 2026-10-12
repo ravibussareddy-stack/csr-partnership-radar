@@ -21,6 +21,8 @@ export interface Insight {
   summary: string;
   /** Why it is worth her time, with the concrete facts. */
   worthIt: string | null;
+  /** the analysis's recommendation (v7): only reach_out_now can be Call this week */
+  action: "reach_out_now" | "prepare" | "monitor" | "context" | null;
   /** "state:Maharashtra", "city:Pune" (for the geography filter). */
   places: string[];
   geographies: string[];
@@ -75,6 +77,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     url: i.url.startsWith("http") ? i.url : null,
     summary: i.whyItMatters ?? i.reason,
     worthIt: i.worthIt,
+    action: i.recommendedAction,
     places: placeKeys(i.geographies),
     geographies: i.geographies,
     policyStatus: i.policyStatus,
@@ -119,6 +122,7 @@ export function fromWarm(w: WarmItem): Insight {
     title: w.activity.last?.title ?? `${w.company}: active in your sectors`,
     originalTitle: null,
     worthIt: null,
+    action: null,
     places: [],
     geographies: [],
     policyStatus: null,

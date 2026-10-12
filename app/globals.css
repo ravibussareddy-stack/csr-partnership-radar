@@ -1146,3 +1146,4 @@ a.cue-company:hover { color: var(--accent); }
 .dq-num b { font-family: var(--font-display), sans-serif; font-size: 1.6rem; font-weight: 500; }
 .dq-ex { margin-left: 16px; font-size: 0.78rem; color: var(--muted); display: grid; gap: 3px; }
 .pitch-ok { color: var(--accent); font-weight: 700; font-size: 0.78rem; }
+.ov-introduce { margin-top: 8px; line-height: 1.6; }

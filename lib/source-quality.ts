@@ -22,10 +22,11 @@ export function sourceTier(url: string, companyNames: string[] = []): SourceTier
     return "low";
   }
   if (OFFICIAL.test(host)) return "official";
-  const base = compact(host.split(".")[0]);
+  // Any label of the host can be the company (bajajauto.com, investors.bajajauto.com, amns.in).
+  const labels = host.split(".").slice(0, -1).map(compact).filter((l) => l.length >= 3 && !["www", "investors", "investor", "ir", "csr", "about", "media", "news"].includes(l));
   const own = companyNames
     .map((n) => compact(n.replace(/\b(india|limited|ltd|private|pvt|foundation|group)\b/gi, "")))
-    .some((c) => c.length >= 3 && base.length >= 3 && (c.startsWith(base) || base.startsWith(c)));
+    .some((c) => c.length >= 3 && labels.some((b) => c.startsWith(b) || b.startsWith(c)));
   if (own) return "official";
   if (LOW.test(host)) return "low";
   if (NEWS.test(host)) return "news";

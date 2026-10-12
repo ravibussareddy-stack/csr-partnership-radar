@@ -32,6 +32,7 @@ export interface DigestItem {
   nextStep: string | null;
   headline: string | null;
   worthIt: string | null;
+  recommendedAction: "reach_out_now" | "prepare" | "monitor" | "context" | null;
   geographies: string[];
   policyStatus: "confirmed" | "executed" | "inferred" | null;
   quotes: Quote[];
@@ -87,6 +88,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         nextStep: classifications.nextStep,
         headline: classifications.headline,
         worthIt: classifications.worthIt,
+        recommendedAction: classifications.recommendedAction,
         geographies: classifications.geographies,
         policyStatus: classifications.policyStatus,
         quotes: classifications.quotes,
@@ -122,7 +124,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
     return {
       status: "ok",
       lastUpdated: last ? new Date(last) : null,
-      items: mergeSameStory(rows.map(({ sectors, keyPoints, nextStep, headline, worthIt, geographies, policyStatus, quotes, clsDomain, coDomain, itemId, ...r }) => {
+      items: mergeSameStory(rows.map(({ sectors, keyPoints, nextStep, headline, worthIt, recommendedAction, geographies, policyStatus, quotes, clsDomain, coDomain, itemId, ...r }) => {
         const c = r.classified;
         return {
           ...r,
@@ -130,6 +132,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           keyPoints: c ? (keyPoints ?? []) : [],
           nextStep: c ? (nextStep ?? null) : null,
           headline: c ? (headline ?? null) : null,
+          recommendedAction: c ? (recommendedAction ?? null) : null,
           worthIt: c ? (worthIt ?? null) : null,
           geographies: c ? (geographies ?? []) : [],
           policyStatus: c ? (policyStatus ?? null) : null,

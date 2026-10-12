@@ -45,7 +45,7 @@ function Panel({ n, title, tip, more, href, children }: { n: number; title: stri
 async function Overview() {
   const [data, stats, reg] = await Promise.all([getSummary(), getImpactStats(), getRegulatory()]);
   if (!data) return <div className="notice glass"><h2>No database configured</h2><p>Set DATABASE_URL and run npm run ingest.</p></div>;
-  const { calls, hiring, likelySoon } = data;
+  const { calls, introduce, hiring, likelySoon } = data;
   const regCounts = { executed: 0, confirmed: 0, inferred: 0 };
   for (const i of reg.items) regCounts[i.status]++;
 
@@ -71,16 +71,21 @@ async function Overview() {
       </header>
 
       <div className="ov-grid">
-        <Panel n={1} title="Call this week" tip={TIER_TIP} more={`All ${calls.length} in the digest`} href="/digest">
+        <Panel n={1} title="Call this week" tip={`${TIER_TIP} A call must pass every check: a named funder, an NGO partner route, Pune/Maharashtra or national (or a company already funding in Maharashtra), and the analysis itself recommending outreach now. "Introduce soon" are good leads that aren't urgent.`} more={`All in the digest`} href="/digest">
           {calls.length === 0 ? <p className="muted small">No calls this week.</p> : (
             <ul className="ov-list">
-              {calls.slice(0, 3).map((c) => (
+              {calls.slice(0, introduce.length ? 2 : 3).map((c) => (
                 <li key={c.key}>
                   <Logo name={c.company ?? "?"} domain={c.domain} size={26} />
                   <span><b>{c.company ?? "Company not named"}</b>: {c.title}<span className="muted small ov-clamp"> {c.worthIt ?? c.summary}</span></span>
                 </li>
               ))}
             </ul>
+          )}
+          {introduce.length > 0 && (
+            <p className="small ov-introduce">
+              <span className="fact fact-good">Introduce soon · {introduce.length}</span> {introduce.slice(0, 4).map((i) => i.company).filter(Boolean).join(", ")}
+            </p>
           )}
         </Panel>
 

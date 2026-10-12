@@ -213,6 +213,7 @@ export async function getYearEvents(year: number, focusOnly: boolean, geo: "indi
 
 export interface SummaryData {
   calls: import("@/lib/insights").Insight[];
+  introduce: import("@/lib/insights").Insight[];
   hiring: import("@/lib/history/queries").HiringPost[];
   likelySoon: (import("@/lib/history/queries").UpcomingCycle & { opensIn: number; inWindow: boolean })[];
   engagement: { action: string; reason: string | null; title: string; at: string }[];
@@ -230,6 +231,8 @@ export async function getSummary(): Promise<SummaryData | null> {
   const [digest, hiring, cycles] = await Promise.all([loadDigest(now), loadHiring(30), loadUpcomingCycles({ focusOnly: false })]);
   // Demo items are excluded from the overview's counts (they restate real stories already counted).
   const calls = digest.status === "ok" ? digest.items.filter((i) => i.tier === "call_this_week" && !i.isDemo).map((i) => fromDigest(i, sourceNames)) : [];
+  // Not urgent, but the analysis says an introduction is worth preparing (Watch tier, action "prepare").
+  const introduce = digest.status === "ok" ? digest.items.filter((i) => i.tier === "watch" && i.recommendedAction === "prepare" && !i.isDemo).map((i) => fromDigest(i, sourceNames)) : [];
 
   // Window open now, or opening within 30 days; spending in Pune / Maharashtra.
   const DAY = 86400_000;
@@ -254,6 +257,7 @@ export async function getSummary(): Promise<SummaryData | null> {
     .limit(8);
   return {
     calls,
+    introduce,
     hiring: (hiring ?? []).filter((h) => !["generic", "dead", "expired"].includes(h.linkStatus ?? "")).slice(0, 8),
     likelySoon,
     engagement: fb.map((f) => ({ action: f.action, reason: f.reason, title: f.title, at: f.at.toISOString() })),
