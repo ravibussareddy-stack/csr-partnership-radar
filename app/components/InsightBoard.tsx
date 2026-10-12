@@ -25,8 +25,8 @@ const TIERS = [
 
 export const TIER_HELP: Record<string, string> = {
   call_this_week: "A company is putting money into your sectors or looking for NGO partners RIGHT NOW (new programme, RFP, funding ramp-up near Pune), and it happened recently enough that a call this week can still change who gets the grant. Action: reach out before Friday.",
-  watch: "Relevant, but not urgent yet, or an early sign of a future opportunity: an ongoing programme, CSR outside your four sectors, a company hiring CSR staff, or a company opening a plant in Maharashtra. Action: track it and plan outreach for when it matures.",
-  background: "Context only: older or loosely related CSR activity that helps you read the market. Action: none this week.",
+  watch: "Relevant, but not urgent yet, or an early sign of a future opportunity: an ongoing programme, CSR outside your four sectors that is still worth an introduction, a company hiring CSR staff, or a company opening a plant in Maharashtra. Action: track it and plan outreach for when it matures.",
+  background: "Context only: older or loosely related CSR activity (including CSR outside your sectors that the analysis says to monitor) that helps you read the market. Action: none this week.",
 };
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });

@@ -236,6 +236,13 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = w.outsideSectorMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (outside focus)`);
   }
+  // Outside focus stays on Watch only when the analysis says an introduction is worth preparing;
+  // "monitor" / "context" outside her sectors is market context → Background.
+  const outsideAction = c?.recommendedAction ?? null;
+  if (outsideOnly && (outsideAction === "monitor" || outsideAction === "context") && tier !== "background") {
+    tier = "background";
+    parts.push(`outside focus, analysis: ${outsideAction === "monitor" ? "monitor" : "context only"} → Background`);
+  }
   if (!c && TIER_RANK[tier] > TIER_RANK[w.unclassifiedMaxTier]) {
     tier = w.unclassifiedMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (unclassified)`);

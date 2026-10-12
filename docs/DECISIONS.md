@@ -122,3 +122,9 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | Amount forecast = the method with the lower back-test error (now "same as last year"). | The weighted model lost (28.3% vs 25.6%); using it anyway would be knowingly worse. | Keeping the weaker model. |
 | Source-quality tiers; proof needs an official or news source. | A broker review site supported a ₹7.6 cr budget claim; an NGO needs evidence a funder would accept. | Accepting any page that mentions the company. |
 | A seven-rule consistency test runs daily and on demand. | The reviewer's defects were all rule violations that a test can catch before a person does. | Manual spot checks. |
+
+## Reviewer follow-ups (after the 8.0/10 reassessment)
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| Outside-focus items stay on **Watch** only when the analysis recommends "prepare"; "monitor" or "context" outside her four sectors → **Background**. | Watch filled up with CSR in health, environment etc. that nobody would act on; the analysis's own action already says whether an introduction is worth it. | Dropping outside-focus items entirely (loses the occasional company worth introducing a Pune programme to). |
