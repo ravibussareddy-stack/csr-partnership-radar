@@ -1,6 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { classifications, companies, feedback, itemResearch, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
+import { classifications, companies, feedback, itemResearch, rawItems, searchRuns, signals, type Quote, type SignalType, type Tier } from "@/lib/db/schema";
 import { sourceGroup, type SourceGroup } from "@/lib/sources";
 
 export const DIGEST_WINDOW_DAYS = 7;
@@ -30,6 +30,11 @@ export interface DigestItem {
   sectors: string[];
   keyPoints: string[];
   nextStep: string | null;
+  headline: string | null;
+  worthIt: string | null;
+  geographies: string[];
+  policyStatus: "confirmed" | "executed" | "inferred" | null;
+  quotes: Quote[];
   domain: string | null;
   sourceGroup: SourceGroup;
   channel: string | null;
@@ -76,6 +81,11 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         financialYear: classifications.financialYear,
         keyPoints: classifications.keyPoints,
         nextStep: classifications.nextStep,
+        headline: classifications.headline,
+        worthIt: classifications.worthIt,
+        geographies: classifications.geographies,
+        policyStatus: classifications.policyStatus,
+        quotes: classifications.quotes,
         clsDomain: classifications.companyDomain,
         coDomain: companies.domain,
         channel: rawItems.channel,
@@ -105,13 +115,18 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
     return {
       status: "ok",
       lastUpdated: last ? new Date(last) : null,
-      items: rows.map(({ sectors, keyPoints, nextStep, clsDomain, coDomain, itemId, ...r }) => {
+      items: rows.map(({ sectors, keyPoints, nextStep, headline, worthIt, geographies, policyStatus, quotes, clsDomain, coDomain, itemId, ...r }) => {
         const c = r.classified;
         return {
           ...r,
           sectors: c ? (sectors ?? []) : [],
           keyPoints: c ? (keyPoints ?? []) : [],
           nextStep: c ? (nextStep ?? null) : null,
+          headline: c ? (headline ?? null) : null,
+          worthIt: c ? (worthIt ?? null) : null,
+          geographies: c ? (geographies ?? []) : [],
+          policyStatus: c ? (policyStatus ?? null) : null,
+          quotes: c ? (quotes ?? []) : [],
           domain: coDomain ?? clsDomain ?? null,
           sourceGroup: sourceGroup(r.source),
           research: researchBy.get(itemId) ?? [],

@@ -2,7 +2,8 @@
 import type { DigestItem } from "@/lib/digest";
 import type { SourceGroup } from "@/lib/sources";
 import type { WarmItem } from "@/lib/warm";
-import type { Tier } from "@/lib/db/schema";
+import type { Quote, Tier } from "@/lib/db/schema";
+import { placeKeys } from "@/lib/geo";
 import { SIGNAL_LABELS } from "@/lib/scoring";
 import { OTHER_SECTORS } from "@/prompts/classify";
 
@@ -14,8 +15,17 @@ export interface Insight {
   companyId: number | null;
   domain: string | null;
   title: string;
+  /** The original article title when a more specific AI headline is shown as the title. */
+  originalTitle: string | null;
   url: string | null;
   summary: string;
+  /** Why it is worth her time, with the concrete facts. */
+  worthIt: string | null;
+  /** "state:Maharashtra", "city:Pune" (for the geography filter). */
+  places: string[];
+  geographies: string[];
+  policyStatus: "confirmed" | "executed" | "inferred" | null;
+  quotes: Quote[];
   date: string | null; // ISO
   sourceGroup: SourceGroup;
   sourceLabel: string;
@@ -55,9 +65,15 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     company: i.company,
     companyId: i.companyId,
     domain: i.domain,
-    title: i.title,
+    title: i.headline || i.title,
+    originalTitle: i.headline && i.headline !== i.title ? i.title : null,
     url: i.url.startsWith("http") ? i.url : null,
     summary: i.whyItMatters ?? i.reason,
+    worthIt: i.worthIt,
+    places: placeKeys(i.geographies),
+    geographies: i.geographies,
+    policyStatus: i.policyStatus,
+    quotes: i.quotes,
     date: new Date(i.date).toISOString(),
     sourceGroup: i.sourceGroup,
     sourceLabel: sourceNames.get(i.source) ?? i.source,
@@ -93,6 +109,12 @@ export function fromWarm(w: WarmItem): Insight {
     companyId: w.companyId,
     domain: w.domain,
     title: w.activity.last?.title ?? `${w.company}: active in your sectors`,
+    originalTitle: null,
+    worthIt: null,
+    places: [],
+    geographies: [],
+    policyStatus: null,
+    quotes: [],
     url: w.activity.last?.url ?? null,
     summary: w.activity.last
       ? `${w.activity.count} announcement${w.activity.count === 1 ? "" : "s"} in your sectors in the last 12 months.${windowText ? ` ${windowText}.` : ""}`

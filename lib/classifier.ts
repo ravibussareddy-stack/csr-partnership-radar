@@ -3,7 +3,7 @@ import { GeminiError, type GeminiPool } from "@/lib/gemini";
 import {
   buildPrompt,
   classificationSchema,
-  PROMPT_VERSION,
+  promptVersion,
   responseSchema,
   type Classification,
 } from "@/prompts/classify";
@@ -49,7 +49,7 @@ export async function classifyItem(
         lastProblem = `schema mismatch: ${v.error.issues[0]?.path.join(".")} ${v.error.issues[0]?.message}`;
         continue;
       }
-      return { ok: true, data: v.data, keyLabel: res.keyLabel, model: `${res.model}@${PROMPT_VERSION}` };
+      return { ok: true, data: v.data, keyLabel: res.keyLabel, model: `${res.model}@${promptVersion(cfg)}` };
     } catch (err) {
       if (err instanceof GeminiError) {
         const stopRun = err.kind === "all_keys_exhausted" || err.kind === "no_keys" || err.kind === "fatal";

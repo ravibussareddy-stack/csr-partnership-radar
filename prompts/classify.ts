@@ -14,8 +14,24 @@ import type { AppConfig } from "@/config/defaults";
  * v4: adds key_points (3-5 bullets), next_step (the job to be done for the partnerships head)
  *     and company_domain (official website domain, for logos).
  * v5: never take the news publisher / website (e.g. from Google Alerts snippets) for the company.
+ * v6: specific headline (who · what · where · how much), worth_it (why it deserves her time, with
+ *     the concrete facts), denser key points; for policy items a status (confirmed / executed /
+ *     inferred) and verbatim quotes from officials and experts.
  */
-export const PROMPT_VERSION = "classify-v5";
+export const PROMPT_VERSION = "classify-v6";
+
+/**
+ * The stored version also carries a short hash of the tracked sector ids, so adding a sector in the
+ * app re-classifies the lookback window once with the new sector available.
+ */
+export function promptVersion(cfg: AppConfig): string {
+  const ids = cfg.sectors.map((s) => s.id).sort().join(",");
+  let h = 0;
+  for (const ch of ids) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `${PROMPT_VERSION}.s${h.toString(36)}`;
+}
+
+export const POLICY_STATUS_VALUES = ["confirmed", "executed", "inferred"] as const;
 
 export const SIGNAL_TYPE_VALUES = [
   "new_initiative",
@@ -66,6 +82,10 @@ const FIELDS = [
   "key_points",
   "next_step",
   "company_domain",
+  "headline",
+  "worth_it",
+  "policy_status",
+  "quotes",
   "confidence",
 ];
 
@@ -92,6 +112,17 @@ export function responseSchema(cfg: AppConfig) {
       key_points: { type: "ARRAY", items: { type: "STRING" } },
       next_step: { type: "STRING" },
       company_domain: { type: "STRING", nullable: true },
+      headline: { type: "STRING" },
+      worth_it: { type: "STRING" },
+      policy_status: { type: "STRING", enum: [...POLICY_STATUS_VALUES], nullable: true },
+      quotes: {
+        type: "ARRAY",
+        items: {
+          type: "OBJECT",
+          properties: { speaker: { type: "STRING" }, role: { type: "STRING" }, quote: { type: "STRING" } },
+          required: ["speaker", "role", "quote"],
+        },
+      },
       confidence: { type: "NUMBER" },
     },
     required: FIELDS,
@@ -133,6 +164,13 @@ export function classificationSchema(cfg: AppConfig) {
         .toLowerCase()
         .nullable()
         .transform((d) => (d && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "")) ? d.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "") : null)),
+      headline: z.string().trim().max(200).default(""),
+      worth_it: z.string().trim().max(400).default(""),
+      policy_status: z.enum(POLICY_STATUS_VALUES).nullable().default(null),
+      quotes: z
+        .array(z.object({ speaker: z.string().trim().min(2).max(100), role: z.string().trim().max(150), quote: z.string().trim().min(10).max(600) }))
+        .max(5)
+        .default([]),
       confidence: z.number().min(0).max(1),
     })
     .transform((v) => {
@@ -186,7 +224,11 @@ Rules:
 - amount_inr_crore: the main CSR amount in crore rupees (1 crore = 100 lakh; convert lakh to crore), else null.
 - financial_year: the financial year the amount or activity refers to, as "FY2025-26", else null.
 - why_it_matters: one sentence (under 30 words) for the partnerships head: what happened and whether it is a near-term opportunity, a long-term relationship lead, or context only.
-- key_points: 3 to 5 short bullet facts from the text a partnerships head needs: who, what, where, how much, with whom, timeline. No speculation.
+- headline: a specific headline in English, under 20 words: who · what · where · how much / how many. Example: "Bajaj Finance commits ₹12 cr to train 5,000 Pune youth in BFSI skills with 3 NGOs". Never generic ("Company launches CSR initiative").
+- worth_it: 1-2 sentences on why this deserves her time, citing the concrete facts that make it so: the amount, the scale (beneficiaries, schools, districts), the location vs Pune/Maharashtra, whether they fund external NGOs, a deadline, a named contact, a funding cycle. If it is weak or context only, say plainly why (e.g. "Health CSR in Odisha by an own foundation: no partner opening").
+- key_points: 3 to 5 bullet facts, each carrying at least one SPECIFIC detail from the text (a number, ₹ amount, place, date, programme name, partner, beneficiary group, eligibility, deadline, contact role). Do not write generic points like "focuses on education" or "aims to empower communities". No speculation; fewer points if the text has fewer facts.
+- policy_status (policy_change items only, else null): "executed" = in force or being implemented (notified with an effective date that has passed, or already applied); "confirmed" = officially announced, notified or published by the government or regulator (MCA, SEBI, a ministry, the Gazette) but not yet in effect; "inferred" = a draft, consultation, committee recommendation, budget speech hint, debate, expert opinion or media report of what may happen.
+- quotes: up to 3 statements by officials, regulators, ministers, CSR heads or industry experts, copied WORD FOR WORD from the text (verbatim, no paraphrase), with the speaker's name and role as given. Empty if the text has no direct quotes.
 - next_step: the job to be done this week, one concrete sentence addressed to the partnerships head (e.g. "Email the Bajaj Finance CSR team this week with the Pune youth-skilling outcomes deck; ask about their FY27 partner intake."). For context-only items, say what to watch for.
 - company_domain: the main company's official website domain (e.g. "bajajfinserv.in"), only if you are confident; otherwise null.
 - confidence: 0 to 1, how sure you are about is_signal and signal_type.

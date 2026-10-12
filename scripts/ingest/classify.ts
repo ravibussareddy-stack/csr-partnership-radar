@@ -4,7 +4,7 @@ import { classifyItem } from "@/lib/classifier";
 import type { DB } from "@/lib/db/client";
 import { classifications, rawItems } from "@/lib/db/schema";
 import { GeminiPool, loadKeys } from "@/lib/gemini";
-import { PROMPT_VERSION } from "@/prompts/classify";
+import { promptVersion } from "@/prompts/classify";
 
 export interface ClassifyStats {
   attempted: number;
@@ -25,7 +25,8 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
   };
   const since = new Date(Date.now() - cfg.scoringWeights.lookbackDays * 86400_000);
   const inWindow = or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since)));
-  const current = `%@${PROMPT_VERSION}`;
+  const version = promptVersion(cfg);
+  const current = `%@${version}`;
 
   // Prompt upgrade: items in the window classified under an older prompt version are
   // queued once more (the cache is per content hash AND prompt version).
@@ -35,7 +36,7 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
     .innerJoin(classifications, eq(classifications.contentHash, rawItems.contentHash))
     .where(and(eq(rawItems.prefilterPassed, true), inWindow, not(like(classifications.model, current))));
   if (stale.length > 0) {
-    console.log(`classify: ${stale.length} items classified under an older prompt; re-classifying with ${PROMPT_VERSION}`);
+    console.log(`classify: ${stale.length} items classified under an older prompt; re-classifying with ${version}`);
     await db.update(rawItems).set({ classifyStatus: "pending" }).where(inArray(rawItems.id, stale.map((r) => r.id)));
   }
 
@@ -46,7 +47,8 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
       and(
         eq(rawItems.prefilterPassed, true),
         inArray(rawItems.classifyStatus, ["pending", "unclassified"]),
-        inWindow,
+        // Regulatory searches look back further (rules move slowly), so classify them when freshly fetched.
+        or(inWindow, and(like(rawItems.searchId, "policy%"), gte(rawItems.fetchedAt, since))),
       ),
     )
     .orderBy(asc(rawItems.id));
@@ -106,6 +108,11 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
         keyPoints: out.data.key_points,
         nextStep: out.data.next_step || null,
         companyDomain: out.data.company_domain,
+        headline: out.data.headline || null,
+        worthIt: out.data.worth_it || null,
+        policyStatus: out.data.signal_type === "policy_change" ? (out.data.policy_status ?? "inferred") : null,
+        // Keep a quote only if it appears word for word in the item (no paraphrases or inventions).
+        quotes: out.data.quotes.filter((q) => normalise(`${item.title} ${item.body}`).includes(normalise(q.quote))),
         whyItMatters: out.data.why_it_matters,
         confidence: out.data.confidence,
         model: out.model,
@@ -131,4 +138,8 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
     }
   }
   return stats;
+}
+
+function normalise(s: string): string {
+  return s.toLowerCase().replace(/[“”"‘’'`]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
