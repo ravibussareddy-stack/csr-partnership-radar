@@ -50,8 +50,8 @@ async function Body() {
       <ul className="impact">
         <li className="glass-chip"><b>{rels.filter((r) => r.status !== "lapsed").length}</b> current relationships</li>
         {total > 0 && <li className="glass-chip"><b>₹{total.toLocaleString("en-IN")} lakh</b> under contract</li>}
-        <li className="glass-chip"><b>{rels.filter((r) => r.health === "risk").length}</b> at risk</li>
-        <li className="glass-chip"><b>{rels.filter((r) => r.health === "opportunity").length}</b> with an opportunity</li>
+        <li className="glass-chip"><b>{rels.filter((r) => r.alerts.some((a) => a.level === "risk")).length}</b> at risk</li>
+        <li className="glass-chip"><b>{rels.filter((r) => r.alerts.some((a) => a.level === "opportunity")).length}</b> with an opportunity</li>
         <li className="glass-chip"><b>{soon.length}</b> renewals in 90 days</li>
       </ul>
 

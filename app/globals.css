@@ -1015,10 +1015,10 @@ a.cue-company:hover { color: var(--accent); }
 .sector-focus { margin-bottom: 18px; display: grid; gap: 8px; }
 
 /* summary overview (one page) */
-.ov-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 22px 26px; margin-bottom: 16px; border-radius: 28px; }
+.ov-head { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 1.6fr); gap: 18px; align-items: center; padding: 22px 26px; margin-bottom: 16px; border-radius: 28px; }
 .ov-head.skeleton { min-height: 160px; }
 .ov-head .greeting { font-size: clamp(1.8rem, 3.4vw, 2.6rem); margin: 4px 0 6px; }
-.ov-stats { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; min-width: min(100%, 560px); }
+.ov-stats { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); gap: 8px; }
 .ov-stats li { display: grid; padding: 10px 12px; border-radius: 16px; background: var(--glass-strong); }
 .ov-stats b { font-family: var(--font-display), sans-serif; font-size: 1.5rem; font-weight: 500; line-height: 1.1; }
 .ov-stats span { font-size: 0.74rem; color: var(--muted); }

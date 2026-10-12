@@ -36,8 +36,14 @@ export async function runRelationshipWatch(db: DB, opts: { onlyNew?: boolean } =
   for (const rel of rels) {
     const out: AlertIn[] = [...(await deterministic(db, rel)), ...(pool ? await assessed(db, pool, rel) : [])];
     for (const a of out) {
-      const r = await db.insert(relationshipAlerts).values({ ...a, relationshipId: rel.id }).onConflictDoNothing().returning({ id: relationshipAlerts.id });
-      alerts += r.length;
+      // Calculated alerts (renewal, spend) refresh their wording each run as dates and data move;
+      // AI-assessed and hiring alerts keep their first text.
+      const recalc = a.kind === "renewal" || a.kind === "spend_change";
+      const q = db.insert(relationshipAlerts).values({ ...a, relationshipId: rel.id });
+      const r = recalc
+        ? await q.onConflictDoUpdate({ target: [relationshipAlerts.relationshipId, relationshipAlerts.key], set: { title: a.title, impact: a.impact, reasoning: a.reasoning, level: a.level } }).returning({ id: relationshipAlerts.id, at: relationshipAlerts.createdAt })
+        : await q.onConflictDoNothing().returning({ id: relationshipAlerts.id, at: relationshipAlerts.createdAt });
+      alerts += r.filter((x) => Date.now() - x.at.getTime() < 60_000).length;
     }
     await db.update(relationships).set({ lastCheckedAt: new Date() }).where(eq(relationships.id, rel.id));
   }
@@ -55,25 +61,25 @@ async function deterministic(db: DB, rel: Rel): Promise<AlertIn[]> {
     if (days <= 180 && days >= -60) {
       const bucket = days < 0 ? "past" : days <= 60 ? "60" : "180";
       const t = st?.data.timing;
-      const windowText =
-        t?.window && t.nextWindowStart && t.basis === "company"
-          ? ` Their CSR announcements cluster in ${t.window} (in ${t.recurrence.yearsHit.length} of ${t.recurrence.activeYears.length} active years; ${t.strength} cycle), next starting ${fmt(t.nextWindowStart)}.`
-          : t?.window && t.nextWindowStart
-            ? ` The company has too few dated announcements for its own cycle; across companies in your sectors the busiest window is ${t.window}.`
-            : "";
-      const startBy = (() => {
-        const cands = [new Date(rel.renewalDate).getTime() - 90 * DAY];
-        if (t?.nextWindowStart) cands.push(new Date(t.nextWindowStart).getTime() - 30 * DAY);
-        const d = Math.max(Date.now(), Math.min(...cands));
-        return fmt(new Date(d).toISOString());
-      })();
+      // nextWindowStart is the current window's start while inside it (see lib/history/predict.ts).
+      const winStart = t?.nextWindowStart ? new Date(t.nextWindowStart).getTime() : null;
+      const windowOpen = winStart != null && winStart <= Date.now() && Date.now() < winStart + 92 * DAY;
+      const own = t?.basis === "company";
+      const windowText = !t?.window || winStart == null
+        ? ""
+        : own
+          ? ` Their CSR announcements cluster in ${t.window} (in ${t.recurrence.yearsHit.length} of ${t.recurrence.activeYears.length} active years; ${t.strength} cycle)${windowOpen ? ", and that window is open now, so next-cycle decisions are being made now" : `, next opening ${fmt(t.nextWindowStart!)}`}.`
+          : ` The company has too few dated announcements for its own cycle; across companies the busiest window is ${t.window}.`;
+      const deadline = Math.min(new Date(rel.renewalDate).getTime() - 90 * DAY, ...(winStart != null && !windowOpen ? [winStart - 30 * DAY] : []));
+      const startNow = windowOpen || deadline <= Date.now();
+      const startBy = startNow ? "now" : `by ${fmt(new Date(deadline).toISOString())}`;
       out.push({
         key: `renewal:${rel.renewalDate}:${bucket}`,
         kind: "renewal",
         level: days <= 60 ? "risk" : "watch",
         title: days < 0 ? `Renewal date passed ${-days} days ago` : `Renewal due in ${days} days (${fmt(rel.renewalDate)})`,
-        impact: days < 0 ? "Confirm whether the contract was renewed; update its status here so the Radar stops flagging it." : `Start the renewal conversation by ${startBy}, with the latest outcomes and a proposal for the next cycle.`,
-        reasoning: `Renewal is ${days < 0 ? "overdue" : `${days} days away`}, ${days <= 60 ? "inside the 60-day risk zone where budgets are usually already committed" : "within the 6-month planning horizon"}.${windowText} Companies decide next-cycle partners before they announce, so the talk should start before the window opens (30 days before) or 90 days before renewal, whichever is earlier.`,
+        impact: days < 0 ? "Confirm whether the contract was renewed; update its status here so the Radar stops flagging it." : `Start the renewal conversation ${startBy}, with the latest outcomes and a proposal for the next cycle.`,
+        reasoning: `Renewal is ${days < 0 ? "overdue" : `${days} days away`}, ${days <= 60 ? "inside the 60-day risk zone where budgets are usually already committed" : "within the 6-month planning horizon"}.${windowText} Companies decide next-cycle partners before they announce, so the talk should start 30 days before the window opens or 90 days before renewal, whichever is earlier${startNow ? "; both points have passed or the window is open, hence now" : ""}.`,
       });
     }
   }
