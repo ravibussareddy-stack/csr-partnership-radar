@@ -76,7 +76,8 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
   for (const s of searches) {
     let res;
     try {
-      res = await pool.generateGrounded(s.kind === "jobs" ? buildJobsSearchPrompt(s.query, now) : s.kind === "policy" ? buildPolicySearchPrompt(s.query, now) : buildSearchPrompt(s.query, now));
+      const prompt = { jobs: buildJobsSearchPrompt, policy: buildPolicySearchPrompt, news: buildSearchPrompt }[s.kind ?? "news"];
+      res = await pool.generateGrounded(prompt(s.query, now));
     } catch (err) {
       const stop = err instanceof GeminiError && err.kind !== "transient";
       console.warn(`search ${s.id}: failed (${(err as Error).message})${stop ? "; stopping searches for this run" : ""}`);

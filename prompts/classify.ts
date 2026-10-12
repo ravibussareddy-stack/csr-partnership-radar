@@ -168,8 +168,16 @@ export function classificationSchema(cfg: AppConfig) {
       worth_it: z.string().trim().max(400).default(""),
       policy_status: z.enum(POLICY_STATUS_VALUES).nullable().default(null),
       quotes: z
-        .array(z.object({ speaker: z.string().trim().min(2).max(100), role: z.string().trim().max(150), quote: z.string().trim().min(10).max(600) }))
-        .max(5)
+        // Long quotes are trimmed at a word boundary rather than failing the item; the trimmed text
+        // is still a prefix of the original, so the verbatim check in classify.ts still applies.
+        .array(
+          z.object({
+            speaker: z.string().trim().min(2).transform((x) => x.slice(0, 100)),
+            role: z.string().trim().transform((x) => x.slice(0, 150)),
+            quote: z.string().trim().min(10).transform((q) => (q.length <= 600 ? q : q.slice(0, q.lastIndexOf(" ", 600)))),
+          }),
+        )
+        .transform((qs) => qs.slice(0, 5))
         .default([]),
       confidence: z.number().min(0).max(1),
     })

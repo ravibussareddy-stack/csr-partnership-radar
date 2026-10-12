@@ -62,6 +62,9 @@ export interface SearchConfig {
   sectorId?: string;
 }
 
+/** Saved-search ids replaced by better queries; dropped from stored configs on load. */
+export const RETIRED_SEARCH_IDS = new Set(["policy-mca", "policy-sebi"]);
+
 export interface AppConfig {
   /** Saved Google searches, run daily by scripts/ingest/search.ts. */
   searches: SearchConfig[];
@@ -168,9 +171,13 @@ export const DEFAULT_CONFIG: AppConfig = {
     { id: "jobs-csr-mh", kind: "jobs", query: "CSR executive OR CSR lead job Pune Mumbai Maharashtra", enabled: true },
     { id: "jobs-csr-south", kind: "jobs", query: "CSR programme manager job Bengaluru Hyderabad", enabled: true },
     { id: "jobs-community", kind: "jobs", query: "community development OR social impact manager job corporate foundation India", enabled: true },
-    // Regulatory page: official notifications, guidelines, and the debate around them.
-    { id: "policy-mca", kind: "policy", query: "Ministry of Corporate Affairs CSR notification OR amendment OR circular OR FAQ Section 135", enabled: true },
-    { id: "policy-sebi", kind: "policy", query: "SEBI Social Stock Exchange OR BRSR CSR circular", enabled: true },
+    // Regulatory page. Official MCA/SEBI pages are rarely dated or indexed for recent-news queries
+    // (the first site-focused queries found nothing), so these target news coverage of official
+    // notices, parliamentary replies and the debate; the classifier labels each item's status.
+    { id: "policy-mca-news", kind: "policy", query: "MCA CSR rules amendment OR notification OR clarification news India", enabled: true },
+    { id: "policy-unspent", kind: "policy", query: "unspent CSR funds rules OR CSR spending compliance companies news India", enabled: true },
+    { id: "policy-parliament", kind: "policy", query: "Lok Sabha OR Rajya Sabha CSR question Ministry of Corporate Affairs reply CSR expenditure", enabled: true },
+    { id: "policy-sse-brsr", kind: "policy", query: "Social Stock Exchange NGO listing OR BRSR CSR disclosure SEBI news", enabled: true },
     { id: "policy-debate", kind: "policy", query: "CSR rules India debate OR consultation OR committee recommendation OR expert view", enabled: true },
   ],
   sectors: [
@@ -304,6 +311,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   // (timeout), education-news feeds (no CSR items pass the pre-filter).
   sources: [
     { id: "gemini-search", name: "Google Search (via Gemini)", url: "https://www.google.com/", type: "search", weight: 5, csrFocused: true, enabled: true },
+    // Demo items (scripts/demo/seed.ts): labelled samples built from real public news, for demonstration only.
+    { id: "linkedin-demo", name: "LinkedIn (demo sample)", url: "https://www.linkedin.com/", type: "email", weight: 3, csrFocused: true, enabled: true },
     { id: "gemini-jobs", name: "Job sites (via Google search)", url: "https://www.google.com/", type: "search", weight: 4, csrFocused: true, enabled: true },
     { id: "google-alerts", name: "Google Alerts", url: "imap://intake", type: "email", weight: 5, csrFocused: true, enabled: true },
     { id: "linkedin-email", name: "LinkedIn (email notifications)", url: "imap://intake", type: "email", weight: 4, csrFocused: false, enabled: true },

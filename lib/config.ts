@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { DEFAULT_CONFIG, type AppConfig } from "@/config/defaults";
+import { RETIRED_SEARCH_IDS, DEFAULT_CONFIG, type AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
 import { config } from "@/lib/db/schema";
 
@@ -13,7 +13,7 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
   const defaultSectors = new Map(d.sectors.map((s) => [s.id, s]));
   return {
     // Default searches added in later versions are appended (by id) to a stored list.
-    searches: row.searches?.length ? [...row.searches, ...d.searches.filter((x) => !row.searches.some((r) => r.id === x.id))] : d.searches,
+    searches: (row.searches?.length ? [...row.searches, ...d.searches.filter((x) => !row.searches.some((r) => r.id === x.id))] : d.searches).filter((x) => !RETIRED_SEARCH_IDS.has(x.id)),
     // Sector fields added after seeding (e.g. portalSectors) are filled from defaults by id.
     sectors: row.sectors.map((s) => ({ ...defaultSectors.get(s.id), ...s })),
     geographies: row.geographies,
@@ -22,7 +22,8 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
       ...row.keywords,
       signalHints: { ...d.keywords.signalHints, ...row.keywords.signalHints },
     },
-    sources: row.sources,
+    // Sources added in later versions (by id) are appended to the stored list.
+    sources: [...row.sources, ...d.sources.filter((x) => !row.sources.some((r) => r.id === x.id))],
     scoringWeights: {
       ...d.scoringWeights,
       ...row.scoringWeights,
