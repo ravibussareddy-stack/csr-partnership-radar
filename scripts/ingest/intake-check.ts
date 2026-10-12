@@ -1,9 +1,9 @@
-/** Exit quickly when no pasted messages are waiting (used by the 10-minute intake workflow). */
+/** Exit quickly when nothing is waiting: pasted messages or team tasks (used by the 10-minute intake workflow). */
 import "../env";
 import { appendFileSync } from "node:fs";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
-import { rawItems } from "@/lib/db/schema";
+import { comments, config, dashboardFeedback, rawItems } from "@/lib/db/schema";
 
 async function main() {
   const db = await getDb();
@@ -13,7 +13,14 @@ async function main() {
     .where(and(eq(rawItems.source, "pasted"), or(isNull(rawItems.prefilterPassed), eq(rawItems.classifyStatus, "pending"))));
   const pending = Number(n);
   console.log(`intake: ${pending} pasted message(s) waiting`);
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `pending=${pending}\n`);
+  // Team work queued from the app: open questions, sectors being set up, confirmed dashboard feedback.
+  const [{ q }] = await db.select({ q: sql<number>`count(*)` }).from(comments).where(and(eq(comments.kind, "question"), eq(comments.status, "open")));
+  const [{ f }] = await db.select({ f: sql<number>`count(*)` }).from(dashboardFeedback).where(eq(dashboardFeedback.status, "confirmed"));
+  const [cfg] = await db.select({ sectors: config.sectors }).from(config);
+  const sectorsPending = cfg?.sectors.filter((s) => s.status === "pending").length ?? 0;
+  const tasks = Number(q) + Number(f) + sectorsPending;
+  console.log(`intake: ${tasks} team task(s) waiting (questions ${q}, feedback ${f}, sectors ${sectorsPending})`);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `pending=${pending}\ntasks=${tasks}\n`);
 }
 
 main()

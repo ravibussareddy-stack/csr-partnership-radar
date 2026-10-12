@@ -1,7 +1,7 @@
 "use client";
 /**
  * Filterable cue-card board. Data arrives pre-rendered from the (cached) server page; filters run
- * instantly in the browser: source group, tier, sector, company.
+ * instantly in the browser: source group, tier, sector, city / state, company.
  */
 import { useMemo, useRef, useState, useTransition } from "react";
 import { giveFeedback, undoRead } from "@/app/actions";
@@ -9,6 +9,8 @@ import Link from "next/link";
 import type { Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
 import { track } from "./Ambient";
+import { Discussion } from "./Discussion";
+import { POLICY_STATUS } from "@/lib/policy";
 import { InfoTip } from "./InfoTip";
 import { Logo } from "./Logo";
 
@@ -26,6 +28,7 @@ export const TIER_HELP: Record<string, string> = {
 
 const dateFmt = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 
+
 const REASONS = ["Not my sector", "Wrong company", "Old news", "Not CSR", "Not in our geography", "Other"];
 
 export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<string, string> }) {
@@ -34,6 +37,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
   const [read, setRead] = useState(i.read);
   const [hidden, setHidden] = useState(false);
   const [askWhy, setAskWhy] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const act = (fn: () => Promise<{ ok: boolean; needsUnlock?: boolean; message?: string }>, onOk: () => void) =>
@@ -53,6 +57,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
   if (hidden) return null;
   const open = () => {
     dialog.current?.showModal();
+    setOpened(true);
     track("opens");
   };
   const tierLabel = TIERS.find((t) => t.id === i.tier)?.label;
@@ -74,7 +79,8 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
         </span>
       </header>
       <h3 className="cue-title">{i.title}</h3>
-      <p className="cue-summary">{i.summary}</p>
+      {i.policyStatus && <span className={`policy-badge ps-${i.policyStatus}`} title={POLICY_STATUS[i.policyStatus].help}>{POLICY_STATUS[i.policyStatus].label}</span>}
+      <p className="cue-summary">{i.worthIt ?? i.summary}</p>
       <footer className="cue-meta">
         {i.date && <span>{dateFmt.format(new Date(i.date))}</span>}
         <span className={`src src-${i.sourceGroup}`}>{i.sourceLabel}</span>
@@ -108,7 +114,17 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
             <button type="button" className="dialog-close" onClick={() => dialog.current?.close()} aria-label="Close">×</button>
           </header>
           <h3 className="dialog-title">{i.title}</h3>
+          {i.originalTitle && <p className="muted small">Original headline: {i.originalTitle}</p>}
+          {i.policyStatus && (
+            <p><span className={`policy-badge ps-${i.policyStatus}`}>{POLICY_STATUS[i.policyStatus].label}</span> <span className="muted small">{POLICY_STATUS[i.policyStatus].help}</span></p>
+          )}
           <p>{i.summary}</p>
+          {i.worthIt && (
+            <div className="worth">
+              <span className="jtbd-label">Why it&rsquo;s worth your time</span>
+              <p>{i.worthIt}</p>
+            </div>
+          )}
           {i.nextStep && (
             <div className="jtbd">
               <span className="jtbd-label">Job to be done</span>
@@ -121,6 +137,18 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
               <ul className="keypoints">{i.keyPoints.map((k) => <li key={k}>{k}</li>)}</ul>
             </>
           )}
+          {i.quotes.length > 0 && (
+            <>
+              <h4>In their words</h4>
+              {i.quotes.map((q) => (
+                <blockquote key={q.quote} className="quote">
+                  <p>&ldquo;{q.quote}&rdquo;</p>
+                  <footer>{q.speaker}{q.role ? `, ${q.role}` : ""}</footer>
+                </blockquote>
+              ))}
+            </>
+          )}
+          {i.geographies.length > 0 && <p className="muted small">Where: {i.geographies.join(", ")}</p>}
           {i.facts.length > 0 && (
             <ul className="facts">{i.facts.map((f) => <li key={f.text} className={f.tone ? `fact fact-${f.tone}` : "fact"}>{f.text}</li>)}</ul>
           )}
@@ -154,6 +182,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
             </div>
           )}
           {note && <p className="cue-note">{note === "unlock" ? <>Unlock first on <Link href="/inbox">People messages</Link> to save feedback.</> : note}</p>}
+          {opened && i.itemId != null && <Discussion itemId={i.itemId} />}
         </div>
       </dialog>
     </article>
@@ -175,6 +204,7 @@ export function InsightBoard({
   const [tier, setTier] = useState<string>("all");
   const [sector, setSector] = useState<string>("all");
   const [company, setCompany] = useState("");
+  const [place, setPlace] = useState("all");
   const [hideRead, setHideRead] = useState(false);
   const [hideDemo, setHideDemo] = useState(false);
   const sectorLabels = Object.fromEntries(sectors.map((s) => [s.id, s.label]));
@@ -183,7 +213,16 @@ export function InsightBoard({
     [signals, warm],
   );
 
+  const placeCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of signals) for (const p of i.places) m.set(p, (m.get(p) ?? 0) + 1);
+    return m;
+  }, [signals]);
+  const states = [...placeCounts].filter(([k]) => k.startsWith("state:")).sort((a, b) => b[1] - a[1]);
+  const cities = [...placeCounts].filter(([k]) => k.startsWith("city:")).sort((a, b) => b[1] - a[1]);
+
   const match = (i: Insight) =>
+    (place === "all" || i.places.includes(place)) &&
     (group === "all" || i.sourceGroup === group) &&
     (tier === "all" || i.tier === tier) &&
     (sector === "all" || i.sectors.includes(sector)) &&
@@ -217,15 +256,21 @@ export function InsightBoard({
             ))}
           </span>
           <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Sector">
-            <option value="all">All focus sectors</option>
+            <option value="all">All sectors</option>
             {sectors.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
+          <select value={place} onChange={(e) => setPlace(e.target.value)} aria-label="City or state">
+            <option value="all">All places</option>
+            <optgroup label="States">{states.map(([k, n]) => <option key={k} value={k}>{k.slice(6)} ({n})</option>)}</optgroup>
+            <optgroup label="Cities">{cities.map(([k, n]) => <option key={k} value={k}>{k.slice(5)} ({n})</option>)}</optgroup>
+          </select>
+          <Link href="/sectors" className="chip" title="Add a sector to track">+ Sector</Link>
           <input list="companies" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Filter by company" aria-label="Company" />
           <datalist id="companies">{companies.map((c) => <option key={c} value={c} />)}</datalist>
           <button className={hideRead ? "chip on" : "chip"} onClick={() => setHideRead(!hideRead)} aria-pressed={hideRead}>Hide read</button>
           {signals.some((x) => x.isDemo) && <button className={hideDemo ? "chip on" : "chip"} onClick={() => setHideDemo(!hideDemo)} aria-pressed={hideDemo}>Hide demo</button>}
-          {(group !== "all" || tier !== "all" || sector !== "all" || company) && (
-            <button className="chip clear" onClick={() => { setGroup("all"); setTier("all"); setSector("all"); setCompany(""); }}>Clear</button>
+          {(group !== "all" || tier !== "all" || sector !== "all" || company || place !== "all") && (
+            <button className="chip clear" onClick={() => { setGroup("all"); setTier("all"); setSector("all"); setCompany(""); setPlace("all"); }}>Clear</button>
           )}
         </div>
       </div>

@@ -32,6 +32,27 @@ function tag() {
   cacheLife("hours");
 }
 
+/** Tracked sectors from the stored config (incl. sectors added in the app), defaults without a DB. */
+async function sectorList() {
+  if (!hasDatabaseUrl()) return DEFAULT_CONFIG.sectors;
+  const { loadConfig } = await import("@/lib/config");
+  return (await loadConfig(await getDb())).sectors;
+}
+
+export async function getSectors() {
+  "use cache";
+  tag();
+  return (await sectorList()).map((s) => ({ id: s.id, label: s.label, status: s.status ?? "ready", custom: Boolean(s.custom), description: s.description ?? null, addedBy: s.addedBy ?? null, keywords: s.keywords, portalSectors: s.portalSectors ?? [] }));
+}
+
+export async function getSavedSearches() {
+  "use cache";
+  tag();
+  if (!hasDatabaseUrl()) return DEFAULT_CONFIG.searches;
+  const { loadConfig } = await import("@/lib/config");
+  return (await loadConfig(await getDb())).searches;
+}
+
 export async function getDigest() {
   "use cache";
   tag();
@@ -65,7 +86,7 @@ export async function getPlanner(sort: PlannerSort, q: string) {
 export async function getRegionTrend() {
   "use cache";
   tag();
-  return loadRegionTrend(DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []));
+  return loadRegionTrend((await sectorList()).flatMap((s) => s.portalSectors ?? []));
 }
 
 export async function getSectorSeasonality() {
@@ -84,7 +105,7 @@ export async function getUpcomingCycles(focusOnly: boolean) {
 export async function getAnnouncementGrid(focusOnly: boolean) {
   "use cache";
   tag();
-  return loadAnnouncementGrid(focusOnly ? DEFAULT_CONFIG.sectors.map((s) => s.id) : null);
+  return loadAnnouncementGrid(focusOnly ? (await sectorList()).map((s) => s.id) : null);
 }
 
 export interface ImpactStats {
@@ -106,7 +127,7 @@ export async function getImpactStats(): Promise<ImpactStats | null> {
   try {
     const db = await getDb();
     const since = new Date(Date.now() - 7 * 86400_000);
-    const focus = DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []).map((s) => s.toLowerCase());
+    const focus = (await sectorList()).flatMap((s) => s.portalSectors ?? []).map((s) => s.toLowerCase());
     const [[items], [drops], [tracked], [news], [pune]] = await Promise.all([
       db.select({ n: count() }).from(rawItems).where(gte(rawItems.fetchedAt, since)),
       db.select({ n: count() }).from(rawItems).where(sql`${rawItems.source} = 'pasted' and ${rawItems.fetchedAt} >= ${since}`),
@@ -181,7 +202,7 @@ export async function getHiring() {
 export async function getYearEvents(year: number, focusOnly: boolean) {
   "use cache";
   tag();
-  return loadEventsForYear(year, focusOnly ? DEFAULT_CONFIG.sectors.map((s) => s.id) : null);
+  return loadEventsForYear(year, focusOnly ? (await sectorList()).map((s) => s.id) : null);
 }
 
 export interface SummaryData {
@@ -236,7 +257,7 @@ export async function getSummary(): Promise<SummaryData | null> {
 export async function getLens(lens: Lens) {
   "use cache";
   tag();
-  return loadLens(lens, DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []));
+  return loadLens(lens, (await sectorList()).flatMap((s) => s.portalSectors ?? []));
 }
 
 export async function getModelMetrics() {
@@ -261,4 +282,11 @@ export async function getContacts() {
     .leftJoin(co, eq(co.id, contacts.companyId))
     .orderBy(sql`${contacts.firstSeenAt} desc`)
     .limit(300);
+}
+
+export async function getRegulatory() {
+  "use cache";
+  tag();
+  const { loadRegulatory } = await import("@/lib/regulatory");
+  return loadRegulatory(180);
 }

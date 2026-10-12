@@ -12,7 +12,8 @@ export async function loadConfig(db: DB): Promise<AppConfig> {
   const d = DEFAULT_CONFIG;
   const defaultSectors = new Map(d.sectors.map((s) => [s.id, s]));
   return {
-    searches: row.searches?.length ? row.searches : d.searches,
+    // Default searches added in later versions are appended (by id) to a stored list.
+    searches: row.searches?.length ? [...row.searches, ...d.searches.filter((x) => !row.searches.some((r) => r.id === x.id))] : d.searches,
     // Sector fields added after seeding (e.g. portalSectors) are filled from defaults by id.
     sectors: row.sectors.map((s) => ({ ...defaultSectors.get(s.id), ...s })),
     geographies: row.geographies,

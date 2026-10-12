@@ -19,6 +19,11 @@ export interface SectorConfig {
   keywords: string[];
   /** National CSR Portal development-sector names (lowercase) that count as this sector. */
   portalSectors?: string[];
+  /** Sectors added in the app: what she means by it, and setup state (pending → ready after the intake run). */
+  description?: string;
+  status?: "pending" | "ready";
+  custom?: boolean;
+  addedBy?: string;
 }
 
 export interface GeographyConfig {
@@ -52,7 +57,9 @@ export interface SearchConfig {
   query: string;
   enabled: boolean;
   /** "news" (default): CSR news. "jobs": job postings for CSR / foundation / community roles. */
-  kind?: "news" | "jobs";
+  kind?: "news" | "jobs" | "policy";
+  /** Set on searches generated for a sector added in the app (removed with the sector). */
+  sectorId?: string;
 }
 
 export interface AppConfig {
@@ -161,6 +168,10 @@ export const DEFAULT_CONFIG: AppConfig = {
     { id: "jobs-csr-mh", kind: "jobs", query: "CSR executive OR CSR lead job Pune Mumbai Maharashtra", enabled: true },
     { id: "jobs-csr-south", kind: "jobs", query: "CSR programme manager job Bengaluru Hyderabad", enabled: true },
     { id: "jobs-community", kind: "jobs", query: "community development OR social impact manager job corporate foundation India", enabled: true },
+    // Regulatory page: official notifications, guidelines, and the debate around them.
+    { id: "policy-mca", kind: "policy", query: "Ministry of Corporate Affairs CSR notification OR amendment OR circular OR FAQ Section 135", enabled: true },
+    { id: "policy-sebi", kind: "policy", query: "SEBI Social Stock Exchange OR BRSR CSR circular", enabled: true },
+    { id: "policy-debate", kind: "policy", query: "CSR rules India debate OR consultation OR committee recommendation OR expert view", enabled: true },
   ],
   sectors: [
     {

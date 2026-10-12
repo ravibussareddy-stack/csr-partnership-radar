@@ -1,7 +1,6 @@
 // Monday digest (home). Served from cache (lib/data.ts); filters run in the browser.
 import { Suspense } from "react";
 import Link from "next/link";
-import { DEFAULT_CONFIG } from "@/config/defaults";
 import { Greeting } from "@/app/components/Greeting";
 import { InsightBoard } from "@/app/components/InsightBoard";
 import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustrations";
@@ -9,11 +8,10 @@ import { InfoTip } from "@/app/components/InfoTip";
 import { KeepUp } from "@/app/components/KeepUp";
 import { SearchSuggestions } from "@/app/components/SearchSuggestions";
 import { fmtCr } from "@/app/components/charts";
-import { getHomeInsights, getImpactStats, getSearches } from "@/lib/data";
+import { getHomeInsights, getImpactStats, getSearches, getSectors } from "@/lib/data";
 import { SOURCE_GROUPS } from "@/lib/sources";
 import { fyLabel } from "@/lib/companies";
 
-const SECTORS = DEFAULT_CONFIG.sectors.map((s) => ({ id: s.id, label: s.label }));
 const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 export default function Page() {
@@ -28,7 +26,8 @@ export default function Page() {
 }
 
 async function Home() {
-  const [home, stats, searches] = await Promise.all([getHomeInsights(), getImpactStats(), getSearches()]);
+  const [home, stats, searches, sectorRows] = await Promise.all([getHomeInsights(), getImpactStats(), getSearches(), getSectors()]);
+  const SECTORS = sectorRows.map((s) => ({ id: s.id, label: s.label }));
   if (home.status !== "ok") {
     return (
       <div className="notice glass">
