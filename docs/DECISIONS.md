@@ -103,3 +103,11 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | Page transitions use React `<ViewTransition>` (fade and lift, ~0.3 s), off under reduced motion. | Smooth without a JS animation library; browsers without the API simply switch pages. |
 | The Google "search suggestion" chip opens Google, by design. | Google's grounding terms require showing that chip as a link to the Google search; article titles link to the articles. A caption now says so. |
 | Spend-trend alerts say "latest reported year (FY2024-25)" and why it matters now. | The portal publishes a year 12-18 months after it ends; the newest year is the best public signal for the next budget cycle. |
+
+## Geography in scoring
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| Activity in the NGO's sectors but outside Pune/Maharashtra is **not capped**: it can be "Call this week", tagged **Pitch Pune**, with the reason "outside your region (…): a chance to pitch a Pune programme". States bordering Maharashtra get +6 (proximity). Only items outside both the region and the sectors are capped at Watch. | Product-owner guidance: a company funding education or skilling elsewhere is a lead to invite into Pune; proximity makes extension easier. | A hard Watch cap for anything outside the region (tried first; it hid real leads like the ₹5 cr Nellore ITI commitment). |
+| One card per story: same company, same signal type, within 3 days → merged, with "Also reported by" links. | The same news from several outlets appeared as duplicate cards and calls. | Fuzzy headline clustering (slower; the company + type + date key is enough here). |
+| "Searched on Google this week" lives inside the filterable board and follows its filters. | It ignored the place filter, which looked broken. | — |

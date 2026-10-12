@@ -121,8 +121,10 @@ export interface AppConfig {
     hiringMaxTier: "call_this_week" | "watch" | "background";
     /** Highest tier for companies expanding into a region (future CSR funder, no budget yet). */
     expansionMaxTier: "call_this_week" | "watch" | "background";
-    /** Highest tier when the activity is only in places outside the priority geographies (not national). */
+    /** Highest tier for activity only outside the priority geographies AND outside the focus sectors. */
     outOfRegionMaxTier?: "call_this_week" | "watch" | "background";
+    /** Points when the activity is in a state bordering Maharashtra (easier to extend to Pune). */
+    nearRegionBonus?: number;
     /** Highest tier for CSR entirely outside the focus sectors (kept for review). */
     outsideSectorMaxTier: "call_this_week" | "watch" | "background";
     /** Added when the company is working with NGO / implementation partners. */
@@ -406,6 +408,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     ],
     sectorFit: 20,
     outOfRegionMaxTier: "watch",
+    nearRegionBonus: 6,
     lowConfidencePenalty: 10,
     lowConfidenceThreshold: 0.5,
     thresholds: { callThisWeek: 60, watch: 35 },

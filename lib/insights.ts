@@ -60,6 +60,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
   }
   if (i.amountInrCrore) facts.push({ text: `₹${i.amountInrCrore.toLocaleString("en-IN", { maximumFractionDigits: 2 })} cr${i.financialYear ? ` · ${i.financialYear}` : ""}` });
   if (i.channel) facts.push({ text: `via ${i.channel}` });
+  if (i.reason.includes("pitch a Pune programme")) facts.push({ text: "Outside your region · pitch a Pune programme", tone: "good" });
   return {
     key: `s${i.id}`,
     kind: "signal",

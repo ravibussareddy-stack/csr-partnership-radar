@@ -165,7 +165,10 @@ export async function getImpactStats(): Promise<ImpactStats | null> {
 /** Recent pasted messages and their status (message drop page). */
 export async function getRecentPasted() {
   "use cache";
-  tag();
+  cacheTag(RADAR_TAG);
+  // Short life: message status (queued → read) should show within minutes even if the workflow's
+  // cache refresh (REVALIDATE_SECRET) isn't configured.
+  cacheLife("minutes");
   if (!hasDatabaseUrl()) return [];
   const db = await getDb();
   return db

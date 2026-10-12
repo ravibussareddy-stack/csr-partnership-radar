@@ -1,3 +1,4 @@
+import { normalisePlace } from "@/lib/geo";
 import type { AppConfig, SignalTypeKey, SourceConfig } from "@/config/defaults";
 import type { SignalType, Tier } from "@/lib/db/schema";
 import { matchKeywords } from "@/lib/text";
@@ -81,6 +82,9 @@ function formatCrore(n: number): string {
 }
 
 /** Deterministic: same input + config + `now` → same output. */
+/** States bordering Maharashtra. */
+const NEAR = new Set(["Karnataka", "Goa", "Gujarat", "Telangana", "Madhya Pradesh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu"]);
+
 export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Date()): ScoreResult {
   const w = cfg.scoringWeights;
   const text = `${input.title}\n${input.body}`;
@@ -119,6 +123,11 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
   if (geo) {
     score += geo.weight;
     parts.push(`${geo.label} +${geo.weight}`);
+  } else if (c && c.geographies.some((g) => NEAR.has(normalisePlace(g)?.state ?? ""))) {
+    // Proximity bonus: states bordering Maharashtra (easier to extend a programme to Pune).
+    const near = c.geographies.map((g) => normalisePlace(g)?.state).find((st) => st && NEAR.has(st))!;
+    score += w.nearRegionBonus ?? 6;
+    parts.push(`near Maharashtra (${near}) +${w.nearRegionBonus ?? 6}`);
   }
 
   // 5. Source weight
@@ -191,14 +200,19 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = "watch";
     parts.push("capped at Watch (no company named)");
   }
-  // Outside the NGO's region: places are named, none in Pune / Maharashtra and none national.
-  // A Pune NGO can't act on (say) an ITI build in Nellore this week; it stays visible as Watch.
+  // Outside the NGO's region (places named, none in Pune / Maharashtra, not national). A company
+  // funding the NGO's sectors elsewhere is still a lead: pitch it a Pune programme. Only when the
+  // sector doesn't fit either is it capped (Watch), since then there is no angle to call about.
   const places = c?.geographies ?? [];
   const national = places.some((g) => /^(india|pan[- ]india|nationwide|national|across india|all india|multiple states)$/i.test(g.trim()));
   const outOfRegion = Boolean(c) && places.length > 0 && !geo && !national && signalType !== "policy_change";
-  if (outOfRegion && TIER_RANK[tier] > TIER_RANK[w.outOfRegionMaxTier ?? "watch"]) {
-    tier = w.outOfRegionMaxTier ?? "watch";
-    parts.push(`capped at ${TIER_LABELS[tier]} (outside your region: ${places.slice(0, 2).join(", ")})`);
+  if (outOfRegion) {
+    if (sectorLabels.length > 0 && signalType !== "regional_expansion") {
+      parts.push(`outside your region (${places.slice(0, 2).join(", ")}): a chance to pitch a Pune programme`);
+    } else if (TIER_RANK[tier] > TIER_RANK[w.outOfRegionMaxTier ?? "watch"]) {
+      tier = w.outOfRegionMaxTier ?? "watch";
+      parts.push(`capped at ${TIER_LABELS[tier]} (outside your region: ${places.slice(0, 2).join(", ")})`);
+    }
   }
   if (outsideOnly && TIER_RANK[tier] > TIER_RANK[w.outsideSectorMaxTier]) {
     tier = w.outsideSectorMaxTier;
