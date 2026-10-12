@@ -13,8 +13,9 @@ import type { AppConfig } from "@/config/defaults";
  *     funder there, since s.135(5) prefers local areas of operation); any Indian language.
  * v4: adds key_points (3-5 bullets), next_step (the job to be done for the partnerships head)
  *     and company_domain (official website domain, for logos).
+ * v5: never take the news publisher / website (e.g. from Google Alerts snippets) for the company.
  */
-export const PROMPT_VERSION = "classify-v4";
+export const PROMPT_VERSION = "classify-v5";
 
 export const SIGNAL_TYPE_VALUES = [
   "new_initiative",
@@ -177,7 +178,7 @@ Priority geographies: ${geos}.
 
 Rules:
 - Base every field only on the text below. Do not invent facts. Use null or empty when the text does not say.
-- companies: the companies or corporate foundations funding the CSR activity, written in English (Latin script) as commonly used, e.g. "Tata Trusts" even if the text is in Marathi.
+- companies: the companies or corporate foundations funding the CSR activity, written in English (Latin script) as commonly used, e.g. "Tata Trusts" even if the text is in Marathi. NEVER use the news publisher, website or channel that reported the story (e.g. Sportskeeda, Times of India, India CSR, YouTube) as the company. If the text says "with CSR support" without naming the funder, leave companies empty.
 - geographies: Indian cities or states where the activity happens; "India" if national.
 - partners: names of EXTERNAL NGOs or implementation partners working with the company on this activity. The company's own foundation, group trust or group-run institute is NOT a partner.
 - actively_partnering: "yes" if partners is non-empty or the text says the company works through external NGOs / implementation partners; "no" if the text says it runs the activity itself (own foundation, group trust, staff); else "unknown".
