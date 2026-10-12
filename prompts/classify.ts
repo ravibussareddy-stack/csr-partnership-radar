@@ -11,8 +11,10 @@ import type { AppConfig } from "@/config/defaults";
  * v3: adds csr_hiring (job posts for CSR / foundation roles = a growing CSR team) and
  *     regional_expansion (a company investing / setting up operations in India: a future CSR
  *     funder there, since s.135(5) prefers local areas of operation); any Indian language.
+ * v4: adds key_points (3-5 bullets), next_step (the job to be done for the partnerships head)
+ *     and company_domain (official website domain, for logos).
  */
-export const PROMPT_VERSION = "classify-v3";
+export const PROMPT_VERSION = "classify-v4";
 
 export const SIGNAL_TYPE_VALUES = [
   "new_initiative",
@@ -60,6 +62,9 @@ const FIELDS = [
   "amount_inr_crore",
   "financial_year",
   "why_it_matters",
+  "key_points",
+  "next_step",
+  "company_domain",
   "confidence",
 ];
 
@@ -83,6 +88,9 @@ export function responseSchema(cfg: AppConfig) {
       amount_inr_crore: { type: "NUMBER", nullable: true },
       financial_year: { type: "STRING", nullable: true },
       why_it_matters: { type: "STRING" },
+      key_points: { type: "ARRAY", items: { type: "STRING" } },
+      next_step: { type: "STRING" },
+      company_domain: { type: "STRING", nullable: true },
       confidence: { type: "NUMBER" },
     },
     required: FIELDS,
@@ -116,6 +124,14 @@ export function classificationSchema(cfg: AppConfig) {
         .transform((a) => (a !== null && a > 0 && a < 1_000_000 ? a : null)),
       financial_year: z.string().trim().max(20).nullable(),
       why_it_matters: z.string().trim().max(400),
+      key_points: z.array(z.string().trim().min(1).max(240)).max(6).default([]),
+      next_step: z.string().trim().max(300).default(""),
+      company_domain: z
+        .string()
+        .trim()
+        .toLowerCase()
+        .nullable()
+        .transform((d) => (d && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "")) ? d.replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, "") : null)),
       confidence: z.number().min(0).max(1),
     })
     .transform((v) => {
@@ -169,6 +185,9 @@ Rules:
 - amount_inr_crore: the main CSR amount in crore rupees (1 crore = 100 lakh; convert lakh to crore), else null.
 - financial_year: the financial year the amount or activity refers to, as "FY2025-26", else null.
 - why_it_matters: one sentence (under 30 words) for the partnerships head: what happened and whether it is a near-term opportunity, a long-term relationship lead, or context only.
+- key_points: 3 to 5 short bullet facts from the text a partnerships head needs: who, what, where, how much, with whom, timeline. No speculation.
+- next_step: the job to be done this week, one concrete sentence addressed to the partnerships head (e.g. "Email the Bajaj Finance CSR team this week with the Pune youth-skilling outcomes deck; ask about their FY27 partner intake."). For context-only items, say what to watch for.
+- company_domain: the main company's official website domain (e.g. "bajajfinserv.in"), only if you are confident; otherwise null.
 - confidence: 0 to 1, how sure you are about is_signal and signal_type.
 - The text may be in English, Hindi, Marathi or any other language. Write why_it_matters in English.
 

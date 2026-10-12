@@ -36,3 +36,7 @@ jobs:
       # Batch-classify new headlines (80 per Gemini call).
       - run: npm run history:classify-news
       - run: npm run history:stats
+      - name: Refresh site cache
+        run: '[ -z "$REVALIDATE_SECRET" ] || curl -fsS -X POST "${{ vars.SITE_URL || ''https://csr-partnership-radar-two.vercel.app'' }}/api/revalidate" -H "x-revalidate-secret: $REVALIDATE_SECRET" || true'
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}

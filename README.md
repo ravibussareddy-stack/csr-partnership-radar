@@ -62,6 +62,7 @@ npm run dev          # http://localhost:3000
 | `npm run history:recent` | Crawl the last 12 months of CSR news archives by date and classify headlines (company, kind, sector) for the warm list. Incremental. |
 | `npm run history:stats` | Recompute company history, forecasts and announcement timing. |
 | `npm run notify -- --digest \| --alerts` | Email the Monday digest / new Call-this-week alerts (`--preview=<file>` to render only). |
+| `npm run test:paste` | Parser tests for the message drop (dashes, "Message N", WhatsApp export). |
 | `npm run test:email` | Parser tests for the intake inbox (Google Alerts, LinkedIn alerts, `[CSR-IN]` forwards). |
 | `npm run db:generate` | Generate a new migration after editing `lib/db/schema.ts`. |
 | `npm run db:migrate` | Apply migrations. |
@@ -81,6 +82,14 @@ npm run dev          # http://localhost:3000
 **Email delivery:** with `NOTIFY_TO` set (a repo variable) and a Gmail app password (the `INTAKE_IMAP_*` secrets are reused), the Monday digest goes out at 07:00 IST as `[CSR Radar] Monday digest · W42 2026 · 7 to call · 22 to watch`, and new Call-this-week items trigger `[CSR Radar] Call · <company> · <signal>` after each daily run. Preview without sending: `npm run notify -- --digest --preview=digest.html`.
 
 The adapter reads the mailbox read-only. LinkedIn and WhatsApp accounts are never accessed directly, because their terms forbid automation.
+
+## Message drop (paste messages in one go)
+
+`/inbox` takes any number of messages at once: separate them with a line of dashes, start each with "Message 2:", or paste a WhatsApp/Telegram "Export chat" as-is (sender names are not stored). The page only saves them; the **Message drop intake** workflow (every 10 minutes) classifies them, researches each lead with Gemini + Google Search, and adds the good ones to the digest under "Personal messages".
+
+Set `INTAKE_PASSCODE` in Vercel (Settings → Environment Variables) and redeploy; the page asks for it before accepting messages.
+
+Why not Google Drive backups? WhatsApp's Drive backups are encrypted and only WhatsApp can read them. Exported chats (.txt), Telegram Desktop exports and the LinkedIn data export *can* be read, by pasting them here or, as a possible next step, from a shared Drive folder.
 
 ## 10-year history and forecasts
 

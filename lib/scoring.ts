@@ -105,7 +105,7 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     ? c.sectors
     : cfg.sectors.filter((s) => matchKeywords(text, s.keywords).length > 0).map((s) => s.id);
   const sectorLabels = cfg.sectors.filter((s) => sectorIds.includes(s.id)).map((s) => s.label);
-  const sectorPts = Math.min(w.sectorMax, sectorLabels.length * w.sectorPerMatch);
+  const sectorPts = sectorLabels.length > 0 ? (w.sectorFit ?? Math.min(w.sectorMax ?? 20, sectorLabels.length * (w.sectorPerMatch ?? 10))) : 0;
   score += sectorPts;
   if (sectorLabels.length) parts.push(`${sectorLabels.join(", ")} +${sectorPts}`);
   const outsideLabels = (c?.otherSectors ?? []).map((id) => OTHER_SECTORS.find((o) => o.id === id)?.label ?? id);

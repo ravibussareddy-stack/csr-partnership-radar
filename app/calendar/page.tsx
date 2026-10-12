@@ -1,12 +1,11 @@
 // CSR calendar: the recurring cycle. Statutory CSR year + each company's recurring announcement
 // window (year-consistency, with the years as justification) + the year × month evidence.
 import { Suspense } from "react";
-import { connection } from "next/server";
 import Link from "next/link";
-import { DEFAULT_CONFIG } from "@/config/defaults";
 import { fmtCr, YearMonthCalendar } from "@/app/components/charts";
 import { Hero, Icon } from "@/app/components/illustrations";
-import { loadAnnouncementGrid, loadUpcomingCycles, type UpcomingCycle } from "@/lib/history/queries";
+import { getAnnouncementGrid, getCachedNow, getUpcomingCycles } from "@/lib/data";
+import type { UpcomingCycle } from "@/lib/history/queries";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const PER_MONTH = 8;
@@ -84,14 +83,9 @@ function CycleRow({ c }: { c: UpcomingCycle }) {
 }
 
 async function Calendar({ sp }: { sp: Record<string, string | string[] | undefined> }) {
-  await connection();
   const scope = sp.scope === "all" ? "all" : "focus";
-  const now = new Date();
-  const focusIds = DEFAULT_CONFIG.sectors.map((s) => s.id);
-  const [cycles, grid] = await Promise.all([
-    loadUpcomingCycles({ focusOnly: scope === "focus" }),
-    loadAnnouncementGrid(scope === "focus" ? focusIds : null),
-  ]);
+  const [cycles, grid, nowIso] = await Promise.all([getUpcomingCycles(scope === "focus"), getAnnouncementGrid(scope === "focus"), getCachedNow()]);
+  const now = new Date(nowIso);
   if (!cycles || !grid) {
     return <div className="notice"><h2>No history loaded</h2><p>Run the history scripts (see README).</p></div>;
   }

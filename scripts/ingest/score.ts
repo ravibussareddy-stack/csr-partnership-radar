@@ -1,7 +1,7 @@
 import { and, eq, gte, isNull, or } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
-import { classifications, companyNews, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
+import { classifications, companies, companyNews, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
 import { loadCompanyIndex, resolveCompany } from "@/lib/resolve";
 import { scoreItem } from "@/lib/scoring";
 
@@ -69,6 +69,10 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       now,
     );
     const companyId = cls?.companies[0] ? await resolveCompany(db, cls.companies[0], companyIdx) : null;
+    // Remember the company's website domain (for logos) the first time we learn it.
+    if (companyId && cls?.companyDomain) {
+      await db.update(companies).set({ domain: cls.companyDomain }).where(and(eq(companies.id, companyId), isNull(companies.domain)));
+    }
     // Feed the company's dated-news history (announcement timing) from the live pipeline.
     const kind = cls ? HEADLINE_KIND[cls.signalType] : undefined;
     if (companyId && cls && kind) {

@@ -22,7 +22,9 @@
     "db:copy": "tsx scripts/db-copy.ts",
     "history:recent": "tsx scripts/history/recent.ts",
     "notify": "tsx scripts/notify/index.ts",
-    "test:email": "tsx tests/email.test.ts"
+    "test:email": "tsx tests/email.test.ts",
+    "test:paste": "tsx tests/paste.test.ts",
+    "intake:check": "tsx scripts/ingest/intake-check.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

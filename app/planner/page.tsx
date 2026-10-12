@@ -1,13 +1,13 @@
 // Expansion planner: where CSR money for the focus sectors is, where it is heading, and when companies announce.
 import { Suspense } from "react";
-import { connection } from "next/server";
 import Link from "next/link";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { fmtCr, MonthStrip, StackedYearBars } from "@/app/components/charts";
 import { Hero, Icon } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
 import { bestWindow, windowLabel } from "@/lib/history/predict";
-import { loadPlanner, loadRegionTrend, loadSectorSeasonality, type PlannerSort } from "@/lib/history/queries";
+import { getPlanner, getRegionTrend, getSectorSeasonality } from "@/lib/data";
+import type { PlannerSort } from "@/lib/history/queries";
 import { OTHER_SECTORS } from "@/prompts/classify";
 
 const SORTS: { id: PlannerSort; label: string }[] = [
@@ -39,15 +39,10 @@ export default function Page({ searchParams }: { searchParams: SP }) {
 }
 
 async function Planner({ sp }: { sp: Record<string, string | string[] | undefined> }) {
-  await connection();
   const sort = (SORTS.find((s) => s.id === sp.sort)?.id ?? "maharashtra") as PlannerSort;
   const q = typeof sp.q === "string" ? sp.q.slice(0, 80) : "";
-  const focusPortal = DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []);
-  const [rows, trend, seasonality] = await Promise.all([
-    loadPlanner({ sort, q, limit: 60 }),
-    loadRegionTrend(focusPortal),
-    loadSectorSeasonality(),
-  ]);
+  const [rows, trend, seasonalityEntries] = await Promise.all([getPlanner(sort, q), getRegionTrend(), getSectorSeasonality()]);
+  const seasonality = seasonalityEntries ? new Map(seasonalityEntries) : null;
   if (!rows || !trend) {
     return <div className="notice"><h2>No history loaded</h2><p>Run <code>npm run history:import</code> and <code>npm run history:stats</code>.</p></div>;
   }

@@ -20,6 +20,7 @@ import { scoreRecent } from "./score";
 import { runSearches } from "./search";
 import { fetchIntakeEmail } from "./email";
 import { contextScreen } from "./screen";
+import { runResearch } from "./research";
 
 async function main() {
   const args = new Set(process.argv.slice(2));
@@ -104,6 +105,10 @@ async function main() {
   console.log(
     `classify: ${cs.classified} classified, ${cs.cacheHits} cache hits, ${cs.unclassified} failed, ${cs.skippedNoKeys} skipped (no keys / cap); by key ${JSON.stringify(cs.byKey)}`,
   );
+
+  // 4b. Research personal / forwarded leads (Gemini + Google Search grounding)
+  const rs = await runResearch(db);
+  console.log(`research: ${rs.status}${rs.researched ? `, ${rs.researched} item(s), ${rs.sources} source(s)` : ""}`);
 
   // 5. Score
   const ss = await scoreRecent(db, cfg);

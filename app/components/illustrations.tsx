@@ -159,13 +159,15 @@ export function Hero({
   variant?: "digest" | "planner" | "calendar" | "company";
 }) {
   return (
-    <header className="hero">
-      <div className="hero-text">
+    <header className="hero-glass glass compact">
+      <div className="hero-copy">
         <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-        {children && <div className="sub">{children}</div>}
+        <h1 className="greeting page-title">{title}</h1>
+        {children && <div className="lede">{children}</div>}
       </div>
-      <HeroScene variant={variant} />
+      <div className="hero-art scene-art">
+        <HeroScene variant={variant} />
+      </div>
     </header>
   );
 }
@@ -199,4 +201,87 @@ export function Icon({ name }: { name: "leaf" | "calendar" | "compass" | "spark"
         <svg {...common}><circle cx="12" cy="12" r="5" className="i-dot" /><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M5 5 L7 7 M17 17 L19 19 M5 19 L7 17 M17 7 L19 5" className="i-line" /></svg>
       );
   }
+}
+
+/**
+ * "Connected people": bold flat portraits inside overlapping device frames (browser, phone, chat,
+ * cards), thick outlines, saturated colours. Original artwork. Frames float gently; motion is off
+ * under prefers-reduced-motion.
+ */
+export function PeopleFrames() {
+  const ink = "var(--pf-ink)";
+  return (
+    <svg className="people-frames" viewBox="0 0 440 380" aria-hidden="true" focusable="false">
+      <defs>
+        <clipPath id="pf-a"><rect x="58" y="70" width="150" height="214" rx="16" /></clipPath>
+        <clipPath id="pf-b"><rect x="196" y="22" width="176" height="236" rx="20" /></clipPath>
+        <clipPath id="pf-d"><rect x="72" y="262" width="150" height="104" rx="16" /></clipPath>
+        <clipPath id="pf-e"><rect x="206" y="240" width="160" height="118" rx="16" /></clipPath>
+      </defs>
+
+      {/* browser frame: person with swept orange hair */}
+      <g className="pf-float pf-d1">
+        <rect x="58" y="70" width="150" height="214" rx="16" fill="var(--pf-blue)" stroke={ink} strokeWidth="5" />
+        <g clipPath="url(#pf-a)">
+          <path d="M120 150 C150 120 210 128 220 170 L220 300 L96 300 C92 240 96 180 120 150 Z" fill="var(--pf-skin-a)" />
+          <path d="M104 168 C112 128 160 108 204 122 C226 130 236 150 232 170 C214 150 182 146 160 154 C140 160 120 166 104 168 Z" fill="var(--pf-hair-a)" />
+          <path d="M150 128 C166 120 186 122 198 130" stroke="var(--pf-hair-a-line)" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M156 252 C170 246 186 246 200 252 C190 262 168 262 156 252 Z" fill={ink} />
+        </g>
+        <circle cx="78" cy="88" r="5" fill="#f05a34" /><circle cx="94" cy="88" r="5" fill="#f6c445" /><circle cx="110" cy="88" r="5" fill="#2e9a5c" />
+      </g>
+
+      {/* phone frame: person with curly hair */}
+      <g className="pf-float pf-d2">
+        <rect x="196" y="22" width="176" height="236" rx="20" fill="var(--pf-pink)" stroke={ink} strokeWidth="5" />
+        <g clipPath="url(#pf-b)">
+          <path d="M214 300 L214 170 C214 120 250 96 290 100 C330 104 352 140 350 190 L350 300 Z" fill="var(--pf-skin-b)" />
+          <g fill="var(--pf-hair-b)">
+            {[[236, 112], [262, 96], [292, 92], [322, 100], [344, 120], [356, 148], [360, 178], [358, 210], [350, 240], [226, 136], [218, 164], [362, 260], [300, 84], [276, 86]].map(([x, y], i) => (
+              <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 20 : 17} />
+            ))}
+          </g>
+          <path d="M240 168 C252 160 266 160 276 166" stroke={ink} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M244 186 C254 178 268 178 276 186 C268 194 252 194 244 186 Z" fill="#fff" stroke={ink} strokeWidth="3" />
+          <circle cx="262" cy="186" r="5" fill={ink} />
+          <path d="M236 232 C248 240 268 240 278 230" stroke="#e9573a" strokeWidth="7" fill="none" strokeLinecap="round" />
+        </g>
+        <g className="pf-pulse" transform="translate(340 44)" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round">
+          <path d="M-10 4 A14 14 0 0 1 10 4" /><path d="M-6 8 A8 8 0 0 1 6 8" /><circle cx="0" cy="12" r="1.6" fill="#fff" />
+        </g>
+      </g>
+
+      {/* chat bubble: an eye peeking, typing dots */}
+      <g className="pf-float pf-d3">
+        <rect x="28" y="170" width="190" height="86" rx="16" fill="var(--pf-yellow)" stroke={ink} strokeWidth="5" />
+        <path d="M120 206 C134 194 156 194 168 206 C156 218 134 218 120 206 Z" fill="#fff" stroke={ink} strokeWidth="3" />
+        <circle cx="146" cy="206" r="7" fill={ink} />
+        <path d="M118 188 C132 180 152 180 166 186" stroke="var(--pf-hair-b)" strokeWidth="6" fill="none" strokeLinecap="round" />
+        <g className="pf-typing" fill="#fff">
+          <circle cx="58" cy="236" r="4.5" /><circle cx="74" cy="236" r="4.5" /><circle cx="90" cy="236" r="4.5" />
+        </g>
+      </g>
+
+      {/* card: shoulders and collar */}
+      <g className="pf-float pf-d4">
+        <rect x="72" y="262" width="150" height="104" rx="16" fill="var(--pf-red)" stroke={ink} strokeWidth="5" />
+        <g clipPath="url(#pf-d)">
+          <path d="M84 380 C92 316 124 292 160 292 C198 292 226 316 232 380 Z" fill="var(--pf-yellow)" />
+          <path d="M138 294 L160 330 L182 294 Z" fill="#fff" stroke={ink} strokeWidth="3" />
+          <circle cx="204" cy="350" r="5" fill={ink} />
+        </g>
+        <g fill="#fff"><rect x="88" y="278" width="3" height="10" /><rect x="94" y="274" width="3" height="14" /><rect x="100" y="270" width="3" height="18" /></g>
+      </g>
+
+      {/* card: long wavy hair, green top */}
+      <g className="pf-float pf-d5">
+        <rect x="206" y="240" width="160" height="118" rx="16" fill="var(--pf-green)" stroke={ink} strokeWidth="5" />
+        <g clipPath="url(#pf-e)">
+          <path d="M236 240 C236 300 250 330 290 336 C330 330 344 300 344 240 Z" fill="var(--pf-skin-c)" />
+          <path d="M224 240 C226 290 214 330 232 362 L254 362 C244 320 250 280 252 240 Z M356 240 C354 290 366 330 348 362 L326 362 C336 320 330 280 328 240 Z" fill="var(--pf-hair-c)" />
+          <path d="M262 300 C276 306 304 306 318 300" stroke={ink} strokeWidth="2" fill="none" />
+        </g>
+      </g>
+    </svg>
+  );
 }

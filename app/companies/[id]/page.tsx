@@ -1,11 +1,10 @@
 // Company profile: 11-year CSR history (National CSR Portal), forecasts and announcement timing.
 import { Suspense } from "react";
-import { connection } from "next/server";
 import Link from "next/link";
 import { fmtCr, StackedYearBars, YearMonthCalendar } from "@/app/components/charts";
 import { Hero, Icon } from "@/app/components/illustrations";
 import { fyLabel } from "@/lib/companies";
-import { loadCompany } from "@/lib/history/queries";
+import { getCachedNow, getCompany } from "@/lib/data";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 
 const KIND_LABELS: Record<string, string> = {
@@ -28,8 +27,8 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 }
 
 async function Company({ id }: { id: number }) {
-  await connection();
-  const data = await loadCompany(id);
+  const [data, nowIso] = await Promise.all([getCompany(id), getCachedNow()]);
+  const now = new Date(nowIso);
   if (!data) {
     return (
       <div className="notice">
@@ -150,6 +149,7 @@ async function Company({ id }: { id: number }) {
                 windowStart={t.basis === "company" ? windowStart : null}
                 yearsHit={t.recurrence?.yearsHit ?? []}
                 nextWindowStart={t.basis === "company" ? t.nextWindowStart : null}
+                now={now}
                 title={`${t.events} dated ${t.counted === "announcements" ? "announcements" : "headlines"} by month and year (CSR news archives since 2009)`}
               />
             </section>

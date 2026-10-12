@@ -104,6 +104,7 @@ export function scoreWarm(input: WarmInput, cfg: AppConfig, now: Date): WarmScor
 export interface WarmItem extends WarmScore {
   companyId: number;
   company: string;
+  domain: string | null;
   activity: WarmActivity;
   timing: Timing | null;
 }
@@ -148,10 +149,11 @@ export async function loadWarmList(now = new Date()): Promise<WarmItem[] | null>
   if (ids.length === 0) return [];
 
   const [names, stats] = await Promise.all([
-    db.select({ id: companies.id, name: companies.canonicalName }).from(companies).where(inArray(companies.id, ids)),
+    db.select({ id: companies.id, name: companies.canonicalName, domain: companies.domain }).from(companies).where(inArray(companies.id, ids)),
     db.select().from(companyStats).where(inArray(companyStats.companyId, ids)),
   ]);
   const nameOf = new Map(names.map((n) => [n.id, n.name]));
+  const domainOf = new Map(names.map((n) => [n.id, n.domain]));
   const statsOf = new Map(stats.map((s) => [s.companyId, s]));
   const order: Record<Tier, number> = { call_this_week: 0, watch: 1, background: 2 };
 
@@ -165,7 +167,7 @@ export async function loadWarmList(now = new Date()): Promise<WarmItem[] | null>
         cfg,
         now,
       );
-      return { companyId: id, company: nameOf.get(id) ?? "Unknown", activity: act, timing, ...sc };
+      return { companyId: id, company: nameOf.get(id) ?? "Unknown", domain: domainOf.get(id) ?? null, activity: act, timing, ...sc };
     })
     .sort((a, b) => order[a.tier] - order[b.tier] || b.score - a.score)
     .slice(0, w.maxItems);

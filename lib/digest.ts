@@ -1,6 +1,7 @@
-import { and, desc, eq, gte, isNull, max, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { classifications, companies, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
+import { classifications, companies, itemResearch, rawItems, searchRuns, signals, type SignalType, type Tier } from "@/lib/db/schema";
+import { sourceGroup, type SourceGroup } from "@/lib/sources";
 
 export const DIGEST_WINDOW_DAYS = 7;
 
@@ -26,6 +27,13 @@ export interface DigestItem {
   programmeStartYear: number | null;
   amountInrCrore: number | null;
   financialYear: string | null;
+  sectors: string[];
+  keyPoints: string[];
+  nextStep: string | null;
+  domain: string | null;
+  sourceGroup: SourceGroup;
+  channel: string | null;
+  research: { url: string; title: string; publisher: string | null }[];
 }
 
 export type DigestData =
@@ -63,6 +71,12 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
         programmeStartYear: classifications.programmeStartYear,
         amountInrCrore: classifications.amountInrCrore,
         financialYear: classifications.financialYear,
+        keyPoints: classifications.keyPoints,
+        nextStep: classifications.nextStep,
+        clsDomain: classifications.companyDomain,
+        coDomain: companies.domain,
+        channel: rawItems.channel,
+        itemId: rawItems.id,
       })
       .from(signals)
       .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
@@ -71,13 +85,28 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
       .where(or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since))))
       .orderBy(desc(signals.score));
     const [{ last }] = await db.select({ last: max(signals.updatedAt) }).from(signals);
+    const itemIds = rows.map((r) => r.itemId);
+    const research = itemIds.length
+      ? await db
+          .select({ itemId: itemResearch.itemId, url: itemResearch.url, title: itemResearch.title, publisher: itemResearch.publisher })
+          .from(itemResearch)
+          .where(inArray(itemResearch.itemId, itemIds))
+      : [];
+    const researchBy = new Map<number, { url: string; title: string; publisher: string | null }[]>();
+    for (const r of research) (researchBy.get(r.itemId) ?? researchBy.set(r.itemId, []).get(r.itemId)!).push(r);
     return {
       status: "ok",
       lastUpdated: last ? new Date(last) : null,
-      items: rows.map(({ sectors, ...r }) => {
+      items: rows.map(({ sectors, keyPoints, nextStep, clsDomain, coDomain, itemId, ...r }) => {
         const c = r.classified;
         return {
           ...r,
+          sectors: c ? (sectors ?? []) : [],
+          keyPoints: c ? (keyPoints ?? []) : [],
+          nextStep: c ? (nextStep ?? null) : null,
+          domain: coDomain ?? clsDomain ?? null,
+          sourceGroup: sourceGroup(r.source),
+          research: researchBy.get(itemId) ?? [],
           date: r.publishedAt ?? r.fetchedAt,
           whyItMatters: c ? r.whyItMatters : null,
           keyLabel: c ? r.keyLabel : null,

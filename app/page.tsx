@@ -1,297 +1,97 @@
-// Monday digest (read-only).
-// TODO(phase-2): Monday 07:00 IST email delivery of this digest; feedback buttons per item (feedback loop).
+// Monday digest (home). Served from cache (lib/data.ts); filters run in the browser.
 import { Suspense } from "react";
 import Link from "next/link";
-import { connection } from "next/server";
 import { DEFAULT_CONFIG } from "@/config/defaults";
-import { TIERS, type Tier } from "@/lib/db/schema";
-import { DIGEST_WINDOW_DAYS, loadDigest, loadRecentSearches, type DigestItem, type SearchRunSummary } from "@/lib/digest";
-import { loadWarmList, type WarmItem } from "@/lib/warm";
-import { Hero, Icon } from "@/app/components/illustrations";
-import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
-import { OTHER_SECTORS } from "@/prompts/classify";
+import { Greeting } from "@/app/components/Greeting";
+import { InsightBoard } from "@/app/components/InsightBoard";
+import { Icon, PeopleFrames } from "@/app/components/illustrations";
+import { fmtCr } from "@/app/components/charts";
+import { getHomeInsights, getImpactStats, getSearches } from "@/lib/data";
+import { SOURCE_GROUPS } from "@/lib/sources";
+import { fyLabel } from "@/lib/companies";
 
-const TZ = "Asia/Kolkata";
-const fmtDate = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
-const fmtDateTime = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ, timeZoneName: "short",
-});
-
-const TIER_HINTS: Record<Tier, string> = {
-  call_this_week: "Warm. Worth a call before Friday.",
-  watch: "Relevant, but not urgent. Also holds CSR outside your focus sectors, for review.",
-  background: "Context: ongoing programmes and older activity. Useful for relationship mapping.",
-};
-
-// Names come from config defaults; the DB config may add sources later.
-const SOURCE_NAMES = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
-
-/** Monday of the current week, in IST. */
-function weekOf(now: Date): string {
-  const ist = new Date(now.toLocaleString("en-US", { timeZone: TZ }));
-  const offset = (ist.getDay() + 6) % 7;
-  ist.setDate(ist.getDate() - offset);
-  return new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(ist);
-}
+const SECTORS = DEFAULT_CONFIG.sectors.map((s) => ({ id: s.id, label: s.label }));
+const dateTime = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 export default function Page() {
   return (
-    <main className="wrap">
-      <Hero eyebrow="Every Monday, before outreach" title="Monday digest" variant="digest">
-        New CSR signals from the last {DIGEST_WINDOW_DAYS} days in education, skilling, digital literacy and youth employment, then the
-        companies that stayed warm all year. Every item ends in a decision.
-      </Hero>
-      <Suspense fallback={<p className="muted">Loading this week&rsquo;s signals…</p>}>
-        <Digest />
+    <main className="wrap wide">
+      <Suspense fallback={<div className="hero-glass glass skeleton" />}>
+        <Home />
       </Suspense>
     </main>
   );
 }
 
-async function Digest() {
-  await connection(); // always read fresh from the DB at request time
-  const now = new Date();
-  const [data, warm, searches] = await Promise.all([
-    loadDigest(now),
-    loadWarmList(now).catch(() => null),
-    loadRecentSearches(now).catch(() => []),
-  ]);
-
-  if (data.status === "no_database") {
-    return <Notice title="No database configured">Set <code>DATABASE_URL</code> and run <code>npm run ingest</code>.</Notice>;
+async function Home() {
+  const [home, stats, searches] = await Promise.all([getHomeInsights(), getImpactStats(), getSearches()]);
+  if (home.status !== "ok") {
+    return (
+      <div className="notice glass">
+        <h2>{home.status === "no_database" ? "No database configured" : "Digest unavailable"}</h2>
+        <p>{home.status === "no_database" ? "Set DATABASE_URL and run npm run ingest." : "The next ingestion run will retry."}</p>
+      </div>
+    );
   }
-  if (data.status === "error") {
-    return <Notice title="Digest unavailable">{data.message} The next ingestion run will retry.</Notice>;
-  }
-
-  const byTier = Object.fromEntries(TIERS.map((t) => [t, data.items.filter((i) => i.tier === t)])) as Record<Tier, DigestItem[]>;
-  const unclassified = data.items.filter((i) => !i.classified).length;
+  const { signals, warm: warmCards } = home;
+  const digest = { lastUpdated: home.lastUpdated };
+  const calls = signals.filter((s) => s.tier === "call_this_week").length;
+  const watch = signals.filter((s) => s.tier === "watch").length;
 
   return (
     <>
-      <section className="summary" aria-label="Summary">
-        <h2 className="section-title"><Icon name="spark" /> This week</h2>
-        <p>
-          <strong>Week of {weekOf(now)}</strong>
-          {data.lastUpdated && <> · data updated {fmtDateTime.format(data.lastUpdated)}</>}
-        </p>
-        <ul className="counts">
-          {TIERS.map((t) => (
-            <li key={t} className={`count tier-${t}`}>
-              <span className="n">{byTier[t].length}</span> {TIER_LABELS[t]}
-            </li>
-          ))}
-        </ul>
-        {unclassified > 0 && (
-          <p className="muted small">
-            {unclassified} item{unclassified === 1 ? " was" : "s were"} scored by rules only because Gemini could
-            not classify {unclassified === 1 ? "it" : "them"}. Unclassified items are capped at Watch.
+      <header className="hero-glass glass">
+        <div className="hero-copy">
+          <p className="eyebrow">Monday digest · {digest.lastUpdated ? `updated ${dateTime.format(digest.lastUpdated)}` : "CSR Partnership Radar"}</p>
+          <Greeting name="Ananya" />
+          <p className="lede">
+            Small steps, big impact. Every partnership you close puts a school dropout or a first-generation job seeker into a skilling
+            classroom. Here is who to call this week.
           </p>
-        )}
-      </section>
-
-      {data.items.length === 0 ? (
-        <Notice title="No signals this week">
-          Nothing in the last {DIGEST_WINDOW_DAYS} days passed the filters. The pipeline runs daily at 06:00 IST.
-        </Notice>
-      ) : (
-        TIERS.map((t) => (
-          <section key={t} className={`tier tier-${t}`} aria-labelledby={`h-${t}`}>
-            <div className="tier-head">
-              <span className="tier-dot" aria-hidden="true" />
-              <h2 id={`h-${t}`}>
-                {TIER_LABELS[t]} <span className="muted">({byTier[t].length})</span>
-              </h2>
-              <p className="muted small">{TIER_HINTS[t]}</p>
-            </div>
-            {byTier[t].length === 0 ? (
-              <p className="muted small empty">Nothing in this tier this week.</p>
-            ) : (
-              <ol className="items rise">
-                {byTier[t].map((item) => (
-                  <Item key={item.id} item={item} />
-                ))}
-              </ol>
+          <ul className="impact">
+            <li className="glass-chip"><b>{calls}</b> to call · <b>{watch}</b> to watch</li>
+            {stats && (
+              <li className="glass-chip">
+                Read <b>{stats.itemsThisWeek.toLocaleString("en-IN")}</b> articles, alerts &amp; messages for you this week ≈ <b>{stats.hoursSaved} h</b> of searching saved
+              </li>
             )}
-          </section>
-        ))
-      )}
-
-      {warm && warm.length > 0 && <WarmList items={warm} />}
-
-      {searches.length > 0 && <SearchesRun runs={searches} />}
-    </>
-  );
-}
-
-/** Saved searches Gemini ran on Google this week, with Google's Search Suggestions (required by the grounding terms). */
-function SearchesRun({ runs }: { runs: SearchRunSummary[] }) {
-  return (
-    <section className="section searches" aria-labelledby="h-search">
-      <h2 id="h-search" className="section-title">
-        <Icon name="compass" /> Searched on Google this week
-      </h2>
-      <p className="muted small">
-        Ananya&rsquo;s saved searches, run daily by Gemini with Google Search grounding. Results only count when Google returned a
-        source for them; they are scored in the sections above.
-      </p>
-      <ul className="search-runs">
-        {runs.map((r) => (
-          <li key={r.searchId} className="card">
-            <p>
-              <strong>{r.query}</strong>
-            </p>
-            <p className="muted small">
-              {r.itemsFound} sourced result{r.itemsFound === 1 ? "" : "s"} · {r.itemsNew} new this week · last run {fmtDateTime.format(r.ranAt)}
-            </p>
-            {r.entryPointHtml && (
-              <iframe
-                className="search-suggestions"
-                title={`Google Search suggestions for ${r.query}`}
-                srcDoc={r.entryPointHtml}
-                sandbox="allow-popups allow-popups-to-escape-sandbox"
-                loading="lazy"
-              />
+            {stats?.puneFocusCr != null && (
+              <li className="glass-chip">
+                <b>{fmtCr(stats.puneFocusCr)}</b> went to education &amp; skilling in Pune in {fyLabel(stats.lastFy ?? 2024)}, from {stats.puneCompanies?.toLocaleString("en-IN")} companies
+              </li>
             )}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-const KIND_LABELS: Record<string, string> = {
-  new_initiative: "new initiative",
-  partnership: "partnership",
-  allocation_or_spend: "spend / allocation",
-  partner_search: "partner search",
-};
-
-function WarmList({ items }: { items: WarmItem[] }) {
-  return (
-    <section className="warm" aria-labelledby="h-warm">
-      <h2 id="h-warm" className="section-title">
-        <Icon name="people" /> Warm list <span className="muted">({items.length})</span>
-      </h2>
-      <p className="muted small warm-intro">
-        Companies active in your sectors in the last 12 months, from CSR news archives and National CSR Portal spend. A company that
-        hasn&rsquo;t touched education CSR in years is a long conversation; these are not.
-      </p>
-      {TIERS.map((t) => {
-        const group = items.filter((i) => i.tier === t);
-        if (group.length === 0) return null;
-        return (
-          <div key={t} className={`warm-group tier-${t}`}>
-            <div className="tier-head">
-              <span className="tier-dot" aria-hidden="true" />
-              <h3>
-                {TIER_LABELS[t]} <span className="muted">({group.length})</span>
-              </h3>
-            </div>
-            <ol className="items">
-              {group.map((w) => (
-                <li key={w.companyId} className="item">
-                  <div className="item-top">
-                    <span className="company">
-                      <Link className="company-link" href={`/companies/${w.companyId}`}>{w.company}</Link>
-                    </span>
-                    {w.activity.last && <span className="chip">{KIND_LABELS[w.activity.last.kind] ?? w.activity.last.kind}</span>}
-                  </div>
-                  {w.activity.last && (
-                    <a className="title" href={w.activity.last.url} target="_blank" rel="noopener noreferrer">
-                      {w.activity.last.title}
-                    </a>
-                  )}
-                  <p className="reason">
-                    <span className="label">Why this tier:</span> {w.reason}
-                  </p>
-                </li>
-              ))}
-            </ol>
+            {stats && <li className="glass-chip"><b>{stats.companiesTracked.toLocaleString("en-IN")}</b> funders tracked across 11 years</li>}
+          </ul>
+          <p className="time-note muted small">
+            Your time this week: about 15 minutes with this digest, instead of {stats ? `~${Math.max(1, Math.round(stats.hoursSaved))} hours` : "hours"} of searching and reading.
+          </p>
+          <div className="hero-actions">
+            <Link href="/inbox" className="pill-link strong"><Icon name="people" /> Drop in messages</Link>
+            <Link href="/calendar" className="pill-link"><Icon name="calendar" /> CSR calendar</Link>
           </div>
-        );
-      })}
-    </section>
-  );
-}
+        </div>
+        <div className="hero-art"><PeopleFrames /></div>
+      </header>
 
-function Item({ item }: { item: DigestItem }) {
-  return (
-    <li className="item">
-      <div className="item-top">
-        <span className="company">
-          {item.company && item.companyId ? (
-            <Link className="company-link" href={`/companies/${item.companyId}`}>{item.company}</Link>
-          ) : (
-            item.company ?? "Company not identified"
-          )}
-        </span>
-        <span className="chip">{SIGNAL_LABELS[item.signalType]}</span>
-        {item.classified ? (
-          <span className="badge" title="Gemini key label that classified this item">
-            Gemini · {item.keyLabel}
-          </span>
-        ) : (
-          <span className="badge badge-warn" title="Gemini did not classify this item; scored by keyword rules only">
-            unclassified
-          </span>
-        )}
-      </div>
-      <a className="title" href={item.url} target="_blank" rel="noopener noreferrer">
-        {item.title}
-      </a>
-      {item.whyItMatters && <p className="why">{item.whyItMatters}</p>}
-      <Facts item={item} />
-      <p className="reason">
-        <span className="label">Why this tier:</span> {item.reason}
-      </p>
-      <p className="meta muted small">
-        {fmtDate.format(item.date)} · {SOURCE_NAMES.get(item.source) ?? item.source}
-      </p>
-    </li>
-  );
-}
+      <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} />
 
-const OTHER_LABELS = new Map<string, string>(OTHER_SECTORS.map((o) => [o.id, o.label]));
-
-function Facts({ item }: { item: DigestItem }) {
-  if (!item.classified) return null;
-  const year = new Date().getFullYear();
-  const facts: { text: string; tone?: "review" | "good" }[] = [];
-  if (item.outsideFocus) {
-    const labels = item.otherSectors.map((id) => OTHER_LABELS.get(id) ?? id);
-    facts.push({ text: `Outside focus${labels.length ? `: ${labels.join(", ")}` : ""} · for review`, tone: "review" });
-  }
-  if (item.activelyPartnering === "yes") {
-    facts.push({ text: `Works with NGOs${item.partners.length ? `: ${item.partners.slice(0, 3).join(", ")}` : ""}`, tone: "good" });
-  } else if (item.activelyPartnering === "no") {
-    facts.push({ text: "Runs it in-house (no NGO partner mentioned)" });
-  } else {
-    facts.push({ text: "NGO partnering: not stated" });
-  }
-  if (item.programmeStartYear) {
-    const yrs = year - item.programmeStartYear;
-    facts.push({ text: `Running since ${item.programmeStartYear}${yrs > 0 ? ` · ${yrs} yr${yrs === 1 ? "" : "s"} old` : " · new this year"}` });
-  }
-  if (item.amountInrCrore) {
-    facts.push({ text: `₹${item.amountInrCrore.toLocaleString("en-IN", { maximumFractionDigits: 2 })} cr${item.financialYear ? ` · ${item.financialYear}` : ""}` });
-  }
-  return (
-    <ul className="facts">
-      {facts.map((f) => (
-        <li key={f.text} className={f.tone ? `fact fact-${f.tone}` : "fact"}>
-          {f.text}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Notice({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="notice" role="status">
-      <h2>{title}</h2>
-      <p>{children}</p>
-    </div>
+      {searches.length > 0 && (
+        <section className="section" aria-labelledby="h-search">
+          <h2 id="h-search" className="section-title"><Icon name="compass" /> Searched on Google this week</h2>
+          <p className="muted small">Saved searches run daily by Gemini with Google Search grounding; results count only when Google returned a source.</p>
+          <ul className="search-runs">
+            {searches.map((r) => (
+              <li key={r.searchId} className="glass card-pad">
+                <p><strong>{r.query}</strong></p>
+                <p className="muted small">{r.itemsFound} sourced result{r.itemsFound === 1 ? "" : "s"} · {r.itemsNew} new this week</p>
+                {r.entryPointHtml && (
+                  <iframe className="search-suggestions" title={`Google Search suggestions for ${r.query}`} srcDoc={r.entryPointHtml} sandbox="allow-popups allow-popups-to-escape-sandbox" loading="lazy" />
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }

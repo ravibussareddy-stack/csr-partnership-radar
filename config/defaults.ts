@@ -93,8 +93,12 @@ export interface AppConfig {
     signalType: Record<SignalTypeKey | "none", number>;
     /** Ordered by maxAgeDays ascending; first match wins. */
     recency: { maxAgeDays: number; points: number }[];
-    sectorPerMatch: number;
-    sectorMax: number;
+    /** Points for fitting ANY focus sector. Flat: all four sectors are equal, and an item tagged with two
+     * sectors (e.g. education + digital literacy) does not outrank a pure education or skilling item. */
+    sectorFit: number;
+    /** Legacy (per-sector additive); ignored when sectorFit is set. */
+    sectorPerMatch?: number;
+    sectorMax?: number;
     /** Subtracted when model confidence is below lowConfidenceThreshold. */
     lowConfidencePenalty: number;
     lowConfidenceThreshold: number;
@@ -280,6 +284,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     { id: "google-alerts", name: "Google Alerts", url: "imap://intake", type: "email", weight: 5, csrFocused: true, enabled: true },
     { id: "linkedin-email", name: "LinkedIn (email notifications)", url: "imap://intake", type: "email", weight: 4, csrFocused: false, enabled: true },
     { id: "email-intake", name: "Forwarded to the intake inbox", url: "imap://intake", type: "email", weight: 6, csrFocused: true, enabled: true },
+    { id: "pasted", name: "Pasted messages", url: "app://inbox", type: "email", weight: 6, csrFocused: true, enabled: true },
     {
       id: "indiacsr",
       name: "India CSR",
@@ -364,8 +369,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       { maxAgeDays: 7, points: 10 },
       { maxAgeDays: 14, points: 3 },
     ],
-    sectorPerMatch: 10,
-    sectorMax: 20,
+    sectorFit: 20,
     lowConfidencePenalty: 10,
     lowConfidenceThreshold: 0.5,
     thresholds: { callThisWeek: 60, watch: 35 },

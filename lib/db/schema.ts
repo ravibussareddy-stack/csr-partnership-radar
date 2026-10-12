@@ -56,6 +56,10 @@ export const rawItems = pgTable("raw_items", {
   prefilterPassed: boolean("prefilter_passed"),
   // Why it passed/failed: "keywords: …" (stage 1) or "context: …" (stage 2 Gemini screen).
   prefilterNote: text("prefilter_note"),
+  // Pasted messages: where the message came from (whatsapp, linkedin, telegram, email, other).
+  channel: text("channel"),
+  // Personal/forwarded items: when Gemini + Google Search last looked for corroborating sources.
+  researchedAt: timestamp("researched_at", { withTimezone: true }),
   classifyStatus: text("classify_status").$type<ClassifyStatus>().notNull().default("pending"),
 });
 
@@ -77,6 +81,10 @@ export const classifications = pgTable("classifications", {
   programmeStartYear: integer("programme_start_year"),
   amountInrCrore: real("amount_inr_crore"),
   financialYear: text("financial_year"),
+  // v4 fields
+  keyPoints: text("key_points").array().notNull().default([]),
+  nextStep: text("next_step"),
+  companyDomain: text("company_domain"),
   whyItMatters: text("why_it_matters").notNull().default(""),
   confidence: real("confidence").notNull(),
   // "<GEMINI_MODEL>@<PROMPT_VERSION>"
@@ -97,6 +105,8 @@ export const companies = pgTable(
     // Name without legal suffixes ("abc"), for loose matching of news names. Not unique.
     baseKey: text("base_key"),
     isPsu: boolean("is_psu"),
+    // Official website domain (from classification), used for logos.
+    domain: text("domain"),
     // "portal" = National CSR Portal import, "news" = first seen in news.
     origin: text("origin").$type<"portal" | "news">().notNull().default("news"),
   },
@@ -231,3 +241,21 @@ export const notifications = pgTable("notifications", {
   subject: text("subject").notNull(),
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Public sources Gemini (Google Search grounding) found to corroborate a personal/forwarded item. */
+export const itemResearch = pgTable(
+  "item_research",
+  {
+    id: serial("id").primaryKey(),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => rawItems.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    title: text("title").notNull(),
+    publisher: text("publisher"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    summary: text("summary"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("item_research_item_url_idx").on(t.itemId, t.url)],
+);

@@ -161,7 +161,7 @@ export function YearMonthCalendar({
   windowStart,
   yearsHit = [],
   nextWindowStart,
-  now = new Date(),
+  now,
   fromYear,
 }: {
   grid: { year: number; months: number[] }[];
@@ -169,7 +169,7 @@ export function YearMonthCalendar({
   windowStart?: number | null;
   yearsHit?: number[];
   nextWindowStart?: string | null;
-  now?: Date;
+  now: Date;
   fromYear?: number;
 }) {
   const thisYear = now.getUTCFullYear();

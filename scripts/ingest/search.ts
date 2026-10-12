@@ -22,7 +22,7 @@ interface Found {
 }
 
 /** grounding-api-redirect → the publisher's URL (one HEAD request, no page download). */
-async function resolveRedirect(uri: string): Promise<string | null> {
+export async function resolveRedirect(uri: string): Promise<string | null> {
   try {
     const res = await fetch(uri, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(15000) });
     const loc = res.headers.get("location");

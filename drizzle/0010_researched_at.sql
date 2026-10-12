@@ -1,0 +1,1 @@
+ALTER TABLE "raw_items" ADD COLUMN "researched_at" timestamp with time zone;
