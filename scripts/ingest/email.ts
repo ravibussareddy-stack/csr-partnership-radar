@@ -15,7 +15,8 @@ import { simpleParser, type ParsedMail } from "mailparser";
 import type { DB } from "@/lib/db/client";
 import { rawItems } from "@/lib/db/schema";
 import { contentHash } from "@/lib/hash";
-import { canonicalUrl, stripHtml, truncate } from "@/lib/text";
+import { DEFAULT_CONFIG } from "@/config/defaults";
+import { canonicalUrl, matchKeywords, stripHtml, truncate } from "@/lib/text";
 
 export interface EmailItem {
   source: "google-alerts" | "linkedin-email" | "email-intake";
@@ -187,8 +188,15 @@ export async function fetchIntakeEmail(db: DB): Promise<{ status: string; emails
     await client.logout().catch(() => {});
   }
 
+  // Data minimisation: LinkedIn mail is mostly personal notifications (profile views, feed
+  // posts). Only LinkedIn items that mention CSR (or a CSR policy term) are kept; the rest is
+  // dropped here and never stored. Google Alerts and [CSR-IN] forwards are CSR by construction.
+  const csrTerms = [...DEFAULT_CONFIG.keywords.csr, ...DEFAULT_CONFIG.keywords.policy];
+  const kept = items.filter((it) => it.source !== "linkedin-email" || matchKeywords(`${it.title}\n${it.body}`, csrTerms).length > 0);
+  const dropped = items.length - kept.length;
+
   let inserted = 0;
-  for (const it of items) {
+  for (const it of kept) {
     const out = await db
       .insert(rawItems)
       .values({ source: it.source, url: it.url, title: it.title, body: it.body, publishedAt: it.publishedAt, contentHash: contentHash(it.title, it.body) })
@@ -196,5 +204,5 @@ export async function fetchIntakeEmail(db: DB): Promise<{ status: string; emails
       .returning({ id: rawItems.id });
     inserted += out.length;
   }
-  return { status: "ok", emails, items: items.length, inserted };
+  return { status: `ok (${dropped} non-CSR LinkedIn notifications dropped, not stored)`, emails, items: kept.length, inserted };
 }

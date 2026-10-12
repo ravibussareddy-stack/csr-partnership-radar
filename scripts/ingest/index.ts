@@ -53,7 +53,7 @@ async function main() {
   if (!args.has("--no-fetch")) {
     try {
       const em = await fetchIntakeEmail(db);
-      console.log(`email: ${em.status}${em.status === "ok" ? `, ${em.emails} emails → ${em.items} items, ${em.inserted} new` : ""}`);
+      console.log(`email: ${em.status}${em.status.startsWith("ok") ? `, ${em.emails} emails → ${em.items} items kept, ${em.inserted} new` : ""}`);
     } catch (err) {
       console.warn(`email: failed (${(err as Error).message}); continuing`);
     }
