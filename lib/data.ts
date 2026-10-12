@@ -225,7 +225,8 @@ export async function getSummary(): Promise<SummaryData | null> {
   const sourceNames = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
   const now = new Date();
   const [digest, hiring, cycles] = await Promise.all([loadDigest(now), loadHiring(30), loadUpcomingCycles({ focusOnly: false })]);
-  const calls = digest.status === "ok" ? digest.items.filter((i) => i.tier === "call_this_week").map((i) => fromDigest(i, sourceNames)) : [];
+  // Demo items are excluded from the overview's counts (they restate real stories already counted).
+  const calls = digest.status === "ok" ? digest.items.filter((i) => i.tier === "call_this_week" && !i.isDemo).map((i) => fromDigest(i, sourceNames)) : [];
 
   // Window open now, or opening within 30 days; spending in Pune / Maharashtra.
   const DAY = 86400_000;

@@ -23,10 +23,14 @@ export const regulatoryResponseSchema = {
   required: ["overview", "highlights", "watch_next"],
 };
 
+// Over-long fields are trimmed rather than rejected, so one verbose answer doesn't discard the summary.
+const clip = (n: number) => z.string().trim().transform((s) => (s.length <= n ? s : `${s.slice(0, s.lastIndexOf(" ", n))}…`));
 export const regulatorySchema = z.object({
-  overview: z.string().trim().max(600),
-  highlights: z.array(z.object({ text: z.string().trim().max(400), status: z.enum(["confirmed", "executed", "inferred"]), item_ids: z.array(z.number().int()).max(6) })).max(6),
-  watch_next: z.array(z.string().trim().max(250)).max(4),
+  overview: clip(700),
+  highlights: z
+    .array(z.object({ text: clip(450), status: z.enum(["confirmed", "executed", "inferred"]), item_ids: z.array(z.number().int()).transform((a) => a.slice(0, 6)) }))
+    .transform((a) => a.slice(0, 6)),
+  watch_next: z.array(clip(250)).transform((a) => a.slice(0, 4)),
 });
 
 export function buildRegulatoryPrompt(items: { id: number; date: string; status: string; official: boolean; title: string; text: string }[]): string {

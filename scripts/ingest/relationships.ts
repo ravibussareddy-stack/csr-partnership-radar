@@ -119,7 +119,7 @@ async function deterministic(db: DB, rel: Rel): Promise<AlertIn[]> {
       .select({ id: rawItems.id, title: rawItems.title, url: rawItems.url, at: rawItems.publishedAt })
       .from(signals)
       .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
-      .where(and(eq(signals.companyId, rel.companyId), eq(signals.signalType, "csr_hiring"), gte(rawItems.fetchedAt, new Date(Date.now() - 45 * DAY))));
+      .where(and(eq(signals.companyId, rel.companyId), eq(signals.signalType, "csr_hiring"), eq(rawItems.isDemo, false), gte(rawItems.fetchedAt, new Date(Date.now() - 45 * DAY))));
     for (const h of hires) {
       out.push({
         key: `item:${h.id}`,
@@ -148,14 +148,14 @@ async function assessed(db: DB, pool: GeminiPool, rel: Rel): Promise<AlertIn[]> 
     .from(signals)
     .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
     .leftJoin(classifications, eq(classifications.contentHash, rawItems.contentHash))
-    .where(and(companyMatch, sql`${signals.signalType} <> 'csr_hiring'`, gte(rawItems.fetchedAt, since), sql`${rawItems.id} not in (${checked})`))
+    .where(and(companyMatch, sql`${signals.signalType} <> 'csr_hiring'`, eq(rawItems.isDemo, false), gte(rawItems.fetchedAt, since), sql`${rawItems.id} not in (${checked})`))
     .orderBy(desc(rawItems.fetchedAt))
     .limit(10);
   const regs = await db
     .select({ id: rawItems.id, title: rawItems.title, url: rawItems.url, at: rawItems.publishedAt, fetched: rawItems.fetchedAt, headline: classifications.headline, why: classifications.whyItMatters, kp: classifications.keyPoints, status: classifications.policyStatus })
     .from(classifications)
     .innerJoin(rawItems, eq(rawItems.contentHash, classifications.contentHash))
-    .where(and(eq(classifications.signalType, "policy_change"), eq(classifications.isSignal, true), gte(rawItems.fetchedAt, new Date(Date.now() - 60 * DAY)), sql`${rawItems.id} not in (${checked})`))
+    .where(and(eq(classifications.signalType, "policy_change"), eq(classifications.isSignal, true), eq(rawItems.isDemo, false), gte(rawItems.fetchedAt, new Date(Date.now() - 60 * DAY)), sql`${rawItems.id} not in (${checked})`))
     .orderBy(desc(rawItems.fetchedAt))
     .limit(8);
   const items = [

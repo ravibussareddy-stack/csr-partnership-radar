@@ -140,8 +140,10 @@ async function main() {
     console.warn(`notify: digest unavailable (${digest.status})`);
     return;
   }
-  const calls = digest.items.filter((i) => i.tier === "call_this_week");
-  const watch = digest.items.filter((i) => i.tier === "watch");
+  // Demo items (labelled samples) never go out by email.
+  const real = digest.items.filter((i) => !i.isDemo);
+  const calls = real.filter((i) => i.tier === "call_this_week");
+  const watch = real.filter((i) => i.tier === "watch");
 
   if (args.has("--digest")) {
     const { year, week } = isoWeek(now);
