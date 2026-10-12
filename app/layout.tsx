@@ -3,6 +3,7 @@ import { Nunito, Outfit } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Ambient } from "./components/Ambient";
+import { FeedbackBox } from "./components/FeedbackBox";
 import "./globals.css";
 
 const display = Outfit({ subsets: ["latin"], variable: "--font-display", weight: ["300", "400", "500", "600"] });
@@ -29,9 +30,11 @@ const NAV = [
   { href: "/", label: "1 · Summary", d: "M4 5 H20 V9 H4 Z M4 12 H11 V19 H4 Z M14 12 H20 V19 H14 Z" },
   { href: "/digest", label: "2 · Digest", d: "M4 11 L12 4 L20 11 V20 H14 V14 H10 V20 H4 Z" },
   { href: "/inbox", label: "3 · People messages", d: "M4 6 H20 V16 H13 L8 20 V16 H4 Z" },
+  { href: "/regulatory", label: "Regulatory", d: "M4 9 L12 4 L20 9 Z M6 10 V17 M10 10 V17 M14 10 V17 M18 10 V17 M4 19 H20" },
   { href: "/calendar", label: "CSR calendar", d: "M5 6 H19 V20 H5 Z M5 10 H19 M9 3 V7 M15 3 V7" },
   { href: "/funding", label: "Funding insights", d: "M5 19 V12 M10 19 V8 M15 19 V11 M20 19 V5 M3 19 H21" },
   { href: "/jobs", label: "Hiring radar", d: "M4 8 H20 V19 H4 Z M9 8 V5 H15 V8 M4 13 H20" },
+  { href: "/team", label: "Team", d: "M9 10 A3 3 0 1 0 9.01 10 Z M4 20 C4 15 14 15 14 20 M16 7 A2.5 2.5 0 1 0 16.01 7 Z M15 13 C19 13 21 15 21 18" },
   { href: "/community", label: "Community builder", d: "M8 11 A3 3 0 1 0 8.01 11 Z M16 11 A3 3 0 1 0 16.01 11 Z M3 20 C3 16 13 16 13 20 M11 20 C11 16 21 16 21 20" },
 ];
 
@@ -54,7 +57,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Link>
           ))}
         </nav>
-        <div className="content">{children}</div>
+        <div className="content">
+          {children}
+          <Suspense fallback={null}>
+            <FeedbackBox />
+          </Suspense>
+        </div>
         <Suspense fallback={null}>
           <Ambient />
         </Suspense>

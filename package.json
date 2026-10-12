@@ -28,7 +28,9 @@
     "searches": "tsx scripts/run-searches.ts",
     "jobs:validate": "tsx scripts/history/validate-jobs.ts",
     "test:joblinks": "tsx tests/joblinks.test.ts",
-    "contacts": "tsx scripts/history/contacts.ts"
+    "contacts": "tsx scripts/history/contacts.ts",
+    "team:tasks": "tsx scripts/ingest/team-tasks.ts",
+    "regulatory": "tsx scripts/ingest/regulatory.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",
