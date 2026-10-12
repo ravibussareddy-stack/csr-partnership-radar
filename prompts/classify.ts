@@ -8,8 +8,9 @@ import type { AppConfig } from "@/config/defaults";
  * v2: keeps ongoing programmes / spend reports (ongoing_programme) and CSR outside the
  *     focus sectors (other_sectors) instead of discarding them; adds programme age,
  *     NGO partnering status, partners, amount and financial year.
+ * v3: adds csr_hiring (job posts for CSR / foundation roles = a growing CSR team).
  */
-export const PROMPT_VERSION = "classify-v2";
+export const PROMPT_VERSION = "classify-v3";
 
 export const SIGNAL_TYPE_VALUES = [
   "new_initiative",
@@ -17,6 +18,7 @@ export const SIGNAL_TYPE_VALUES = [
   "partner_search",
   "policy_change",
   "ongoing_programme",
+  "csr_hiring",
   "none",
 ] as const;
 
@@ -143,6 +145,7 @@ signal_type (pick the strongest that applies):
 - allocation_increase: more CSR budget or spend (a bigger outlay, a new multi-crore commitment, a year-on-year increase).
 - policy_change: a policy, rule or regulatory change affecting how companies deploy CSR funds in India (Companies Act Section 135, Schedule VII, CSR rules, MCA or SEBI circulars, Social Stock Exchange).
 - ongoing_programme: an existing programme with nothing new announced, or a retrospective spend/impact report.
+- csr_hiring: a company or corporate foundation is hiring for CSR, foundation, social impact or community roles (job posts, job alerts). Put the hiring company in companies and the job location in geographies.
 - none: not corporate CSR (is_signal = false).
 
 Focus sectors (sectors: use only these ids):

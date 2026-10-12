@@ -15,7 +15,7 @@ import { simpleParser, type ParsedMail } from "mailparser";
 import type { DB } from "@/lib/db/client";
 import { rawItems } from "@/lib/db/schema";
 import { contentHash } from "@/lib/hash";
-import { DEFAULT_CONFIG } from "@/config/defaults";
+import { DEFAULT_CONFIG, type AppConfig } from "@/config/defaults";
 import { canonicalUrl, matchKeywords, stripHtml, truncate } from "@/lib/text";
 
 export interface EmailItem {
@@ -155,7 +155,7 @@ export function itemsFromMail(mail: ParsedMail): EmailItem[] {
   ];
 }
 
-export async function fetchIntakeEmail(db: DB): Promise<{ status: string; emails: number; items: number; inserted: number }> {
+export async function fetchIntakeEmail(db: DB, opts: { config?: AppConfig } = {}): Promise<{ status: string; emails: number; items: number; inserted: number }> {
   const user = process.env.INTAKE_IMAP_USER;
   const pass = process.env.INTAKE_IMAP_PASSWORD;
   if (!user || !pass) return { status: "not configured (INTAKE_IMAP_USER / INTAKE_IMAP_PASSWORD)", emails: 0, items: 0, inserted: 0 };
@@ -189,10 +189,12 @@ export async function fetchIntakeEmail(db: DB): Promise<{ status: string; emails
   }
 
   // Data minimisation: LinkedIn mail is mostly personal notifications (profile views, feed
-  // posts). Only LinkedIn items that mention CSR (or a CSR policy term) are kept; the rest is
-  // dropped here and never stored. Google Alerts and [CSR-IN] forwards are CSR by construction.
-  const csrTerms = [...DEFAULT_CONFIG.keywords.csr, ...DEFAULT_CONFIG.keywords.policy];
-  const kept = items.filter((it) => it.source !== "linkedin-email" || matchKeywords(`${it.title}\n${it.body}`, csrTerms).length > 0);
+  // posts). Only LinkedIn items that mention CSR, a CSR policy term or a followed page
+  // (keywords.followedPages) are kept; the rest is dropped here and never stored.
+  // Google Alerts and [CSR-IN] forwards are CSR by construction.
+  const cfg = opts.config ?? DEFAULT_CONFIG;
+  const keepTerms = [...cfg.keywords.csr, ...cfg.keywords.policy, ...(cfg.keywords.followedPages ?? [])];
+  const kept = items.filter((it) => it.source !== "linkedin-email" || matchKeywords(`${it.title}\n${it.body}`, keepTerms).length > 0);
   const dropped = items.length - kept.length;
 
   let inserted = 0;

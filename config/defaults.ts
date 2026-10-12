@@ -9,7 +9,8 @@ export type SignalTypeKey =
   | "allocation_increase"
   | "partner_search"
   | "policy_change"
-  | "ongoing_programme";
+  | "ongoing_programme"
+  | "csr_hiring";
 
 export interface SectorConfig {
   id: string;
@@ -66,6 +67,11 @@ export interface AppConfig {
      * false (default): CSR in any sector reaches Gemini; outside-sector items are kept "for review".
      */
     requireSectorMatch?: boolean;
+    /**
+     * LinkedIn pages / organisations you follow (NGOs, CSR foundations, networks). LinkedIn
+     * emails that name one of these are kept even without a CSR keyword.
+     */
+    followedPages?: string[];
     /** Used only for rules-only typing of unclassified items. */
     signalHints: Record<SignalTypeKey, string[]>;
   };
@@ -82,6 +88,8 @@ export interface AppConfig {
     thresholds: { callThisWeek: number; watch: number };
     /** Highest tier an unclassified (rules-only) item can reach. */
     unclassifiedMaxTier: "call_this_week" | "watch" | "background";
+    /** Highest tier for CSR job posts (a growing CSR team is a lead, not a reason to call this week). */
+    hiringMaxTier: "call_this_week" | "watch" | "background";
     /** Highest tier for CSR entirely outside the focus sectors (kept for review). */
     outsideSectorMaxTier: "call_this_week" | "watch" | "background";
     /** Added when the company is working with NGO / implementation partners. */
@@ -195,6 +203,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       "Social Stock Exchange", "BRSR", "SEBI",
     ],
     requireSectorMatch: false,
+    followedPages: ["Youth Seva", "India CSR", "The CSR Journal", "CSRBOX", "Sattva", "Dasra", "GuideStar India", "NSDC"],
     signalHints: {
       partner_search: [
         "seeks NGO", "seeking NGO", "invites proposals", "inviting proposals",
@@ -215,6 +224,10 @@ export const DEFAULT_CONFIG: AppConfig = {
       ongoing_programme: [
         "continues", "continued", "edition", "spent", "spends", "impact report",
         "annual report", "so far", "has reached", "benefited",
+      ],
+      csr_hiring: [
+        "hiring", "we are hiring", "job opening", "vacancy", "apply now", "CSR Manager",
+        "CSR Lead", "Head of CSR", "CSR Executive", "CSR Programme Manager",
       ],
       policy_change: [
         "CSR rules", "amendment", "notification", "circular", "Schedule VII",
@@ -308,6 +321,7 @@ export const DEFAULT_CONFIG: AppConfig = {
       allocation_increase: 30,
       policy_change: 25,
       ongoing_programme: 10,
+      csr_hiring: 20,
       none: 0,
     },
     recency: [
@@ -321,6 +335,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     lowConfidenceThreshold: 0.5,
     thresholds: { callThisWeek: 60, watch: 35 },
     unclassifiedMaxTier: "watch",
+    hiringMaxTier: "watch",
     outsideSectorMaxTier: "watch",
     activelyPartneringBonus: 10,
     lookbackDays: 14,

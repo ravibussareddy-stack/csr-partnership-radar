@@ -52,7 +52,7 @@ async function main() {
   // 2a. Intake inbox: Google Alerts, LinkedIn notification emails, forwarded messages
   if (!args.has("--no-fetch")) {
     try {
-      const em = await fetchIntakeEmail(db);
+      const em = await fetchIntakeEmail(db, { config: cfg });
       console.log(`email: ${em.status}${em.status.startsWith("ok") ? `, ${em.emails} emails → ${em.items} items kept, ${em.inserted} new` : ""}`);
     } catch (err) {
       console.warn(`email: failed (${(err as Error).message}); continuing`);
