@@ -287,94 +287,138 @@ export function PeopleFrames() {
 }
 
 /**
- * A rural classroom in warm morning light: tin roof and rafters, a hanging bulb, a sunlit window
- * throwing a shaft of light across a teacher, children silhouetted in the foreground.
- * Original artwork; the light shimmers and dust motes drift (off under reduced motion).
+ * Recreation of the reference photo: a teacher in profile in a tin-roofed rural classroom, lit by
+ * a single bulb and a strong shaft of window light, children softly out of focus behind him and
+ * silhouetted in the foreground at a sunlit desk. Cinematic palette, depth-of-field blur,
+ * vignette. Light shimmers and dust drifts (off under reduced motion).
  */
 export function ClassroomScene() {
+  const kidsBack: [number, number, number, string][] = [
+    [96, 236, 15, "#7a4a2c"], [138, 228, 14, "#5e3a24"], [180, 238, 15, "#8a5634"], [226, 230, 14, "#6b4228"],
+    [372, 240, 15, "#7a4a2c"], [414, 232, 14, "#5e3a24"], [456, 242, 15, "#8a5634"], [500, 236, 14, "#6b4228"],
+    [120, 268, 17, "#6b4228"], [170, 274, 18, "#7a4a2c"], [392, 276, 18, "#6b4228"], [446, 270, 17, "#8a5634"],
+  ];
   return (
     <svg className="classroom" viewBox="0 0 560 400" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="cr-wall" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3a2b20" />
-          <stop offset="0.42" stopColor="#4a3627" />
-          <stop offset="0.43" stopColor="#2d6f78" />
-          <stop offset="1" stopColor="#1f4f57" />
+          <stop offset="0" stopColor="#1c1612" />
+          <stop offset="0.3" stopColor="#2a2119" />
+          <stop offset="0.31" stopColor="#2e5f68" />
+          <stop offset="0.75" stopColor="#24505a" />
+          <stop offset="1" stopColor="#1a3238" />
         </linearGradient>
         <linearGradient id="cr-beam" x1="1" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff2c4" stopOpacity="0.85" />
-          <stop offset="0.6" stopColor="#ffd98a" stopOpacity="0.25" />
+          <stop offset="0" stopColor="#fff6d6" stopOpacity="0.9" />
+          <stop offset="0.45" stopColor="#ffe3a0" stopOpacity="0.5" />
           <stop offset="1" stopColor="#ffd98a" stopOpacity="0" />
         </linearGradient>
         <radialGradient id="cr-bulb" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#fffbe6" stopOpacity="0.95" />
+          <stop offset="0" stopColor="#ffffff" stopOpacity="1" />
+          <stop offset="0.25" stopColor="#fff7d6" stopOpacity="0.7" />
           <stop offset="1" stopColor="#fff2c4" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="cr-desk" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#c98a4a" />
-          <stop offset="1" stopColor="#7a4a22" />
+        <radialGradient id="cr-vignette" cx="0.55" cy="0.45" r="0.75">
+          <stop offset="0.55" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.55" />
+        </radialGradient>
+        <linearGradient id="cr-desk" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#5a3a1e" />
+          <stop offset="0.55" stopColor="#c98a4a" />
+          <stop offset="1" stopColor="#e8b072" />
         </linearGradient>
+        <pattern id="cr-check" width="7" height="7" patternUnits="userSpaceOnUse">
+          <rect width="7" height="7" fill="#d9c9a8" />
+          <path d="M0 3.5 H7 M3.5 0 V7" stroke="#b9a681" strokeWidth="1" />
+        </pattern>
+        <filter id="cr-blur2"><feGaussianBlur stdDeviation="2.2" /></filter>
+        <filter id="cr-blur6"><feGaussianBlur stdDeviation="6" /></filter>
         <clipPath id="cr-clip"><rect width="560" height="400" rx="26" /></clipPath>
       </defs>
       <g clipPath="url(#cr-clip)">
         <rect width="560" height="400" fill="url(#cr-wall)" />
-        {/* tin roof ridges + rafters */}
-        <g opacity="0.55">
-          {Array.from({ length: 28 }, (_, i) => (
-            <path key={i} d={`M${i * 21 - 10} 0 L${i * 21 + 6} 46`} stroke="#6b5442" strokeWidth="6" />
+        {/* corrugated tin roof + rafters */}
+        <g opacity="0.7">
+          {Array.from({ length: 40 }, (_, i) => (
+            <path key={i} d={`M${i * 15 - 40} 0 L${i * 15 + 10} 70`} stroke={i % 2 ? "#4b4038" : "#5d5047"} strokeWidth="7" />
           ))}
         </g>
-        <rect x="0" y="46" width="560" height="12" fill="#2a1e15" />
-        <rect x="0" y="92" width="560" height="9" fill="#2a1e15" opacity="0.8" />
-        {/* chart on the wall */}
-        <g transform="translate(150 118)">
-          <rect width="150" height="96" rx="4" fill="#efe6cf" />
-          <rect x="10" y="10" width="130" height="8" fill="#d1c2a0" />
-          {[0, 1, 2, 3, 4, 5].map((i) => <rect key={i} x={12 + i * 21} y="26" width="12" height="10" fill={["#5a8fd6", "#e07a5f", "#7ab87a", "#e0b24a", "#9a7ad6", "#5ab0b0"][i]} />)}
-          <rect x="22" y="46" width="22" height="34" fill="#c9b994" /><rect x="58" y="46" width="22" height="34" fill="#c9b994" />
-          <rect x="94" y="52" width="40" height="5" fill="#cbbd9b" /><rect x="94" y="62" width="34" height="5" fill="#cbbd9b" /><rect x="94" y="72" width="38" height="5" fill="#cbbd9b" />
+        <rect x="0" y="66" width="560" height="10" fill="#120d09" />
+        <rect x="0" y="104" width="560" height="7" fill="#120d09" opacity="0.85" />
+        <path d="M0 40 L560 52" stroke="#120d09" strokeWidth="6" opacity="0.8" />
+        {/* chart with two portraits on the teal wall */}
+        <g transform="translate(170 132)" filter="url(#cr-blur2)">
+          <rect width="170" height="104" rx="3" fill="#ece3cc" />
+          <rect x="8" y="8" width="154" height="12" fill="#d6c7a2" />
+          {["#7a9fd6", "#d68b6a", "#86b886", "#e0b65a", "#a48ad6", "#6fb5b5", "#d6a46a"].map((c, i) => <rect key={i} x={12 + i * 21} y="26" width="14" height="9" fill={c} />)}
+          <rect x="18" y="44" width="26" height="40" fill="#d9cfb6" /><circle cx="31" cy="56" r="7" fill="#6b4a32" /><path d="M21 84 C21 70 41 70 41 84 Z" fill="#6b4a32" />
+          <rect x="58" y="44" width="26" height="40" fill="#d9cfb6" /><circle cx="71" cy="56" r="7" fill="#6b4a32" /><path d="M61 84 C61 70 81 70 81 84 Z" fill="#6b4a32" />
+          <rect x="98" y="48" width="58" height="5" fill="#cfc29f" /><rect x="98" y="58" width="50" height="5" fill="#cfc29f" /><rect x="98" y="68" width="54" height="5" fill="#cfc29f" /><rect x="98" y="78" width="40" height="5" fill="#cfc29f" />
         </g>
-        {/* window + light shaft */}
-        <rect x="468" y="120" width="92" height="110" fill="#fff6d8" />
-        <rect x="468" y="120" width="92" height="110" fill="#ffffff" opacity="0.6" className="cr-window" />
-        <path d="M470 124 L560 124 L380 400 L190 400 Z" fill="url(#cr-beam)" className="cr-beam" />
-        <rect x="0" y="120" width="40" height="80" fill="#9fd08a" opacity="0.5" />
-        {/* hanging bulb */}
-        <line x1="300" y1="58" x2="300" y2="84" stroke="#1a120c" strokeWidth="3" />
-        <path d="M282 84 L318 84 L312 92 L288 92 Z" fill="#2a3b3a" />
-        <circle cx="300" cy="96" r="44" fill="url(#cr-bulb)" className="cr-glow" />
-        <circle cx="300" cy="96" r="7" fill="#fffbe6" />
-        {/* teacher */}
-        <g transform="translate(278 168)">
-          <path d="M8 0 C26 -6 44 6 44 26 C44 44 32 54 20 54 C6 54 -4 42 -2 24 C-1 12 2 4 8 0 Z" fill="#6b4226" />
-          <path d="M6 2 C20 -10 46 -6 48 16 C40 8 26 6 12 10 Z" fill="#1d1612" />
-          <path d="M-6 66 C2 56 40 54 52 64 L60 200 L-14 200 Z" fill="#e9dcc0" />
-          <path d="M-6 66 C10 60 34 58 52 64 L56 120 L-10 120 Z" fill="#f1e7d0" opacity="0.6" />
-          <path d="M-8 200 L60 200 L64 232 L-12 232 Z" fill="#2b2622" />
-          <path d="M-14 96 C-24 104 -34 114 -38 122 L-30 128 C-22 118 -12 110 -4 106 Z" fill="#6b4226" />
-          <rect x="-50" y="114" width="20" height="14" rx="2" fill="#fff" transform="rotate(-12 -40 120)" />
+        {/* left window, faint greenery */}
+        <rect x="0" y="150" width="34" height="90" fill="#8fbf7a" opacity="0.45" filter="url(#cr-blur2)" />
+        {/* right window + volumetric beams */}
+        <rect x="474" y="138" width="86" height="118" fill="#fffbe9" />
+        <rect x="474" y="138" width="86" height="118" fill="#ffffff" className="cr-window" />
+        <g filter="url(#cr-blur6)" className="cr-beam">
+          <path d="M478 140 L560 140 L330 400 L170 400 Z" fill="url(#cr-beam)" />
+          <path d="M500 150 L540 150 L300 400 L250 400 Z" fill="#fff4cf" opacity="0.55" />
         </g>
-        {/* dust motes in the beam */}
-        <g fill="#fff8de" className="cr-dust">
-          {[[420, 180], [392, 220], [440, 250], [360, 270], [404, 300], [330, 320], [372, 340], [450, 210], [300, 300]].map(([x, y], i) => (
-            <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 2.2 : 1.4} className={`mote m${i % 3}`} />
-          ))}
-        </g>
-        {/* desk + children silhouettes */}
-        <rect x="-10" y="318" width="420" height="18" rx="4" fill="url(#cr-desk)" />
-        <g fill="#2b231d">
-          {[[40, 338, 30], [112, 344, 34], [190, 336, 30], [262, 346, 33], [338, 340, 31], [430, 352, 36], [512, 344, 30]].map(([x, y, r], i) => (
+        {/* single hanging bulb */}
+        <line x1="300" y1="74" x2="300" y2="104" stroke="#0e0a07" strokeWidth="3" />
+        <path d="M278 104 L322 104 L314 114 L286 114 Z" fill="#33433f" />
+        <circle cx="300" cy="120" r="56" fill="url(#cr-bulb)" className="cr-glow" />
+        <circle cx="300" cy="119" r="8" fill="#ffffff" />
+        {/* children behind, out of focus */}
+        <g filter="url(#cr-blur2)">
+          {kidsBack.map(([x, y, r, skin], i) => (
             <g key={i}>
-              <circle cx={x} cy={y} r={r * 0.58} />
-              <path d={`M${x - r} ${y + r * 1.6} C${x - r} ${y + r * 0.5} ${x + r} ${y + r * 0.5} ${x + r} ${y + r * 1.6} Z`} />
+              <path d={`M${x - r * 1.5} ${y + r * 3.4} C${x - r * 1.5} ${y + r * 1.4} ${x + r * 1.5} ${y + r * 1.4} ${x + r * 1.5} ${y + r * 3.4} Z`} fill={i % 3 === 0 ? "#3d4a6b" : i % 3 === 1 ? "#6b3d4a" : "#4a5e3d"} opacity="0.9" />
+              <ellipse cx={x} cy={y} rx={r * 0.82} ry={r} fill={skin} />
+              <path d={`M${x - r * 0.86} ${y - r * 0.15} C${x - r * 0.9} ${y - r * 1.15} ${x + r * 0.9} ${y - r * 1.15} ${x + r * 0.86} ${y - r * 0.15} C${x + r * 0.4} ${y - r * 0.6} ${x - r * 0.4} ${y - r * 0.6} ${x - r * 0.86} ${y - r * 0.15} Z`} fill="#15100c" />
             </g>
           ))}
         </g>
-        <g fill="#4a3a2e" opacity="0.7">
-          {[[150, 262, 16], [214, 268, 15], [96, 270, 15], [380, 272, 16], [446, 266, 15]].map(([x, y, r], i) => (
-            <g key={i}><circle cx={x} cy={y} r={r * 0.6} /><path d={`M${x - r} ${y + r * 1.5} C${x - r} ${y + r * 0.5} ${x + r} ${y + r * 0.5} ${x + r} ${y + r * 1.5} Z`} /></g>
+        {/* teacher in profile, facing left, rim-lit from the window */}
+        <g transform="translate(300 150)">
+          {/* trousers */}
+          <path d="M2 176 L54 176 L58 260 L-2 260 Z" fill="#2a2420" />
+          {/* checked shirt, untucked kurta-length */}
+          <path d="M-6 58 C4 50 40 50 54 58 L60 182 L-10 182 Z" fill="url(#cr-check)" />
+          <path d="M38 56 C50 62 56 80 60 182 L50 182 C47 112 44 80 38 56 Z" fill="#fff1cc" opacity="0.55" />
+          <path d="M4 52 L20 64 L30 52 Z" fill="#efe4c9" />
+          {/* neck */}
+          <path d="M12 38 L30 38 L30 56 L12 56 Z" fill="#6e4127" />
+          {/* head in profile */}
+          <path d="M4 2 C8 -8 30 -12 42 -2 C50 6 50 26 42 36 C36 44 28 47 20 46 C12 46 6 42 3 37 L1 31 C-2 30 -2 27 0 26 L-1 24 C-4 23 -8 21 -7 19 C-5 17 -1 13 0 10 C0 7 2 4 4 2 Z" fill="#7a4a2c" />
+          <path d="M42 2 C50 10 50 26 42 36 C46 26 46 12 42 2 Z" fill="#ffcf96" opacity="0.75" />
+          <path d="M3 3 C6 -10 32 -14 44 -3 C50 3 50 14 47 22 C44 14 38 8 30 7 C20 6 12 6 3 3 Z" fill="#15100c" />
+          <ellipse cx="30" cy="22" rx="4" ry="6" fill="#6a3d22" />
+          <circle cx="8" cy="14" r="1.6" fill="#15100c" />
+          <path d="M6 10 L13 9" stroke="#15100c" strokeWidth="1.6" strokeLinecap="round" />
+          <path d="M-3 26 C0 27.5 4 27.5 7 25" stroke="#15100c" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+          {/* arm bent forward, hands holding a slip of paper */}
+          <path d="M2 62 C-8 74 -12 90 -10 104 L0 106 C0 94 4 80 10 70 Z" fill="#cdbb95" />
+          <path d="M-10 102 C-18 104 -24 106 -28 110 L-24 118 C-18 114 -10 112 -2 110 Z" fill="#7a4a2c" />
+          <rect x="-40" y="104" width="22" height="15" rx="2" fill="#fbf7ec" transform="rotate(-10 -29 111)" />
+          <path d="M-30 112 C-26 108 -20 108 -18 112" stroke="#6e4127" strokeWidth="5" strokeLinecap="round" fill="none" />
+        </g>
+        {/* dust in the beam */}
+        <g fill="#fff8de" className="cr-dust">
+          {[[440, 200], [410, 236], [458, 262], [380, 282], [424, 312], [350, 330], [392, 352], [470, 226], [328, 306], [436, 168]].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={i % 3 === 0 ? 2.2 : 1.3} className={`mote m${i % 3}`} />
           ))}
         </g>
+        {/* sunlit desk + foreground heads (backs), rim-lit */}
+        <path d="M-10 334 L560 316 L560 342 L-10 362 Z" fill="url(#cr-desk)" />
+        {[[52, 364, 38], [150, 372, 42], [262, 366, 36], [360, 376, 44], [478, 368, 40]].map(([x, y, r], i) => (
+          <g key={i}>
+            <path d={`M${x - r * 1.3} ${y + r * 1.9} C${x - r * 1.4} ${y + r * 0.6} ${x + r * 1.4} ${y + r * 0.6} ${x + r * 1.3} ${y + r * 1.9} Z`} fill="#1a1411" />
+            <ellipse cx={x} cy={y} rx={r * 0.78} ry={r * 0.86} fill="#120d0a" />
+            <path d={`M${x + r * 0.3} ${y - r * 0.82} C${x + r * 0.8} ${y - r * 0.5} ${x + r * 0.84} ${y + r * 0.2} ${x + r * 0.7} ${y + r * 0.5}`} stroke="#ffcf8a" strokeWidth="2.5" fill="none" opacity="0.7" />
+          </g>
+        ))}
+        <rect width="560" height="400" fill="url(#cr-vignette)" />
       </g>
     </svg>
   );
