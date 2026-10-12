@@ -1,0 +1,1 @@
+ALTER TABLE "comments" ADD COLUMN "scope" text DEFAULT 'article' NOT NULL;

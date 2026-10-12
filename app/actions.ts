@@ -115,6 +115,7 @@ export interface ThreadEntry {
   mentions: string[];
   sources: { title: string; url: string }[];
   status: "open" | "answered" | "failed" | null;
+  scope: "article" | "web";
   at: string;
 }
 
@@ -155,13 +156,14 @@ export async function loadThread(itemId: number): Promise<Thread> {
       mentions: r.mentions.map((m) => allNames.get(m) ?? "").filter(Boolean),
       sources: r.sources,
       status: r.status,
+      scope: r.scope,
       at: r.createdAt.toISOString(),
     })),
   };
 }
 
 /** Post a comment (with @Name mentions) or ask the AI a question about the article. */
-export async function postComment(itemId: number, body: string, ask: boolean): Promise<Thread> {
+export async function postComment(itemId: number, body: string, ask: boolean, web = false): Promise<Thread> {
   const me = await currentMember();
   if (!me) return { ok: false, needsUnlock: true, members: [], entries: [] };
   const text = body.trim().slice(0, 2000);
@@ -170,7 +172,7 @@ export async function postComment(itemId: number, body: string, ask: boolean): P
   const members = await activeMembers();
   const lower = text.toLowerCase();
   const mentions = members.filter((m) => m.id !== me.id && lower.includes(`@${m.name.toLowerCase()}`)).map((m) => m.id);
-  await db.insert(comments).values({ itemId, memberId: me.id, kind: ask ? "question" : "comment", body: text, mentions, status: ask ? "open" : null });
+  await db.insert(comments).values({ itemId, memberId: me.id, kind: ask ? "question" : "comment", body: text, mentions, status: ask ? "open" : null, scope: ask && web ? "web" : "article" });
   const title = await itemTitle(itemId);
   await log(me.id, ask ? "question" : "comment", `${ask ? "Asked" : "Commented"} on ${title}: “${text.slice(0, 120)}”`, itemId);
   for (const m of mentions) await log(m, "mention", `${me.name} mentioned you on ${title}`, itemId);

@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 
-export const TEAM_PROMPT_VERSION = "team-v1";
+export const TEAM_PROMPT_VERSION = "team-v2";
 
 // ---------- sector setup ----------
 
@@ -61,6 +61,43 @@ Radar's analysis: ${ctx.analysis}
 
 Company data (National CSR Portal and CSR news archive): ${ctx.company}
 ${ctx.thread ? `\nEarlier discussion:\n${ctx.thread}` : ""}`;
+}
+
+// ---------- answering from retrieved sources only (RAG) ----------
+
+export const ragAnswerResponseSchema = {
+  type: "OBJECT",
+  properties: {
+    answer: { type: "STRING" },
+    cited: { type: "ARRAY", items: { type: "INTEGER" } },
+    found: { type: "STRING", enum: ["yes", "partly", "no"] },
+  },
+  required: ["answer", "cited", "found"],
+};
+
+export const ragAnswerSchema = z.object({
+  answer: z.string().trim().min(1).max(3000),
+  cited: z.array(z.number().int()).max(20),
+  found: z.enum(["yes", "partly", "no"]),
+});
+
+export function buildRagAnswerPrompt(ctx: { question: string; asker: string; articleTitle: string; snippets: { n: number; kind: string; title: string; date: string | null; text: string }[]; thread: string }): string {
+  return `You are the research assistant inside "CSR Partnership Radar", used by the partnerships team of a Pune education NGO (skilling for school dropouts and first-generation job seekers, funded by corporate CSR). ${ctx.asker} asked a question about the article "${ctx.articleTitle}".
+
+Answer ONLY from the numbered sources below (the article, the Radar's analysis of it, researched sources, the same company's other CSR news and National CSR Portal data, and the team's comments). Do not use outside knowledge.
+
+Rules:
+- Answer directly first, in 2-6 short sentences or bullets, with specifics (names, ₹ amounts, years, places, programmes). Put the source number after each fact, like [3].
+- If the sources don't contain the answer, say so plainly ("The Radar's sources for this article don't say …") and suggest what to check; set found to "no". If they answer only part of it, set found to "partly" and say what is missing.
+- Never invent people, numbers, dates or contact details; never give personal emails or phone numbers.
+- End with one line starting "Next step:" when there is a useful action for the partnerships head.
+- Plain text, no markdown headings.
+- cited: the numbers of the sources you actually used.
+
+Question: ${ctx.question}
+${ctx.thread ? `\nEarlier discussion (for context):\n${ctx.thread}\n` : ""}
+Sources:
+${ctx.snippets.map((s) => `[${s.n}] (${s.kind.replace("_", " ")}${s.date ? `, ${s.date}` : ""}) ${s.title}\n${s.text}`).join("\n\n")}`;
 }
 
 // ---------- dashboard feedback triage ----------

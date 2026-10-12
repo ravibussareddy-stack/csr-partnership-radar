@@ -418,6 +418,9 @@ export const comments = pgTable(
     mentions: integer("mentions").array().notNull().default([]),
     sources: jsonb("sources").$type<{ title: string; url: string }[]>().notNull().default([]),
     status: text("status").$type<"open" | "answered" | "failed">(),
+    // Questions: "article" = answer only from the Radar's own sources for this article (RAG);
+    // "web" = may also search Google.
+    scope: text("scope").$type<"article" | "web">().notNull().default("article"),
     model: text("model"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

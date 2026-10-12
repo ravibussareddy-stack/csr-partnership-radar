@@ -3,8 +3,10 @@
  * (never inside Vercel):
  *  1. Sector setup: a sector added in the app gets keywords (English/Hindi/Marathi), a National CSR
  *     Portal mapping and two saved Google searches, then is marked ready.
- *  2. Questions: "Ask the Radar" questions on an article are answered with Gemini + Google Search
- *     grounding; sources come only from grounding metadata.
+ *  2. Questions: "Ask the Radar" questions on an article are answered by retrieval (RAG) from what
+ *     the Radar already holds about that article (lib/rag.ts), Gemini Flash writing only from the
+ *     retrieved, numbered snippets and citing them. Questions marked "also search the web" use
+ *     Gemini + Google Search grounding instead; sources come only from grounding metadata.
  *  3. Dashboard feedback the lead confirmed: Gemini triages it into a safe settings change (applied
  *     here, from a fixed list of operations with bounds) or a developer / designer request (emailed
  *     to NOTIFY_TO with a "[CSR Radar] Dev request" / "Design request" subject).
@@ -32,8 +34,12 @@ import {
 } from "@/lib/db/schema";
 import { GeminiError, GeminiPool } from "@/lib/gemini";
 import { truncate } from "@/lib/text";
+import { buildCorpus, rank } from "@/lib/rag";
 import {
   buildAnswerPrompt,
+  buildRagAnswerPrompt,
+  ragAnswerResponseSchema,
+  ragAnswerSchema,
   buildSectorSetupPrompt,
   buildTriagePrompt,
   sectorSetupResponseSchema,
@@ -92,6 +98,12 @@ async function answerQuestions(db: DB, pool: GeminiPool) {
   const open = await db.select().from(comments).where(and(eq(comments.kind, "question"), eq(comments.status, "open"))).orderBy(asc(comments.createdAt)).limit(10);
   let answered = 0;
   for (const q of open) {
+    if (q.scope !== "web") {
+      const r = await answerFromSources(db, pool, q);
+      if (r === "stop") break;
+      if (r) answered++;
+      continue;
+    }
     const [item] = await db
       .select({ title: rawItems.title, body: rawItems.body, url: rawItems.url, publishedAt: rawItems.publishedAt, contentHash: rawItems.contentHash })
       .from(rawItems)
@@ -154,6 +166,50 @@ async function answerQuestions(db: DB, pool: GeminiPool) {
     answered++;
   }
   if (open.length) console.log(`team answers: ${answered} of ${open.length} questions answered`);
+}
+
+/** RAG answer: retrieve and rank the Radar's own snippets for the article, answer only from them. */
+async function answerFromSources(db: DB, pool: GeminiPool, q: typeof comments.$inferSelect): Promise<boolean | "stop"> {
+  const { snippets } = await buildCorpus(db, q.itemId, q.id);
+  if (snippets.length === 0) return false;
+  const top = rank(snippets, q.body, 14);
+  const [asker] = q.memberId ? await db.select({ name: teamMembers.name }).from(teamMembers).where(eq(teamMembers.id, q.memberId)) : [];
+  const thread = await db
+    .select({ body: comments.body, kind: comments.kind })
+    .from(comments)
+    .where(and(eq(comments.itemId, q.itemId), sql`${comments.id} <> ${q.id}`, sql`${comments.kind} <> 'comment'`))
+    .orderBy(asc(comments.createdAt));
+  let res;
+  try {
+    res = await pool.generateJson(
+      buildRagAnswerPrompt({
+        question: q.body,
+        asker: asker?.name ?? "A teammate",
+        articleTitle: top.find((s) => s.kind === "article")?.title ?? "",
+        snippets: top.map((s, i) => ({ n: i + 1, kind: s.kind, title: s.title, date: s.date, text: truncate(s.text, 900) })),
+        thread: thread.slice(-6).map((t) => `${t.kind === "answer" ? "Radar" : "Question"}: ${truncate(t.body, 300)}`).join("\n"),
+      }),
+      ragAnswerResponseSchema,
+    );
+  } catch (err) {
+    return err instanceof GeminiError && err.kind !== "transient" ? "stop" : false;
+  }
+  const v = ragAnswerSchema.safeParse(JSON.parse(res.text));
+  if (!v.success) return false;
+  // Citations map back to the retrieved snippets; only real links are listed as sources.
+  const sources: { title: string; url: string }[] = [];
+  for (const n of v.data.cited) {
+    const s = top[n - 1];
+    if (!s) continue;
+    const label = `[${n}] ${s.title}${s.date ? ` · ${s.date}` : ""}`;
+    if (s.url && !sources.some((x) => x.url === s.url)) sources.push({ title: label, url: s.url });
+    else if (!s.url && !sources.some((x) => x.title === label)) sources.push({ title: label, url: "" });
+  }
+  const note = v.data.found === "no" ? "\n\n(Not found in the Radar's sources for this article. Ask again with “Also search the web” to look further.)" : "";
+  await db.insert(comments).values({ itemId: q.itemId, parentId: q.id, kind: "answer", body: `${v.data.answer}${note}`.slice(0, 4000), sources, model: `${res.model}@${TEAM_PROMPT_VERSION}:rag` });
+  await db.update(comments).set({ status: "answered" }).where(eq(comments.id, q.id));
+  await db.insert(activity).values({ memberId: q.memberId, kind: "answer", itemId: q.itemId, summary: `Radar answered from ${top.length} sources: “${truncate(q.body, 100)}”` });
+  return true;
 }
 
 async function companyContext(db: DB, companyId: number): Promise<string> {

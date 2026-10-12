@@ -983,3 +983,4 @@ a.cue-company:hover { color: var(--accent); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .pb-gazette .pb-doc { fill: rgba(255, 255, 255, 0.04); }
 }
+.web-toggle { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }

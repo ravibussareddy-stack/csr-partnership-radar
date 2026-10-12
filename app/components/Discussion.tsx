@@ -1,8 +1,9 @@
 "use client";
 /**
  * Discussion under an article: team comments with @mentions, and questions to the Radar AI. Questions
- * are answered by the intake workflow (Gemini + Google Search, with sources), not in the browser or
- * on Vercel, so an answer shows up a few minutes later; the thread polls while a question is open.
+ * are answered by the intake workflow, not in the browser or on Vercel, so an answer shows up a few
+ * minutes later; the thread polls while a question is open. By default the answer comes only from
+ * the Radar's own sources for this article (retrieval, cited [n]); "Also search the web" adds Google.
  */
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
@@ -20,6 +21,7 @@ export function Discussion({ itemId }: { itemId: number }) {
   const [thread, setThread] = useState<Thread | null>(null);
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"comment" | "ask">("ask");
+  const [web, setWeb] = useState(false);
   const [pending, start] = useTransition();
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -52,7 +54,7 @@ export function Discussion({ itemId }: { itemId: number }) {
     const body = text.trim();
     if (body.length < 2) return;
     start(async () => {
-      setThread(await postComment(itemId, body, mode === "ask"));
+      setThread(await postComment(itemId, body, mode === "ask", web));
       setText("");
     });
   };
@@ -73,7 +75,7 @@ export function Discussion({ itemId }: { itemId: number }) {
         {roots.map((e) => (
           <li key={e.id} className={`post post-${e.kind}`}>
             <p className="post-meta">
-              <b>{e.author ?? "Someone"}</b> {e.kind === "question" ? "asked the Radar" : "commented"} · {when.format(new Date(e.at))}
+              <b>{e.author ?? "Someone"}</b> {e.kind === "question" ? (e.scope === "web" ? "asked the Radar (with web search)" : "asked the Radar") : "commented"} · {when.format(new Date(e.at))}
             </p>
             <p className="post-body">{highlight(e.body, thread.members.map((m) => m.name))}</p>
             {replies(e.id).map((r) => (
@@ -81,7 +83,7 @@ export function Discussion({ itemId }: { itemId: number }) {
                 <p className="post-meta"><b>{r.author}</b> · {when.format(new Date(r.at))}</p>
                 <p className="post-body">{r.body}</p>
                 {r.sources.length > 0 && (
-                  <ul className="research">{r.sources.map((s) => <li key={s.url}><a href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a></li>)}</ul>
+                  <ul className="research">{r.sources.map((s) => <li key={s.title + s.url}>{s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer">{s.title}</a> : s.title}</li>)}</ul>
                 )}
               </div>
             ))}
@@ -97,6 +99,12 @@ export function Discussion({ itemId }: { itemId: number }) {
           {others.length > 0 && <span className="muted small">Tag:</span>}
           {others.map((m) => <button key={m.id} type="button" className="chip" onClick={() => mention(m.name)}>@{m.name}</button>)}
         </div>
+        {mode === "ask" && (
+          <label className="web-toggle small">
+            <input type="checkbox" checked={web} onChange={(e) => setWeb(e.target.checked)} /> Also search the web{" "}
+            <span className="muted">(off: answers only from this article and the Radar&rsquo;s data on this company)</span>
+          </label>
+        )}
         {mode === "ask" && text === "" && (
           <div className="suggest">{SUGGESTIONS.map((q) => <button key={q} type="button" className="chip" onClick={() => setText(q)}>{q}</button>)}</div>
         )}
