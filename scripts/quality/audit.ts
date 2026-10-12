@@ -2,7 +2,8 @@
  * npm run audit — the daily data-quality audit, so problems are caught and fixed without a developer:
  *  1. Companies: news names never matched to the CSR Portal (empty profiles) and near-duplicates are
  *     linked or merged (Gemini picks among database candidates; ≥ 0.8 confidence; names kept as aliases).
- *  2. Publishers as funders: any signal still pointing at a news site / platform is unlinked.
+ *  2. Publishers as funders: a signal whose company is the outlet that reported it (item URL host or
+ *     source matches the publisher) is unlinked; a publisher funding something in another outlet's story stays.
  *  3. Pitch kits: every cited page must name the company; lines whose page doesn't are removed.
  *  4. Community contacts: the source page must name the person; mismatches are hidden.
  * (Job links are re-checked by npm run jobs:validate in the same workflow.)
@@ -11,9 +12,10 @@
 import "../env";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
-import { companies, contacts, modelMetrics, pitchKits, signals, type PitchKit } from "@/lib/db/schema";
+import { companies, contacts, modelMetrics, pitchKits, rawItems, signals, type PitchKit } from "@/lib/db/schema";
+import { DEFAULT_CONFIG } from "@/config/defaults";
 import { GeminiPool } from "@/lib/gemini";
-import { isPublisher } from "@/lib/publishers";
+import { isPublisher, isReportingOutlet } from "@/lib/publishers";
 import { pageMentions } from "@/lib/verify";
 import { sourceTier } from "@/lib/source-quality";
 import { PoliteFetcher } from "../ingest/robots";
@@ -55,11 +57,16 @@ async function main() {
     console.warn(`audit companies: ${(err as Error).message}`);
   }
 
-  // 2. Publishers recorded as the funding company
-  const linked = await db.select({ id: companies.id, name: companies.canonicalName }).from(companies).where(sql`exists (select 1 from signals s where s.company_id = ${companies.id})`);
-  const pubs = linked.filter((c) => isPublisher(c.name));
-  for (const p of pubs) await db.update(signals).set({ companyId: null }).where(eq(signals.companyId, p.id));
-  checks.push({ id: "publishers", label: "News sites recorded as the funder", checked: linked.length, found: pubs.length, fixed: pubs.length, needsHuman: 0, examples: pubs.map((p) => p.name) });
+  // 2. Publishers recorded as the funding company (only where the publisher is the reporting outlet)
+  const sourceNames = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
+  const linked = await db
+    .select({ signalId: signals.id, name: companies.canonicalName, url: rawItems.url, source: rawItems.source })
+    .from(signals)
+    .innerJoin(companies, eq(companies.id, signals.companyId))
+    .innerJoin(rawItems, eq(rawItems.id, signals.itemId));
+  const pubs = linked.filter((c) => isPublisher(c.name) && isReportingOutlet(c.name, { url: c.url, source: c.source, sourceName: sourceNames.get(c.source) }));
+  for (const p of pubs) await db.update(signals).set({ companyId: null }).where(eq(signals.id, p.signalId));
+  checks.push({ id: "publishers", label: "News sites recorded as the funder of their own story", checked: linked.length, found: pubs.length, fixed: pubs.length, needsHuman: 0, examples: [...new Set(pubs.map((p) => p.name))] });
 
   // 3. Pitch kit sources
   const kits = await db.select({ id: pitchKits.companyId, data: pitchKits.data, name: companies.canonicalName, aliases: companies.aliases }).from(pitchKits).innerJoin(companies, eq(companies.id, pitchKits.companyId));

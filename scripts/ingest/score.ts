@@ -3,7 +3,7 @@ import type { AppConfig } from "@/config/defaults";
 import type { DB } from "@/lib/db/client";
 import { classifications, companies, companyNews, feedback, rawItems, signals, type HeadlineKind, type SignalType } from "@/lib/db/schema";
 import { loadCompanyIndex, resolveCompany } from "@/lib/resolve";
-import { isPublisher } from "@/lib/publishers";
+import { isReportingOutlet } from "@/lib/publishers";
 import { scoreItem } from "@/lib/scoring";
 
 export interface ScoreStats {
@@ -71,8 +71,10 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       stats.removed += del.length;
       continue;
     }
-    // The funder is the first named company that is not a news publisher or platform.
-    const funder = cls?.companies.find((c) => !isPublisher(c));
+    // The funder is the first named company that is not the outlet that reported the item (a
+    // publisher named in someone else's article as funding something is a real funder).
+    const by = { url: item.url, source: item.source, sourceName: sources.get(item.source)?.name };
+    const funder = cls?.companies.find((c) => !isReportingOutlet(c, by));
     const companyId = funder ? await resolveCompany(db, funder, companyIdx) : null;
     const r = scoreItem(
       {
@@ -98,7 +100,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
               partners: cls.partners,
               programmeStartYear: cls.programmeStartYear,
               amountInrCrore: cls.amountInrCrore,
-              // A publisher alone (e.g. "Sportskeeda") is not a funder: counts as no company named.
+              // The reporting outlet alone (e.g. "Sportskeeda" on its own article) counts as no company named.
               hasCompany: Boolean(funder),
               recommendedAction: cls.recommendedAction,
             }

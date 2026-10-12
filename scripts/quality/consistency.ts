@@ -3,7 +3,7 @@
  * audit). Each check states a rule the digest must satisfy and lists any violations:
  *  1. A Call agrees with its own analysis (recommended action = reach out now).
  *  2. A location bonus matches a place the analysis extracted (no bonus from stray text).
- *  3. A Call names a real funder (not "no company", not a news publisher).
+ *  3. A Call names a real funder (not "no company", not the outlet that reported it).
  *  4. A Call has an NGO partner route (works with NGOs, or an open partner call).
  *  5. A Call outside Pune/Maharashtra is backed by the company's CSR spend in Maharashtra.
  *  6. One card per story: no two Calls for the same company within 3 days.
@@ -14,7 +14,8 @@ import { inArray, sql } from "drizzle-orm";
 import { closeDb, getDb, type DB } from "@/lib/db/client";
 import { companies, modelMetrics } from "@/lib/db/schema";
 import { loadDigest } from "@/lib/digest";
-import { isPublisher } from "@/lib/publishers";
+import { isReportingOutlet } from "@/lib/publishers";
+import { DEFAULT_CONFIG } from "@/config/defaults";
 
 export interface ConsistencyCheck {
   id: string;
@@ -55,9 +56,11 @@ export async function runConsistency(db: DB): Promise<ConsistencyCheck[]> {
   });
   out.push({
     id: "funder",
-    rule: "A Call names a real funder (not missing, not a news publisher)",
+    rule: "A Call names a real funder (not missing, not the outlet that reported it)",
     checked: calls.length,
-    violations: calls.filter((c) => !c.companyId || isPublisher(c.company)).map(label),
+    violations: calls
+      .filter((c) => !c.companyId || isReportingOutlet(c.company, { url: c.url, source: c.source, sourceName: DEFAULT_CONFIG.sources.find((s) => s.id === c.source)?.name }))
+      .map(label),
   });
   out.push({
     id: "route",
