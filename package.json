@@ -30,7 +30,11 @@
     "test:joblinks": "tsx tests/joblinks.test.ts",
     "contacts": "tsx scripts/history/contacts.ts",
     "team:tasks": "tsx scripts/ingest/team-tasks.ts",
-    "regulatory": "tsx scripts/ingest/regulatory.ts"
+    "regulatory": "tsx scripts/ingest/regulatory.ts",
+    "relationships": "tsx scripts/ingest/relationships.ts",
+    "demo:seed": "tsx scripts/demo/seed.ts",
+    "demo:clear": "tsx scripts/demo/clear.ts",
+    "pitch": "tsx scripts/history/pitch.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

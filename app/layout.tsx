@@ -30,6 +30,7 @@ const NAV = [
   { href: "/", label: "1 · Summary", d: "M4 5 H20 V9 H4 Z M4 12 H11 V19 H4 Z M14 12 H20 V19 H14 Z" },
   { href: "/digest", label: "2 · Digest", d: "M4 11 L12 4 L20 11 V20 H14 V14 H10 V20 H4 Z" },
   { href: "/inbox", label: "3 · People messages", d: "M4 6 H20 V16 H13 L8 20 V16 H4 Z" },
+  { href: "/relationships", label: "Relationships", d: "M8 12 L11 15 L16 9 M4 12 C4 7 8 4 12 4 C16 4 20 7 20 12 C20 17 16 20 12 20 C8 20 4 17 4 12 Z" },
   { href: "/regulatory", label: "Regulatory", d: "M4 9 L12 4 L20 9 Z M6 10 V17 M10 10 V17 M14 10 V17 M18 10 V17 M4 19 H20" },
   { href: "/calendar", label: "CSR calendar", d: "M5 6 H19 V20 H5 Z M5 10 H19 M9 3 V7 M15 3 V7" },
   { href: "/funding", label: "Funding insights", d: "M5 19 V12 M10 19 V8 M15 19 V11 M20 19 V5 M3 19 H21" },
