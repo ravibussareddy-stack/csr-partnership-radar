@@ -111,3 +111,14 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | Activity in the NGO's sectors but outside Pune/Maharashtra is **not capped**: it can be "Call this week", tagged **Pitch Pune**, with the reason "outside your region (…): a chance to pitch a Pune programme". States bordering Maharashtra get +6 (proximity). Only items outside both the region and the sectors are capped at Watch. | Product-owner guidance: a company funding education or skilling elsewhere is a lead to invite into Pune; proximity makes extension easier. | A hard Watch cap for anything outside the region (tried first; it hid real leads like the ₹5 cr Nellore ITI commitment). |
 | One card per story: same company, same signal type, within 3 days → merged, with "Also reported by" links. | The same news from several outlets appeared as duplicate cards and calls. | Fuzzy headline clustering (slower; the company + type + date key is enough here). |
 | "Searched on Google this week" lives inside the filterable board and follows its filters. | It ignored the place filter, which looked broken. | — |
+
+## Dependable calls (after the 7.5/10 reassessment)
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| Classifier v7 returns `recommended_action`; **Call this week requires** reach_out_now + a named funder + an NGO partner route + (Pune/Maharashtra, national, or a company that already reports CSR spend in Maharashtra). A failed condition is written into the reason. | The tier contradicted the analysis (e.g. "monitor" advice on an urgent card). Gating on the analysis's own recommendation and on objective facts makes every call explainable and consistent; Maharashtra spend is the objective "credible expansion" test that keeps out-of-region "pitch Pune" leads honest. | More points or penalties (still contradicts); a fixed top-N cap (arbitrary). |
+| Good non-urgent leads (action "prepare", named funder) are labelled **Introduce soon** on cards and the Summary. | Strict calls (1 this week) shouldn't hide 8 worthwhile introductions. | Promoting them to Call (the reviewer's false-positive problem). |
+| Location points only from places the AI extracted. | The raw-text scan gave Alcobrew a false Pune +20 from a forwarded message's wording. | — |
+| Amount forecast = the method with the lower back-test error (now "same as last year"). | The weighted model lost (28.3% vs 25.6%); using it anyway would be knowingly worse. | Keeping the weaker model. |
+| Source-quality tiers; proof needs an official or news source. | A broker review site supported a ₹7.6 cr budget claim; an NGO needs evidence a funder would accept. | Accepting any page that mentions the company. |
+| A seven-rule consistency test runs daily and on demand. | The reviewer's defects were all rule violations that a test can catch before a person does. | Manual spot checks. |

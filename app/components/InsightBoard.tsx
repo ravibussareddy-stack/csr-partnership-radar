@@ -89,7 +89,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
         <span className={`src src-${i.sourceGroup}`}>{i.sourceLabel}</span>
         {i.sectors.slice(0, 2).map((s) => sectorLabels[s] && <span key={s} className="sector-dot">{sectorLabels[s]}</span>)}
         {!i.classified && <span className="badge-warn">unclassified</span>}
-        {i.tier === "watch" && i.action === "prepare" && <span className="fact fact-good" title="Worth an introduction in the coming weeks (not urgent this week)">Introduce soon</span>}
+        {i.tier === "watch" && i.action === "prepare" && i.companyId != null && <span className="fact fact-good" title="Worth an introduction in the coming weeks (not urgent this week)">Introduce soon</span>}
         {i.facts.some((f) => f.text.startsWith("Outside your region")) && <span className="fact fact-good" title="Funds your sectors outside Maharashtra: reach out about a Pune programme">Pitch Pune</span>}
         {i.alsoReported.length > 0 && <span className="fact" title={i.alsoReported.map((a) => a.source).join(", ")}>+{i.alsoReported.length} outlet{i.alsoReported.length === 1 ? "" : "s"}</span>}
         {i.isDemo && <span className="badge-demo" title="Sample data for demonstration, built from real public news">Demo</span>}

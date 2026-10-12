@@ -232,7 +232,7 @@ export async function getSummary(): Promise<SummaryData | null> {
   // Demo items are excluded from the overview's counts (they restate real stories already counted).
   const calls = digest.status === "ok" ? digest.items.filter((i) => i.tier === "call_this_week" && !i.isDemo).map((i) => fromDigest(i, sourceNames)) : [];
   // Not urgent, but the analysis says an introduction is worth preparing (Watch tier, action "prepare").
-  const introduce = digest.status === "ok" ? digest.items.filter((i) => i.tier === "watch" && i.recommendedAction === "prepare" && !i.isDemo).map((i) => fromDigest(i, sourceNames)) : [];
+  const introduce = digest.status === "ok" ? digest.items.filter((i) => i.tier === "watch" && i.recommendedAction === "prepare" && !i.isDemo && i.companyId != null).map((i) => fromDigest(i, sourceNames)) : [];
 
   // Window open now, or opening within 30 days; spending in Pune / Maharashtra.
   const DAY = 86400_000;
