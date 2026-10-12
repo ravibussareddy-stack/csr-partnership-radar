@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Local-only embedded Postgres; keep it out of the server bundle.
   serverExternalPackages: ["@electric-sql/pglite"],
+  async redirects() {
+    return [{ source: "/planner", destination: "/funding", permanent: true }];
+  },
 };
 
 export default nextConfig;

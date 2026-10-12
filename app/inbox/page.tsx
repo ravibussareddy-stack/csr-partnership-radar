@@ -14,8 +14,8 @@ export default function Page() {
       <PageBackdrop variant="messages" />
       <header className="hero-glass glass compact">
         <div className="hero-copy">
-          <p className="eyebrow">Message drop</p>
-          <h1 className="greeting">Drop in everything people sent you</h1>
+          <p className="eyebrow">3 · People messages</p>
+          <h1 className="greeting">Messages people sent you</h1>
           <p className="lede">
             WhatsApp forwards, LinkedIn DMs, Telegram, SMS: paste them all in one go. The Radar splits them, works out which company and
             programme each is about, looks up public sources, and puts the good ones in your digest.

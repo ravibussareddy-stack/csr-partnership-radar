@@ -14,6 +14,9 @@ import {
   loadCompany,
   loadEventsForYear,
   loadHiring,
+  loadLens,
+  loadModelMetrics,
+  type Lens,
   loadPlanner,
   loadRegionTrend,
   loadSectorSeasonality,
@@ -179,4 +182,83 @@ export async function getYearEvents(year: number, focusOnly: boolean) {
   "use cache";
   tag();
   return loadEventsForYear(year, focusOnly ? DEFAULT_CONFIG.sectors.map((s) => s.id) : null);
+}
+
+export interface SummaryData {
+  calls: import("@/lib/insights").Insight[];
+  hiring: import("@/lib/history/queries").HiringPost[];
+  likelySoon: (import("@/lib/history/queries").UpcomingCycle & { opensIn: number; inWindow: boolean })[];
+  engagement: { action: string; reason: string | null; title: string; at: string }[];
+  lastUpdated: string | null;
+}
+
+/** Landing summary: calls this week, hiring observed, likely to start CSR funding in Pune/Maharashtra in 30 days. */
+export async function getSummary(): Promise<SummaryData | null> {
+  "use cache";
+  tag();
+  if (!hasDatabaseUrl()) return null;
+  const { fromDigest } = await import("@/lib/insights");
+  const sourceNames = new Map(DEFAULT_CONFIG.sources.map((s) => [s.id, s.name]));
+  const now = new Date();
+  const [digest, hiring, cycles] = await Promise.all([loadDigest(now), loadHiring(30), loadUpcomingCycles({ focusOnly: false })]);
+  const calls = digest.status === "ok" ? digest.items.filter((i) => i.tier === "call_this_week").map((i) => fromDigest(i, sourceNames)) : [];
+
+  // Window open now, or opening within 30 days; spending in Pune / Maharashtra.
+  const DAY = 86400_000;
+  const likelySoon = (cycles ?? [])
+    .map((c) => {
+      const start = new Date(c.nextWindowStart);
+      const opensIn = Math.round((start.getTime() - now.getTime()) / DAY);
+      const inWindow = opensIn <= 0 && opensIn > -92;
+      return { ...c, opensIn, inWindow };
+    })
+    .filter((c) => (c.inWindow || (c.opensIn >= 0 && c.opensIn <= 30)) && (c.puneLastCr > 0 || c.maharashtraLastCr > 0))
+    .sort((a, b) => b.puneLastCr - a.puneLastCr || b.maharashtraFocusLastCr - a.maharashtraFocusLastCr || b.yearsHit.length - a.yearsHit.length)
+    .slice(0, 12);
+
+  const db = await getDb();
+  const { feedback } = await import("@/lib/db/schema");
+  const fb = await db
+    .select({ action: feedback.action, reason: feedback.reason, title: rawItems.title, at: feedback.createdAt })
+    .from(feedback)
+    .innerJoin(rawItems, eq(rawItems.id, feedback.itemId))
+    .orderBy(sql`${feedback.createdAt} desc`)
+    .limit(8);
+  return {
+    calls,
+    hiring: (hiring ?? []).filter((h) => !["generic", "dead", "expired"].includes(h.linkStatus ?? "")).slice(0, 8),
+    likelySoon,
+    engagement: fb.map((f) => ({ action: f.action, reason: f.reason, title: f.title, at: f.at.toISOString() })),
+    lastUpdated: digest.status === "ok" && digest.lastUpdated ? new Date(digest.lastUpdated).toISOString() : null,
+  };
+}
+
+export async function getLens(lens: Lens) {
+  "use cache";
+  tag();
+  return loadLens(lens, DEFAULT_CONFIG.sectors.flatMap((s) => s.portalSectors ?? []));
+}
+
+export async function getModelMetrics() {
+  "use cache";
+  tag();
+  return loadModelMetrics();
+}
+
+export async function getContacts() {
+  "use cache";
+  tag();
+  if (!hasDatabaseUrl()) return [];
+  const db = await getDb();
+  const { contacts, companies: co } = await import("@/lib/db/schema");
+  return db
+    .select({
+      id: contacts.id, name: contacts.name, title: contacts.title, companyName: contacts.companyName, companyId: contacts.companyId,
+      domain: co.domain, kind: contacts.kind, sourceUrl: contacts.sourceUrl, sourceTitle: contacts.sourceTitle, context: contacts.context,
+      status: contacts.status, notes: contacts.notes, isDemo: contacts.isDemo, firstSeenAt: contacts.firstSeenAt, statusUpdatedAt: contacts.statusUpdatedAt,
+    })
+    .from(contacts)
+    .leftJoin(co, eq(co.id, contacts.companyId))
+    .orderBy(sql`${contacts.firstSeenAt} desc`)
+    .limit(300);
 }

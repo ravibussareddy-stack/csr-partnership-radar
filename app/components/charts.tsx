@@ -242,3 +242,49 @@ export function YearMonthCalendar({
     </figure>
   );
 }
+
+/** Horizontal bars: one value per row; rows flagged `focus` use series-1 (your sectors), others series-2. */
+export function HBars({
+  rows,
+  title,
+  focusLabel = "Your focus sectors",
+  otherLabel = "Other",
+  showLegend = true,
+}: {
+  rows: { label: string; value: number; focus: boolean; href?: string; sub?: string }[];
+  title: string;
+  focusLabel?: string;
+  otherLabel?: string;
+  showLegend?: boolean;
+}) {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <figure className="chart hbars">
+      <figcaption className="chart-title">{title}</figcaption>
+      {showLegend && (
+        <ul className="legend" aria-hidden="true">
+          <li><span className="sw sw-1" /> {focusLabel}</li>
+          <li><span className="sw sw-2" /> {otherLabel}</li>
+        </ul>
+      )}
+      <ol className="hb-rows">
+        {rows.map((r) => (
+          <li key={r.label} className="hb-row" title={`${r.label}: ${fmtCr(r.value)}${r.sub ? ` · ${r.sub}` : ""}`}>
+            <span className="hb-label">{r.href ? <a href={r.href}>{r.label}</a> : r.label}</span>
+            <span className="hb-track">
+              <span className={`hb-bar ${r.focus ? "fill-1" : "fill-2"}`} style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%` }} />
+            </span>
+            <span className="hb-value">{fmtCr(r.value)}</span>
+          </li>
+        ))}
+      </ol>
+      <details className="table-view">
+        <summary>Show as table</summary>
+        <table>
+          <thead><tr><th>{title.includes("compan") ? "Company" : "Sector"}</th><th>₹ crore</th></tr></thead>
+          <tbody>{rows.map((r) => <tr key={r.label}><td>{r.label}{r.sub ? ` (${r.sub})` : ""}</td><td>{fmtCr(r.value)}</td></tr>)}</tbody>
+        </table>
+      </details>
+    </figure>
+  );
+}

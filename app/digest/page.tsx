@@ -46,7 +46,7 @@ async function Home() {
     <>
       <header className="hero-glass glass">
         <div className="hero-copy">
-          <p className="eyebrow">Monday digest · {digest.lastUpdated ? `updated ${dateTime.format(digest.lastUpdated)}` : "CSR Partnership Radar"}</p>
+          <p className="eyebrow">2 · Monday digest · {digest.lastUpdated ? `updated ${dateTime.format(digest.lastUpdated)}` : "CSR Partnership Radar"}</p>
           <Greeting name="Ananya" />
           <p className="lede">
             Small steps, big impact. Every partnership you close puts a school dropout or a first-generation job seeker into a skilling

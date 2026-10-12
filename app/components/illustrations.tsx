@@ -425,7 +425,7 @@ export function ClassroomScene() {
 }
 
 /** Subtle full-page backdrop per page, in one shared palette. */
-export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "map" | "network" | "messages" | "skyline" }) {
+export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "map" | "network" | "messages" | "skyline" | "funding" }) {
   return (
     <div className={`page-backdrop pb-${variant}`} aria-hidden="true">
       {variant === "classroom" && (
@@ -442,6 +442,17 @@ export function PageBackdrop({ variant }: { variant: "classroom" | "seasons" | "
             const y = 620 - 4 * t * (1 - t) * 700 + 0;
             return <circle key={i} cx={x} cy={y} r={i === 5 || i === 6 ? 16 : 9} />;
           })}
+        </svg>
+      )}
+      {variant === "funding" && (
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMax slice">
+          {[[60, 520], [170, 470], [280, 500], [390, 420], [500, 440], [610, 360], [720, 380], [830, 300], [940, 320], [1050, 230]].map(([x, y], i) => (
+            <rect key={i} className="pb-bar" x={x} y={y} width="70" height={800 - y} rx="10" />
+          ))}
+          <path className="pb-trend" d="M95 500 L205 450 L315 480 L425 400 L535 420 L645 340 L755 360 L865 280 L975 300 L1085 210" fill="none" />
+          {[[1110, 150, 34], [1010, 120, 22], [1140, 70, 16], [860, 170, 18]].map(([x, y, r], i) => (
+            <g key={i} className={`pb-float f${i % 3}`}><circle cx={x} cy={y} r={r} className="pb-coin" /><text x={x} y={y + r * 0.35} textAnchor="middle" className="pb-rupee" fontSize={r}>₹</text></g>
+          ))}
         </svg>
       )}
       {variant === "map" && (

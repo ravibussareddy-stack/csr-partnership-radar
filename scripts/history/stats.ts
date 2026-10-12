@@ -8,7 +8,8 @@ import { and, gte, inArray, isNotNull, lte, sql } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import { loadConfig } from "@/lib/config";
 import { closeDb, getDb, type DB } from "@/lib/db/client";
-import { ANNOUNCEMENT_KINDS, companies, companyNews, companyStats, csrSpend, signals } from "@/lib/db/schema";
+import { ANNOUNCEMENT_KINDS, companies, companyNews, companyStats, csrSpend, modelMetrics, signals } from "@/lib/db/schema";
+import { backtestForecast, backtestTiming, pearson, strength } from "@/lib/history/metrics";
 import { forecastAmount, round, sectorOdds, timingFrom } from "@/lib/history/predict";
 import type { CompanyStatsData, YearRow } from "@/lib/history/types";
 
@@ -60,6 +61,10 @@ async function main() {
   for (const r of allNews) sectorMonths[Number(r.m) - 1] = Number(r.n);
 
   let written = 0;
+  // Collected across pages for back-tests and correlations.
+  const allYears: YearRow[][] = [];
+  const allDates: Date[][] = [];
+  const corr = { annCount: [] as number[], growth: [] as number[], logSpend: [] as number[], focusShare: [] as number[], growthPrev: [] as number[], growthLast: [] as number[], mhShare: [] as number[], focusShareMh: [] as number[] };
   for (let i = 0; i < ids.length; i += PAGE) {
     const page = ids.slice(i, i + PAGE);
     const [spend, news, meta] = await Promise.all([
@@ -161,6 +166,28 @@ async function main() {
         })(),
       };
       const last = years.get(lastFy);
+      allYears.push(byYear);
+      const ann = newsBy.get(companyId);
+      if (ann?.ann.length) allDates.push(ann.ann);
+      const t = (fy: number) => years.get(fy)?.total ?? 0;
+      const f = (fy: number) => years.get(fy)?.focus ?? 0;
+      const sum3 = t(lastFy) + t(lastFy - 1) + t(lastFy - 2);
+      if (t(lastFy - 2) >= 1 && t(lastFy) >= 1) {
+        const recentAnn = (ann?.ann ?? []).filter((d) => d.getUTCFullYear() >= now.getUTCFullYear() - 3).length;
+        corr.annCount.push(recentAnn);
+        corr.growth.push(Math.log(t(lastFy) / t(lastFy - 2)));
+      }
+      if (sum3 >= 1) {
+        corr.logSpend.push(Math.log10(sum3));
+        corr.focusShare.push((f(lastFy) + f(lastFy - 1) + f(lastFy - 2)) / sum3);
+        const mh = [lastFy, lastFy - 1, lastFy - 2].reduce((a, fy) => a + (years.get(fy)?.maharashtra ?? 0), 0);
+        corr.mhShare.push(mh / sum3);
+        corr.focusShareMh.push((f(lastFy) + f(lastFy - 1) + f(lastFy - 2)) / sum3);
+      }
+      if (t(lastFy - 2) >= 1 && t(lastFy - 1) >= 1 && t(lastFy) >= 1) {
+        corr.growthPrev.push(Math.log(t(lastFy - 1) / t(lastFy - 2)));
+        corr.growthLast.push(Math.log(t(lastFy) / t(lastFy - 1)));
+      }
       return {
         companyId,
         lastFy: byYear.at(-1)?.fy ?? null,
@@ -200,6 +227,45 @@ async function main() {
     }
     console.log(`  ${written}/${ids.length}`);
   }
+  // Forecast accuracy (back-test) and correlations, stored for the Funding insights page.
+  const forecast = backtestForecast(allYears, lastFy);
+  const timing = backtestTiming(allDates);
+  const pairs = [
+    {
+      id: "announcements_growth",
+      label: "More CSR announcements ↔ faster spend growth",
+      detail: "Dated CSR announcements in the last 3 years vs growth in CSR spend over the last 2 reported years.",
+      r: pearson(corr.annCount, corr.growth),
+      n: corr.annCount.length,
+    },
+    {
+      id: "size_focus",
+      label: "Bigger CSR budgets ↔ larger share to your sectors",
+      detail: "Size of CSR spend (last 3 FYs, log scale) vs the share going to education, skilling and livelihoods.",
+      r: pearson(corr.logSpend, corr.focusShare),
+      n: corr.logSpend.length,
+    },
+    {
+      id: "growth_momentum",
+      label: "Spend growth persists year to year",
+      detail: "Growth from FY-2 to FY-1 vs growth from FY-1 to the last FY.",
+      r: pearson(corr.growthPrev, corr.growthLast),
+      n: corr.growthPrev.length,
+    },
+    {
+      id: "mh_focus",
+      label: "Maharashtra-heavy funders ↔ focus on your sectors",
+      detail: "Share of CSR spent in Maharashtra vs share going to your sectors (last 3 FYs).",
+      r: pearson(corr.mhShare, corr.focusShareMh),
+      n: corr.mhShare.length,
+    },
+  ].map((p) => ({ ...p, strength: strength(p.r) }));
+  await db
+    .insert(modelMetrics)
+    .values({ key: "insights", data: { forecast, timing, correlations: pairs, computedAt: now.toISOString() }, updatedAt: now })
+    .onConflictDoUpdate({ target: modelMetrics.key, set: { data: sql`excluded.data`, updatedAt: now } });
+  console.log(`accuracy: forecast median error ${forecast.medianAbsPctError}% (baseline ${forecast.baselineMedianAbsPctError}%), within range ${forecast.withinRangePct}%, timing hit ${timing.hitRatePct}% vs ${timing.baselinePct}% baseline`);
+  for (const p of pairs) console.log(`corr ${p.id}: r=${p.r} (n=${p.n}, ${p.strength})`);
   console.log(`done in ${((Date.now() - t0) / 1000).toFixed(0)}s`);
 }
 

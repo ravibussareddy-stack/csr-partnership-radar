@@ -34,7 +34,7 @@ async function Company({ id }: { id: number }) {
     return (
       <div className="notice">
         <h2>Company not found</h2>
-        <p><Link href="/planner">Back to the planner</Link></p>
+        <p><Link href="/funding">Back to funding insights</Link></p>
       </div>
     );
   }

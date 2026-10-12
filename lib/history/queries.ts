@@ -8,6 +8,7 @@ import {
   companyNews,
   companyStats,
   csrSpend,
+  modelMetrics,
   rawItems,
   signals,
 } from "@/lib/db/schema";
@@ -129,6 +130,10 @@ export interface UpcomingCycle {
   predictedFocusCr: number;
   predictedTotalCr: number;
   maharashtraFocusLastCr: number;
+  maharashtraLastCr: number;
+  puneLastCr: number;
+  /** top CSR sectors by spend over the last 3 reported FYs, with share of that spend */
+  topSectors: { sector: string; share: number; focus: boolean }[];
 }
 
 /** Companies with a recurring announcement window (≥ mild), grouped later by the month their next window opens. */
@@ -162,6 +167,13 @@ export async function loadUpcomingCycles(opts: { focusOnly: boolean }): Promise<
         predictedFocusCr: r.s.predictedFocusCr,
         predictedTotalCr: r.s.predictedTotalCr,
         maharashtraFocusLastCr: r.s.maharashtraFocusLastCr,
+        maharashtraLastCr: r.s.data.byYear.at(-1)?.maharashtra ?? 0,
+        puneLastCr: r.s.puneLastCr,
+        topSectors: (() => {
+          const rec = r.s.data.sectorsRecent ?? [];
+          const total = rec.reduce((a, x) => a + x.amount, 0) || 1;
+          return rec.slice(0, 3).map((x) => ({ sector: x.sector, share: Math.round((x.amount / total) * 100), focus: Boolean(x.focusId) }));
+        })(),
       };
     })
     .filter((u) => u.window && u.nextWindowStart);
@@ -201,6 +213,7 @@ export interface HiringPost {
   domain: string | null;
   geographies: string[];
   why: string;
+  linkStatus: string | null;
 }
 
 /** CSR / foundation / community job postings (csr_hiring) from all sources in the last `days`. */
@@ -221,6 +234,7 @@ export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
       why: classifications.whyItMatters,
       domain: classifications.companyDomain,
       companyId: signals.companyId,
+      linkStatus: rawItems.linkStatus,
     })
     .from(classifications)
     .innerJoin(rawItems, eq(rawItems.contentHash, classifications.contentHash))
@@ -241,6 +255,7 @@ export async function loadHiring(days = 60): Promise<HiringPost[] | null> {
       domain: r.domain,
       geographies: r.geographies,
       why: r.why,
+      linkStatus: r.linkStatus,
     }));
 }
 
@@ -272,4 +287,79 @@ export async function loadEventsForYear(year: number, focusSectorIds: string[] |
     )
     .orderBy(companyNews.publishedAt);
   return rows.map((r) => ({ date: r.at.toISOString(), companyId: r.companyId, company: r.company, title: r.title, url: r.url, kind: r.kind }));
+}
+
+export type Lens = "india" | "maharashtra" | "pune";
+
+function lensWhere(lens: Lens) {
+  if (lens === "maharashtra") return sql`${csrSpend.state} = 'Maharashtra'`;
+  if (lens === "pune") return sql`lower(${csrSpend.district}) = 'pune'`;
+  return sql`true`;
+}
+
+/** For one lens: spend by FY (focus vs other), by sector and top companies in the latest FY. */
+export async function loadLens(lens: Lens, focusSectors: string[]) {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const focus = focusSectors.length
+    ? sql`lower(${csrSpend.sector}) in (${sql.join(focusSectors.map((s) => sql`${s.toLowerCase()}`), sql`, `)})`
+    : sql`false`;
+  const where = lensWhere(lens);
+  const [trend, [{ lastFy }]] = await Promise.all([
+    db
+      .select({
+        fy: csrSpend.fyStart,
+        total: sql<number>`sum(${csrSpend.amountCr})`,
+        focus: sql<number>`coalesce(sum(${csrSpend.amountCr}) filter (where ${focus}), 0)`,
+        companies: sql<number>`count(distinct ${csrSpend.companyId})`,
+      })
+      .from(csrSpend)
+      .where(where)
+      .groupBy(csrSpend.fyStart)
+      .orderBy(csrSpend.fyStart),
+    db.select({ lastFy: sql<number>`max(${csrSpend.fyStart})` }).from(csrSpend),
+  ]);
+  const fy = Number(lastFy);
+  const [sectors, top] = await Promise.all([
+    db
+      .select({ sector: csrSpend.sector, amount: sql<number>`sum(${csrSpend.amountCr})`, isFocus: sql<boolean>`bool_or(${focus})` })
+      .from(csrSpend)
+      .where(and(where, eq(csrSpend.fyStart, fy)))
+      .groupBy(csrSpend.sector)
+      .orderBy(desc(sql`sum(${csrSpend.amountCr})`))
+      .limit(10),
+    db
+      .select({
+        companyId: csrSpend.companyId,
+        name: companies.canonicalName,
+        domain: companies.domain,
+        amount: sql<number>`sum(${csrSpend.amountCr})`,
+        focusAmount: sql<number>`coalesce(sum(${csrSpend.amountCr}) filter (where ${focus}), 0)`,
+      })
+      .from(csrSpend)
+      .innerJoin(companies, eq(companies.id, csrSpend.companyId))
+      .where(and(where, eq(csrSpend.fyStart, fy)))
+      .groupBy(csrSpend.companyId, companies.canonicalName, companies.domain)
+      .orderBy(desc(sql`coalesce(sum(${csrSpend.amountCr}) filter (where ${focus}), 0)`))
+      .limit(12),
+  ]);
+  return {
+    lens,
+    lastFy: fy,
+    trend: trend.map((r) => ({ fy: r.fy, total: Number(r.total), focus: Number(r.focus), companies: Number(r.companies) })),
+    sectors: sectors.map((r) => ({ sector: r.sector, amount: Number(r.amount), focus: Boolean(r.isFocus) })),
+    top: top.map((r) => ({ companyId: r.companyId, name: r.name, domain: r.domain, amount: Number(r.amount), focusAmount: Number(r.focusAmount) })),
+  };
+}
+
+export async function loadModelMetrics() {
+  if (!hasDatabaseUrl()) return null;
+  const db = await getDb();
+  const [row] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, "insights"));
+  return (row?.data ?? null) as {
+    forecast: import("./metrics").ForecastBacktest;
+    timing: import("./metrics").TimingBacktest;
+    correlations: { id: string; label: string; detail: string; r: number | null; n: number; strength: string }[];
+    computedAt: string;
+  } | null;
 }
