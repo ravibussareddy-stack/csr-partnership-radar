@@ -11,10 +11,13 @@ import type { DB } from "@/lib/db/client";
 import { rawItems, searchRuns } from "@/lib/db/schema";
 import { GeminiError, GeminiPool, type GroundingMetadata } from "@/lib/gemini";
 import { contentHash } from "@/lib/hash";
+import { checkJobLink } from "@/lib/joblinks";
 import { canonicalUrl, truncate } from "@/lib/text";
+import { PoliteFetcher } from "./robots";
 import { buildJobsSearchPrompt, buildSearchPrompt, JOBS_WINDOW_DAYS, SEARCH_PROMPT_VERSION, SEARCH_WINDOW_DAYS } from "@/prompts/search";
 
 interface Found {
+  linkStatus: string | null;
   title: string;
   publisher: string;
   date: Date | null;
@@ -68,6 +71,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
   let found = 0;
   let inserted = 0;
   let runs = 0;
+  const fetcher = new PoliteFetcher(1500);
   for (const s of searches) {
     let res;
     try {
@@ -88,7 +92,12 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
         if (!title || !url) continue;
         const d = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00Z`) : null;
         if (d && d < (s.kind === "jobs" ? minJobs : minNews)) continue; // outside the window
-        items.push({ title, publisher: publisher ?? "", date: d, summary: rest.join(" ").trim(), url: canonicalUrl(url) });
+        let linkStatus: string | null = null;
+        if (s.kind === "jobs") {
+          linkStatus = await checkJobLink(url, fetcher);
+          if (linkStatus === "generic" || linkStatus === "dead" || linkStatus === "expired") continue; // not a usable posting
+        }
+        items.push({ title, publisher: publisher ?? "", date: d, summary: rest.join(" ").trim(), url: canonicalUrl(url), linkStatus });
       }
     }
     let fresh = 0;
@@ -96,7 +105,7 @@ export async function runSearches(db: DB, cfg: AppConfig, now = new Date()) {
       const body = truncate(`${s.kind === "jobs" ? "Job posting: " : ""}${it.summary}${it.publisher ? ` (${it.publisher})` : ""}`, 1000);
       const out = await db
         .insert(rawItems)
-        .values({ source: s.kind === "jobs" ? "gemini-jobs" : "gemini-search", searchId: s.id, url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
+        .values({ source: s.kind === "jobs" ? "gemini-jobs" : "gemini-search", searchId: s.id, linkStatus: it.linkStatus, url: it.url, title: it.title, body, publishedAt: it.date, contentHash: contentHash(it.title, body) })
         // Already stored (e.g. by another feed or an earlier run)? Tag it with this search if untagged.
         .onConflictDoUpdate({ target: rawItems.url, set: { searchId: s.id }, setWhere: isNull(rawItems.searchId) })
         .returning({ id: rawItems.id, fetchedAt: rawItems.fetchedAt });

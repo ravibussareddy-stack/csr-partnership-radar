@@ -35,7 +35,7 @@ export default function Page() {
 }
 
 async function Hiring() {
-  const posts = (await getHiring()) ?? [];
+  const posts = ((await getHiring()) ?? []).filter((p) => !["generic", "dead", "expired"].includes(p.linkStatus ?? ""));
   if (posts.length === 0) {
     return (
       <div className="notice glass">
@@ -84,7 +84,11 @@ async function Hiring() {
                   {p.geographies.slice(0, 2).map((g) => <span key={g} className="sector-dot">{g}</span>)}
                 </footer>
                 {p.url.startsWith("http") && (
-                  <div className="cue-links"><a className="pill-link" href={p.url} target="_blank" rel="noopener noreferrer">View posting ↗</a></div>
+                  <div className="cue-links">
+                    <a className="pill-link" href={p.url} target="_blank" rel="noopener noreferrer">View posting ↗</a>
+                    {p.linkStatus === "unverified" && <span className="badge-warn" title="This job site doesn't allow automated checks; open the link to confirm it's still open">check link</span>}
+                    {p.linkStatus === "ok" && <span className="fact fact-good">link verified</span>}
+                  </div>
                 )}
               </article>
             );
