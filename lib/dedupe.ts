@@ -47,9 +47,12 @@ export function canonicalUrl(url: string): string {
  * Groups items into stories (first item of each group is kept as primary, so pass them in priority
  * order). An item joins a group when it matches any member within `days` of it.
  */
-export function groupStories<T>(items: T[], title: (t: T) => string, date: (t: T) => Date, days: number, m: Match = STRICT): { primary: T; copies: T[] }[] {
+export function groupStories<T>(items: T[], title: (t: T) => string | string[], date: (t: T) => Date, days: number, m: Match = STRICT): { primary: T; copies: T[] }[] {
   const groups: { primary: T; copies: T[] }[] = [];
-  const near = (a: T, b: T) => Math.abs(date(a).getTime() - date(b).getTime()) <= days * 86400_000 && sameStory(title(a), title(b), m);
+  const titles = (t: T) => [title(t)].flat().filter(Boolean);
+  // Any headline version (AI headline or the original) matching counts.
+  const near = (a: T, b: T) =>
+    Math.abs(date(a).getTime() - date(b).getTime()) <= days * 86400_000 && titles(a).some((x) => titles(b).some((y) => sameStory(x, y, m)));
   for (const it of items) {
     const g = groups.find((g) => [g.primary, ...g.copies].some((o) => near(o, it)));
     if (g) g.copies.push(it);

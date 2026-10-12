@@ -96,7 +96,7 @@ export async function loadRegulatory(days = 180): Promise<{ items: PolicyItem[];
   // the official source if there is one, else the earliest report, so a later article revisiting an
   // announcement never shows it as new. The status is the official source's (else the most advanced).
   const ordered = [...all].sort((a, b) => Number(b.official) - Number(a.official) || a.date.localeCompare(b.date));
-  const items = groupStories(ordered, (i) => i.originalTitle ?? i.title, (i) => new Date(i.date), 45, { minCommon: 2, minShare: 0.4 })
+  const items = groupStories(ordered, (i) => [i.title, i.originalTitle ?? ""], (i) => new Date(i.date), 45, { minCommon: 2, minShare: 0.4 })
     .map(({ primary, copies }) => {
       const members = [primary, ...copies];
       const official = members.filter((i) => i.official);
