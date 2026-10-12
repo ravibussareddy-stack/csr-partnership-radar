@@ -10,6 +10,7 @@
  *  3. Dashboard feedback the lead confirmed: Gemini triages it into a safe settings change (applied
  *     here, from a fixed list of operations with bounds) or a developer / designer request (emailed
  *     to NOTIFY_TO with a "[CSR Radar] Dev request" / "Design request" subject).
+ *  4. Relationships added in the app get their first relationship-watch check right away.
  */
 import "../env";
 import nodemailer from "nodemailer";
@@ -48,6 +49,7 @@ import {
   triageResponseSchema,
   triageSchema,
 } from "@/prompts/team";
+import { runRelationshipWatch } from "./relationships";
 import { resolveRedirect } from "./search";
 
 type DB = Awaited<ReturnType<typeof getDb>>;
@@ -61,7 +63,10 @@ async function main() {
     console.warn(`team: Gemini not configured (${(err as Error).message})`);
     return;
   }
-  for (const [name, fn] of [["sectors", setupSectors], ["answers", answerQuestions], ["feedback", triageFeedback]] as const) {
+  const newRelationships = async (d: DB) => {
+    await runRelationshipWatch(d, { onlyNew: true });
+  };
+  for (const [name, fn] of [["sectors", setupSectors], ["answers", answerQuestions], ["feedback", triageFeedback], ["relationships", newRelationships]] as const) {
     try {
       await fn(db, pool);
     } catch (err) {

@@ -3,7 +3,7 @@ import "../env";
 import { appendFileSync } from "node:fs";
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
-import { comments, config, dashboardFeedback, rawItems } from "@/lib/db/schema";
+import { comments, config, dashboardFeedback, rawItems, relationships } from "@/lib/db/schema";
 
 async function main() {
   const db = await getDb();
@@ -18,8 +18,9 @@ async function main() {
   const [{ f }] = await db.select({ f: sql<number>`count(*)` }).from(dashboardFeedback).where(eq(dashboardFeedback.status, "confirmed"));
   const [cfg] = await db.select({ sectors: config.sectors }).from(config);
   const sectorsPending = cfg?.sectors.filter((s) => s.status === "pending").length ?? 0;
-  const tasks = Number(q) + Number(f) + sectorsPending;
-  console.log(`intake: ${tasks} team task(s) waiting (questions ${q}, feedback ${f}, sectors ${sectorsPending})`);
+  const [{ r }] = await db.select({ r: sql<number>`count(*)` }).from(relationships).where(isNull(relationships.lastCheckedAt));
+  const tasks = Number(q) + Number(f) + sectorsPending + Number(r);
+  console.log(`intake: ${tasks} team task(s) waiting (questions ${q}, feedback ${f}, sectors ${sectorsPending}, new relationships ${r})`);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `pending=${pending}\ntasks=${tasks}\n`);
 }
 

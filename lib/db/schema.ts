@@ -443,3 +443,69 @@ export const dashboardFeedback = pgTable("dashboard_feedback", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
+
+/**
+ * Ananya's existing funders / contracts (team-only, never shown on public pages). The daily
+ * relationship watch (scripts/ingest/relationships.ts) raises alerts when something changes.
+ */
+export const relationships = pgTable("relationships", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  companyId: integer("company_id").references(() => companies.id, { onDelete: "set null" }),
+  programme: text("programme"),
+  sectors: text("sectors").array().notNull().default([]),
+  districts: text("districts").array().notNull().default([]),
+  valueLakh: real("value_lakh"),
+  startDate: text("start_date"), // YYYY-MM-DD
+  renewalDate: text("renewal_date"), // YYYY-MM-DD
+  status: text("status").$type<"active" | "renewal_due" | "lapsed" | "prospect">().notNull().default("active"),
+  contactRole: text("contact_role"),
+  notes: text("notes"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+});
+
+/**
+ * What changed for a relationship and what it means: company news, regulatory changes, spend
+ * trends, renewal timing, CSR hiring. Each alert carries the impact, the reasoning behind its level,
+ * and its source. `key` dedupes (e.g. "item:812", "renewal:2027-03-31", "spend:2024").
+ */
+export const relationshipAlerts = pgTable(
+  "relationship_alerts",
+  {
+    id: serial("id").primaryKey(),
+    relationshipId: integer("relationship_id")
+      .notNull()
+      .references(() => relationships.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    kind: text("kind").$type<"company_news" | "regulatory" | "spend_change" | "renewal" | "hiring">().notNull(),
+    level: text("level").$type<"risk" | "watch" | "opportunity">().notNull(),
+    title: text("title").notNull(),
+    impact: text("impact").notNull(),
+    reasoning: text("reasoning").notNull(),
+    sourceUrl: text("source_url"),
+    itemId: integer("item_id").references(() => rawItems.id, { onDelete: "set null" }),
+    dismissed: boolean("dismissed").notNull().default(false),
+    model: text("model"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("relationship_alert_key_idx").on(t.relationshipId, t.key)],
+);
+
+/** Items already assessed against each relationship (so Gemini reads each pair once). */
+export const relationshipChecks = pgTable(
+  "relationship_checks",
+  {
+    relationshipId: integer("relationship_id")
+      .notNull()
+      .references(() => relationships.id, { onDelete: "cascade" }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => rawItems.id, { onDelete: "cascade" }),
+    relevant: boolean("relevant").notNull(),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("relationship_check_idx").on(t.relationshipId, t.itemId)],
+);
