@@ -74,9 +74,23 @@ jobs:
           GEMINI_KEY_FALLBACK_1: ${{ secrets.GEMINI_KEY_FALLBACK_1 }}
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
+      # Publish the day's digest and alerts before the slow, optional enrichment steps below, so a
+      # slow pitch-kit or community run can never hold up the data. Both run again at the end.
+      - name: Instant alert for new Call-this-week items (early)
+        run: npm run notify -- --alerts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
+          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}
+      - name: Refresh site cache (early)
+        run: '[ -z "$REVALIDATE_SECRET" ] || curl -fsS -X POST "${{ vars.SITE_URL || ''https://csr-partnership-radar-two.vercel.app'' }}/api/revalidate" -H "x-revalidate-secret: $REVALIDATE_SECRET" || true'
+        env:
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
       - name: Pitch kits (sourced wants, news, proof for likely contacts)
         run: npm run pitch
         continue-on-error: true
+        timeout-minutes: 10
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
@@ -87,6 +101,7 @@ jobs:
       - name: Community builder (people publicly named in new CSR items)
         run: npm run contacts
         continue-on-error: true
+        timeout-minutes: 10
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
@@ -97,11 +112,13 @@ jobs:
       - name: Re-check CSR job links (closed or empty postings drop to "check link" or out)
         run: npm run jobs:validate
         continue-on-error: true
+        timeout-minutes: 5
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - name: Data-quality audit (merge duplicate companies, check cited sources)
         run: npm run audit
         continue-on-error: true
+        timeout-minutes: 8
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}

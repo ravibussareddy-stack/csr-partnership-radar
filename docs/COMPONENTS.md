@@ -8,7 +8,7 @@ Keep this file current whenever a component is added, changed or removed.
 
 **Where things run:**
 - **GitHub Actions** runs the scheduled workflows:
-  - `ingest.yml`, daily at 00:30 UTC (06:00 IST; GitHub may start it up to ~45 min late): live feeds, then classify, score, the 12-month archive crawl and stats. 60-minute job limit; the AI steps share a 30-minute time budget (`INGEST_BUDGET_MIN`) and classify 3 items at a time (`CLASSIFY_CONCURRENCY`), so scoring, alerts and the cache refresh always run, and work left over waits for the next run.
+  - `ingest.yml`, daily at 00:30 UTC (06:00 IST; GitHub may start it up to ~45 min late): live feeds, then classify, score, the 12-month archive crawl and stats. 60-minute job limit; the AI steps share a 30-minute time budget (`INGEST_BUDGET_MIN`) and classify 3 items at a time (`CLASSIFY_CONCURRENCY`), so scoring, alerts and the cache refresh always run, and work left over waits for the next run. The digest and alerts are published right after scoring, before the slower optional enrichment steps (each with its own step limit).
   - `digest-email.yml`: the Monday email, sent as soon as Monday's ingest finishes (02:30 UTC fallback), once per ISO week.
   - `intake.yml` every 10 min and `team.yml` every 5 min (also started on demand by the app): dropped messages and team questions.
   - `history.yml`, weekly on Sunday at 21:30 UTC (Monday 03:00 IST): news-archive history, headline classification and stats.
