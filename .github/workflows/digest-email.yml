@@ -1,13 +1,19 @@
 name: Monday digest email
 
 on:
+  # Normally sent the moment Monday's ingest finishes, so the email always has that morning's data
+  # (GitHub can start the 00:30 UTC ingest 40+ minutes late). The 02:30 UTC (08:00 IST) schedule is
+  # a fallback if the ingest failed; the email is sent once per ISO week either way.
+  workflow_run:
+    workflows: ["Ingest"]
+    types: [completed]
   schedule:
-    # Mondays 01:30 UTC = 07:00 IST, after the 06:00 IST ingest.
-    - cron: "30 1 * * 1"
+    - cron: "30 2 * * 1"
   workflow_dispatch: {}
 
 jobs:
   email:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -18,7 +24,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Send the Monday digest (once per ISO week)
-        run: npm run notify -- --digest
+        # After an ingest, only on Mondays (UTC); the schedule and manual runs always try.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ] && [ "$(date -u +%u)" != "1" ]; then echo "not Monday: nothing to send"; exit 0; fi
+          npm run notify -- --digest
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NOTIFY_TO: ${{ vars.NOTIFY_TO }}
