@@ -26,7 +26,8 @@ TITLE || PUBLISHER || YYYY-MM-DD || one-sentence summary of what this source add
 If you find nothing relevant, reply with exactly: NONE`;
 }
 
-export async function runResearch(db: DB): Promise<{ researched: number; sources: number; status: string }> {
+/** `deadline` (epoch ms): stop starting new lookups after it; the rest are researched next run. */
+export async function runResearch(db: DB, deadline = Infinity): Promise<{ researched: number; sources: number; status: string }> {
   const todo = await db
     .select({ id: rawItems.id, title: rawItems.title, companies: classifications.companies, why: classifications.whyItMatters })
     .from(rawItems)
@@ -43,6 +44,7 @@ export async function runResearch(db: DB): Promise<{ researched: number; sources
   let researched = 0;
   let sources = 0;
   for (const it of todo) {
+    if (Date.now() >= deadline) return { researched, sources, status: `time budget reached, ${todo.length - researched} left for the next run` };
     try {
       const res = await pool.generateGrounded(researchPrompt(it.title, it.companies.join(", "), it.why));
       if (res.text.trim() !== "NONE") {

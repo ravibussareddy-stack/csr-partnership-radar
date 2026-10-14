@@ -13,7 +13,10 @@ concurrency:
 jobs:
   ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The AI steps stop starting new work after INGEST_BUDGET_MIN (30) and leave the rest for the next
+    # run, so scoring, alerts and the cache refresh always finish well inside this limit. A hang still
+    # stops here instead of blocking the next runs (concurrency group "ingest").
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,6 +38,8 @@ jobs:
           GEMINI_KEY_FALLBACK_2: ${{ secrets.GEMINI_KEY_FALLBACK_2 }}
           GEMINI_KEY_FALLBACK_3: ${{ secrets.GEMINI_KEY_FALLBACK_3 }}
           MAX_CLASSIFY_PER_RUN: ${{ vars.MAX_CLASSIFY_PER_RUN || '60' }}
+          INGEST_BUDGET_MIN: ${{ vars.INGEST_BUDGET_MIN || '30' }}
+          CLASSIFY_CONCURRENCY: ${{ vars.CLASSIFY_CONCURRENCY || '3' }}
           # Intake inbox (Google Alerts, LinkedIn emails, forwarded messages). Optional until set.
           INTAKE_IMAP_USER: ${{ secrets.INTAKE_IMAP_USER }}
           INTAKE_IMAP_PASSWORD: ${{ secrets.INTAKE_IMAP_PASSWORD }}

@@ -12,17 +12,31 @@ export interface ClassifyStats {
   cacheHits: number;
   unclassified: number;
   skippedNoKeys: number;
+  /** not attempted because the run's time budget ran out; picked up by the next run */
+  deferred: number;
+  /** why Gemini calls stopped early (quota / auth), if they did */
+  stoppedReason: string | null;
   byKey: Record<string, number>;
+}
+
+export interface ClassifyOptions {
+  /** epoch ms: no new Gemini call starts after this, so scoring still runs inside the job limit */
+  deadline?: number;
+  /** Gemini calls in flight at once (CLASSIFY_CONCURRENCY, default 3) */
+  concurrency?: number;
 }
 
 /**
  * Classifies pre-filtered items that have no classification yet (pending or
- * previously unclassified), newest first, up to `limit` Gemini calls.
+ * previously unclassified), newest first, up to `limit` Gemini calls, a few at a time, and only
+ * while the run's time budget lasts. Items left over keep their place in the queue for the next run.
  */
-export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Promise<ClassifyStats> {
+export async function classifyPending(db: DB, cfg: AppConfig, limit: number, opts: ClassifyOptions = {}): Promise<ClassifyStats> {
   const stats: ClassifyStats = {
-    attempted: 0, classified: 0, cacheHits: 0, unclassified: 0, skippedNoKeys: 0, byKey: {},
+    attempted: 0, classified: 0, cacheHits: 0, unclassified: 0, skippedNoKeys: 0, deferred: 0, stoppedReason: null, byKey: {},
   };
+  const deadline = opts.deadline ?? Infinity;
+  const concurrency = Math.max(1, opts.concurrency ?? 3);
   const since = new Date(Date.now() - cfg.scoringWeights.lookbackDays * 86400_000);
   const inWindow = or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since)));
   const version = promptVersion(cfg);
@@ -64,6 +78,8 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
   }
 
   let stop = !pool;
+  // Cache hits first (database only, no Gemini call).
+  const toCall: typeof queue = [];
   for (const item of queue) {
     // Cache by content hash: same content seen under another URL is never re-classified.
     const cached = await db
@@ -74,17 +90,10 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
     if (cached.length > 0) {
       await db.update(rawItems).set({ classifyStatus: "classified" }).where(eq(rawItems.id, item.id));
       stats.cacheHits++;
-      continue;
-    }
-    if (stop || stats.attempted >= limit) {
-      if (item.classifyStatus === "pending") {
-        await db.update(rawItems).set({ classifyStatus: "unclassified" }).where(eq(rawItems.id, item.id));
-      }
-      stats.skippedNoKeys++;
-      continue;
-    }
+    } else toCall.push(item);
+  }
 
-    stats.attempted++;
+  const classifyOne = async (item: (typeof queue)[number]) => {
     const out = await classifyItem(
       { title: item.title, body: item.body, source: sourceNames.get(item.source) ?? item.source, publishedAt: item.publishedAt },
       cfg,
@@ -132,12 +141,38 @@ export async function classifyPending(db: DB, cfg: AppConfig, limit: number): Pr
       await db.update(rawItems).set({ classifyStatus: "unclassified" }).where(eq(rawItems.id, item.id));
       stats.unclassified++;
       console.warn(`classify: item ${item.id} unclassified (${out.reason})`);
-      if (out.stopRun) {
+      if (out.stopRun && !stop) {
         console.warn("classify: stopping Gemini calls for this run; remaining items stay unclassified");
+        stats.stoppedReason = out.reason;
         stop = true;
       }
     }
+  };
+
+  // A few workers share the queue (newest first). A worker takes the next item only while the cap,
+  // the time budget and the key pool allow; everything not started waits for the next run.
+  let next = 0;
+  const leftOver: (typeof queue)[number][] = [];
+  const worker = async () => {
+    while (next < toCall.length) {
+      const item = toCall[next++];
+      if (stop || stats.attempted >= limit || Date.now() >= deadline) {
+        if (!stop && stats.attempted < limit) stats.deferred++;
+        else stats.skippedNoKeys++;
+        leftOver.push(item);
+        continue;
+      }
+      stats.attempted++;
+      await classifyOne(item);
+    }
+  };
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  for (const item of leftOver) {
+    if (item.classifyStatus === "pending") {
+      await db.update(rawItems).set({ classifyStatus: "unclassified" }).where(eq(rawItems.id, item.id));
+    }
   }
+
   return stats;
 }
 

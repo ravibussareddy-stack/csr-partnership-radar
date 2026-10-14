@@ -8,10 +8,10 @@
  *   --no-search  skip the saved Google searches (Gemini grounding)
  */
 import "../env";
-import { and, eq, gte, isNull, or } from "drizzle-orm";
+import { and, eq, gte, isNull, or, sql } from "drizzle-orm";
 import { loadConfig, seedConfig } from "@/lib/config";
 import { closeDb, getDb } from "@/lib/db/client";
-import { rawItems } from "@/lib/db/schema";
+import { modelMetrics, rawItems } from "@/lib/db/schema";
 import { prefilter } from "@/lib/prefilter";
 import { classifyPending } from "./classify";
 import { PoliteFetcher } from "./robots";
@@ -99,21 +99,49 @@ async function main() {
   const sc = await contextScreen(db, cfg, failed);
   console.log(`context screen: ${sc.status}${sc.screened ? `, ${sc.released}/${sc.screened} released to classification in ${sc.calls} call(s)` : ""}`);
 
-  // 4. Classify (Gemini; failures → unclassified, run continues)
+  // 4. Classify (Gemini; failures → unclassified, run continues). The AI steps share a time budget
+  // (INGEST_BUDGET_MIN, default 30 min from the start of the run): once it is spent no new Gemini
+  // call starts, the leftovers wait for the next run, and scoring always runs. Before this, a heavy
+  // day ran past the job's time limit mid-classification and the whole digest went stale.
+  const budgetMin = Number(process.env.INGEST_BUDGET_MIN ?? 30);
+  const deadline = t0 + (Number.isFinite(budgetMin) ? budgetMin : 30) * 60_000;
   const limit = Number(process.env.MAX_CLASSIFY_PER_RUN ?? 60);
-  const cs = await classifyPending(db, cfg, Number.isFinite(limit) ? limit : 60);
+  const concurrency = Number(process.env.CLASSIFY_CONCURRENCY ?? 3);
+  const cs = await classifyPending(db, cfg, Number.isFinite(limit) ? limit : 60, { deadline, concurrency: Number.isFinite(concurrency) ? concurrency : 3 });
   console.log(
-    `classify: ${cs.classified} classified, ${cs.cacheHits} cache hits, ${cs.unclassified} failed, ${cs.skippedNoKeys} skipped (no keys / cap); by key ${JSON.stringify(cs.byKey)}`,
+    `classify: ${cs.classified} classified, ${cs.cacheHits} cache hits, ${cs.unclassified} failed, ${cs.skippedNoKeys} skipped (no keys / cap), ${cs.deferred} deferred (time budget); by key ${JSON.stringify(cs.byKey)}`,
   );
 
   // 4b. Research personal / forwarded leads (Gemini + Google Search grounding)
-  const rs = await runResearch(db);
+  const rs = await runResearch(db, deadline);
   console.log(`research: ${rs.status}${rs.researched ? `, ${rs.researched} item(s), ${rs.sources} source(s)` : ""}`);
 
   // 5. Score
   const ss = await scoreRecent(db, cfg);
   console.log(`score: ${ss.scored} signals ${JSON.stringify(ss.byTier)}, ${ss.removed} removed (not a signal)`);
   console.log(`done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+
+  // Run record for the health check (scripts/ops/health.ts). The 10-minute message-drop runs
+  // (--no-fetch) keep their own record so they never mask the daily run's.
+  await db
+    .insert(modelMetrics)
+    .values({
+      key: args.has("--no-fetch") ? "intake-run" : "pipeline-run",
+      data: {
+        finishedAt: new Date().toISOString(),
+        seconds: Math.round((Date.now() - t0) / 1000),
+        fetchFailures,
+        sources: enabled.length,
+        classified: cs.classified,
+        failed: cs.unclassified,
+        deferred: cs.deferred,
+        geminiStopped: cs.stoppedReason,
+        research: rs.status,
+        scored: ss.scored,
+      },
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({ target: modelMetrics.key, set: { data: sql`excluded.data`, updatedAt: new Date() } });
 
   if (enabled.length > 0 && fetchFailures === enabled.length && !args.has("--no-fetch")) {
     console.error("all sources failed to fetch");
