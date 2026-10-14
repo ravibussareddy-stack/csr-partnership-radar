@@ -1,0 +1,48 @@
+name: Pipeline watchdog
+
+# Emails NOTIFY_TO when the Radar is not running as intended (scripts/ops/health.ts). Silent when healthy.
+#  - immediately when a daily ingest, Monday email or weekly history run fails, is cancelled or times out
+#  - daily at 03:15 UTC (08:45 IST), after the daily run: stale digest, Gemini quota/key stops, work left
+#    over for lack of time, failed feeds, any failed run in 24 h (incl. the 10-minute jobs), and on
+#    Mondays a missing digest email
+on:
+  workflow_run:
+    workflows: ["Ingest", "Monday digest email", "History"]
+    types: [completed]
+  schedule:
+    - cron: "15 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name != 'workflow_run' || contains(fromJSON('["failure","cancelled","timed_out","startup_failure"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check pipeline health
+        run: npm run health -- ${{ github.event_name == 'workflow_run' && '--run-failed' || '' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTIFY_TO: ${{ vars.NOTIFY_TO }}
+          NOTIFY_SMTP_USER: ${{ secrets.NOTIFY_SMTP_USER || secrets.INTAKE_IMAP_USER }}
+          NOTIFY_SMTP_PASSWORD: ${{ secrets.NOTIFY_SMTP_PASSWORD || secrets.INTAKE_IMAP_PASSWORD }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://csr-partnership-radar-two.vercel.app' }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          WF_RUN_ID: ${{ github.event.workflow_run.id }}
+          WF_URL: ${{ github.event.workflow_run.html_url }}

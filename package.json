@@ -39,7 +39,8 @@
     "pitch": "tsx scripts/history/pitch.ts",
     "audit": "tsx scripts/quality/audit.ts",
     "test:consistency": "tsx scripts/quality/consistency.ts",
-    "test:publishers": "tsx tests/publishers.test.ts"
+    "test:publishers": "tsx tests/publishers.test.ts",
+    "health": "tsx scripts/ops/health.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.0",

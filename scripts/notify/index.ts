@@ -11,7 +11,6 @@
  * Every send is recorded in `notifications`, so nothing is sent twice.
  */
 import "../env";
-import nodemailer from "nodemailer";
 import { and, desc, eq, gte, inArray } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
 import { activity, memberTime, notifications, relationshipAlerts, relationships, teamMembers } from "@/lib/db/schema";
@@ -21,7 +20,9 @@ import { CALL_TYPE_HELP, CALL_TYPE_LABELS, callType } from "@/lib/insights";
 import { SIGNAL_LABELS, TIER_LABELS } from "@/lib/scoring";
 import { loadWarmList, type WarmItem } from "@/lib/warm";
 
-export const SUBJECT_TAG = "[CSR Radar]";
+import { SUBJECT_TAG, transport } from "./mail";
+
+export { SUBJECT_TAG };
 const SITE = process.env.SITE_URL ?? "https://csr-partnership-radar-two.vercel.app";
 
 function isoWeek(d: Date): { year: number; week: number } {
@@ -118,13 +119,6 @@ function shell(title: string, inner: string): string {
 
 function section(title: string, rows: string): string {
   return `<tr><td style="font-size:17px;font-weight:700;padding:10px 2px 8px">${esc(title)}</td></tr><tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>`;
-}
-
-function transport() {
-  const user = process.env.NOTIFY_SMTP_USER ?? process.env.INTAKE_IMAP_USER;
-  const pass = process.env.NOTIFY_SMTP_PASSWORD ?? process.env.INTAKE_IMAP_PASSWORD;
-  if (!user || !pass) return null;
-  return { from: user, t: nodemailer.createTransport({ host: process.env.NOTIFY_SMTP_HOST ?? "smtp.gmail.com", port: 465, secure: true, auth: { user, pass } }) };
 }
 
 async function main() {
