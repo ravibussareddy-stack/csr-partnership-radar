@@ -10,6 +10,8 @@ import { RADAR_TAG } from "@/lib/data";
 import { getDb } from "@/lib/db/client";
 import { activity, comments, companies, config, contacts, dashboardFeedback, feedback, memberTime, rawItems, relationshipAlerts, relationships, signals, teamMembers } from "@/lib/db/schema";
 import { currentMember, hashPasscode, hasSession, signOut, type Member } from "@/lib/session";
+import { canonicalUrl } from "@/lib/text";
+import { contentHash } from "@/lib/hash";
 
 const SIGN_IN = "Sign in on the People messages page first.";
 
@@ -79,6 +81,63 @@ export async function giveFeedback(itemId: number, action: "read" | "irrelevant"
   await log(me.id, action, `${action === "read" ? "Read" : `Marked not relevant${values.reason ? ` (${values.reason})` : ""}`}: ${await itemTitle(itemId)}`, itemId);
   updateTag(RADAR_TAG);
   return { ok: true };
+}
+
+/**
+ * "Was this helpful?" on a card: helpful / not helpful, one per item (pressing the same again clears it).
+ * A success metric only (Results page); it does not change scoring ("Not relevant" does).
+ */
+export async function rateInsight(itemId: number, rating: "helpful" | "not_helpful"): Promise<FeedbackResult & { rating?: "helpful" | "not_helpful" | null }> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  if (!Number.isInteger(itemId) || (rating !== "helpful" && rating !== "not_helpful")) return { ok: false, message: "Invalid request." };
+  const db = await getDb();
+  const [cur] = await db.select({ action: feedback.action }).from(feedback).where(and(eq(feedback.itemId, itemId), inArray(feedback.action, ["helpful", "not_helpful"])));
+  await db.delete(feedback).where(and(eq(feedback.itemId, itemId), inArray(feedback.action, ["helpful", "not_helpful"])));
+  if (cur?.action === rating) return { ok: true, rating: null };
+  const [item] = await db.select({ source: rawItems.source, signalType: signals.signalType, companyId: signals.companyId }).from(rawItems).leftJoin(signals, eq(signals.itemId, rawItems.id)).where(eq(rawItems.id, itemId));
+  await db.insert(feedback).values({ itemId, action: rating, source: item?.source ?? null, signalType: item?.signalType ?? null, companyId: item?.companyId ?? null, memberId: me.id });
+  await log(me.id, rating, `${rating === "helpful" ? "Found helpful" : "Not helpful"}: ${await itemTitle(itemId)}`, itemId);
+  return { ok: true, rating };
+}
+
+/**
+ * "We missed this": a teammate reports an opportunity the Radar did not show, with its link. If the Radar
+ * already holds the link, it says where; otherwise the link goes through the message pipeline (page read,
+ * analysed, researched, scored) and is counted as a miss on the Results page.
+ */
+export async function reportMissed(link: string, company: string, note: string): Promise<FeedbackResult> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  let url: string;
+  try {
+    const u = new URL(link.trim());
+    if (!/^https?:$/.test(u.protocol)) throw new Error();
+    url = canonicalUrl(u.toString());
+  } catch {
+    return { ok: false, message: "Paste the full link, starting with https://" };
+  }
+  const why = note.trim().slice(0, 1500);
+  if (why.length < 5) return { ok: false, message: "Add a line on what was missed (e.g. an open call for NGO partners in Pune)." };
+  const co = company.trim().slice(0, 120);
+  const db = await getDb();
+  const TIER: Record<string, string> = { call_this_week: "Call this week", watch: "Watch", background: "Background" };
+  const [known] = await db.select({ id: rawItems.id, title: rawItems.title, tier: signals.tier }).from(rawItems).leftJoin(signals, eq(signals.itemId, rawItems.id)).where(eq(rawItems.url, url));
+  if (known) {
+    const where = known.tier ? `on the Digest as ${TIER[known.tier]}` : "but judged not to be a CSR lead";
+    await log(me.id, "missed", `Reported missed (already in the Radar, ${where}): ${known.title}${co ? ` · ${co}` : ""}. ${why}`, known.id);
+    return { ok: true, message: `The Radar already had this, ${where}. Noted as a ranking miss on the Results page.` };
+  }
+  const title = (co ? `${co}: ` : "") + why.split(/\n/)[0].slice(0, 120);
+  const body = `${why}${co ? `\nCompany: ${co}` : ""}\nLink: ${url}`;
+  const [row] = await db
+    .insert(rawItems)
+    .values({ source: "pasted", channel: "missed", url, title, body, publishedAt: new Date(), contentHash: contentHash(title, body) })
+    .onConflictDoNothing({ target: rawItems.url })
+    .returning({ id: rawItems.id });
+  await log(me.id, "missed", `Reported missed (new to the Radar): ${title}`, row?.id ?? null);
+  await dispatchWorkflow("intake.yml");
+  return { ok: true, message: "Thanks. The page will be read, analysed and scored in a few minutes, and the miss is counted on the Results page." };
 }
 
 export async function undoRead(itemId: number): Promise<FeedbackResult> {
@@ -239,7 +298,7 @@ export async function leaveSession(): Promise<void> {
 
 // ---------- dashboard feedback ----------
 
-const PAGES = new Set(["summary", "digest", "inbox", "calendar", "funding", "jobs", "community", "regulatory", "team", "sectors", "companies", "feedback", "relationships", "questions", "general"]);
+const PAGES = new Set(["summary", "digest", "inbox", "calendar", "funding", "jobs", "community", "regulatory", "team", "sectors", "companies", "feedback", "relationships", "questions", "results", "general"]);
 
 export async function sendDashboardFeedback(page: string, kind: string, body: string): Promise<FeedbackResult> {
   const me = await currentMember();
@@ -329,6 +388,9 @@ export interface RelationshipInput {
   status?: string;
   contactRole?: string;
   notes?: string;
+  /** the Radar helped find or win this relationship */
+  radarHelped?: boolean;
+  radarNote?: string;
 }
 
 const REL_STATUS = new Set(["active", "renewal_due", "lapsed", "prospect"]);
@@ -365,6 +427,8 @@ export async function saveRelationship(input: RelationshipInput): Promise<Feedba
     status: (REL_STATUS.has(input.status ?? "") ? input.status : "active") as "active",
     contactRole: input.contactRole?.trim().slice(0, 120) || null,
     notes: input.notes?.trim().slice(0, 2000) || null,
+    radarHelped: Boolean(input.radarHelped),
+    radarNote: input.radarHelped ? input.radarNote?.trim().slice(0, 500) || null : null,
     updatedAt: new Date(),
   };
   const db = await getDb();

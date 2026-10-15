@@ -62,6 +62,7 @@ export interface Insight {
   classified: boolean;
   itemId: number | null;
   read: boolean;
+  rating: "helpful" | "not_helpful" | null;
   isDemo: boolean;
 }
 
@@ -116,6 +117,7 @@ export function fromDigest(i: DigestItem, sourceNames: Map<string, string>): Ins
     classified: i.classified,
     itemId: i.itemId,
     read: i.read,
+    rating: i.rating,
     isDemo: i.isDemo,
   };
 }
@@ -166,6 +168,7 @@ export function fromWarm(w: WarmItem): Insight {
     classified: true,
     itemId: null,
     read: false,
+    rating: null,
     isDemo: false,
   };
 }

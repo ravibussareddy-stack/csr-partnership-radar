@@ -282,7 +282,7 @@ export const feedback = pgTable(
     id: serial("id").primaryKey(),
     itemId: integer("item_id").references(() => rawItems.id, { onDelete: "cascade" }),
     companyId: integer("company_id").references(() => companies.id, { onDelete: "set null" }),
-    action: text("action").$type<"read" | "irrelevant">().notNull(),
+    action: text("action").$type<"read" | "irrelevant" | "helpful" | "not_helpful">().notNull(),
     reason: text("reason"),
     // snapshot of features used for learning (source, signal type, sectors) at the time of feedback
     source: text("source"),
@@ -473,6 +473,10 @@ export const relationships = pgTable("relationships", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
+  /** The team says the Radar helped find or win this relationship (Results page: revenue supported). */
+  radarHelped: boolean("radar_helped").notNull().default(false),
+  /** How it helped, e.g. which card or alert led to the first conversation. */
+  radarNote: text("radar_note"),
 });
 
 /**

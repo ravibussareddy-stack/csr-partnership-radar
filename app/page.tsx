@@ -134,7 +134,7 @@ async function Overview() {
           {data.engagement.length === 0 ? <p className="muted small">Nothing yet. Use Mark read / Not relevant on any card.</p> : (
             <ul className="ov-list">
               {data.engagement.slice(0, 3).map((e, k) => (
-                <li key={k}><span className="ov-clamp">{e.action === "read" ? "✓ Read" : `✕ Not relevant${e.reason ? ` (${e.reason})` : ""}`}: {e.title}</span></li>
+                <li key={k}><span className="ov-clamp">{e.action === "read" ? "✓ Read" : e.action === "helpful" ? "👍 Helpful" : e.action === "not_helpful" ? "👎 Not helpful" : `✕ Not relevant${e.reason ? ` (${e.reason})` : ""}`}: {e.title}</span></li>
               ))}
             </ul>
           )}

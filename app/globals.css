@@ -1152,3 +1152,11 @@ a.cue-company:hover { color: var(--accent); }
 .dq-ex { margin-left: 16px; font-size: 0.78rem; color: var(--muted); display: grid; gap: 3px; }
 .pitch-ok { color: var(--accent); font-weight: 700; font-size: 0.78rem; }
 .ov-introduce { margin-top: 8px; line-height: 1.6; }
+.cue-rate { display: inline-flex; gap: 4px; margin-left: auto; }
+.cue-rate .chip { padding: 2px 8px; font-size: 0.85rem; }
+.check-row { display: flex; align-items: center; gap: 8px; }
+.check-row input { width: auto; }
+.missed-form { margin-top: 16px; }
+.missed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; padding-top: 6px; }
+.missed-grid .wide, .missed-grid .row, .missed-grid p { grid-column: 1 / -1; }
+.results-stats { margin: 6px 0 4px; }

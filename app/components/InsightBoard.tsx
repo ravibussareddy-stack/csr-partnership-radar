@@ -4,7 +4,7 @@
  * instantly in the browser: source group, tier, sector, city / state, company.
  */
 import { useMemo, useRef, useState, useTransition } from "react";
-import { giveFeedback, undoRead } from "@/app/actions";
+import { giveFeedback, rateInsight, undoRead } from "@/app/actions";
 import Link from "next/link";
 import { CALL_TYPE_HELP, CALL_TYPE_LABELS, type Insight } from "@/lib/insights";
 import type { SourceGroup } from "@/lib/sources";
@@ -38,6 +38,7 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
   const company = i.company ?? "Company not identified";
   const dialog = useRef<HTMLDialogElement>(null);
   const [read, setRead] = useState(i.read);
+  const [rating, setRating] = useState(i.rating);
   const [hidden, setHidden] = useState(false);
   const [askWhy, setAskWhy] = useState(false);
   const [opened, setOpened] = useState(false);
@@ -48,6 +49,13 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
       const r = await fn();
       if (r.ok) onOk();
       else setNote(r.needsUnlock ? "unlock" : (r.message ?? "Couldn't save that."));
+    });
+  const rate = (r: "helpful" | "not_helpful") =>
+    i.itemId != null &&
+    start(async () => {
+      const res = await rateInsight(i.itemId!, r);
+      if (res.ok) setRating(res.rating ?? null);
+      else setNote(res.needsUnlock ? "unlock" : (res.message ?? "Couldn't save that."));
     });
   const toggleRead = () =>
     i.itemId != null && act(() => (read ? undoRead(i.itemId!) : giveFeedback(i.itemId!, "read")), () => setRead(!read));
@@ -108,6 +116,12 @@ export function CueCard({ i, sectorLabels }: { i: Insight; sectorLabels: Record<
           <button type="button" className={read ? "cue-read on" : "cue-read"} onClick={toggleRead} disabled={pending} aria-pressed={read} title={read ? "Mark as unread" : "Mark as read"}>
             {read ? "✓ Read" : "Mark read"}
           </button>
+        )}
+        {i.itemId != null && (
+          <span className="cue-rate" role="group" aria-label="Was this helpful?">
+            <button type="button" className={rating === "helpful" ? "chip on" : "chip"} onClick={() => rate("helpful")} disabled={pending} aria-pressed={rating === "helpful"} title="Helpful">👍</button>
+            <button type="button" className={rating === "not_helpful" ? "chip on" : "chip"} onClick={() => rate("not_helpful")} disabled={pending} aria-pressed={rating === "not_helpful"} title="Not helpful">👎</button>
+          </span>
         )}
       </div>
       {note && (

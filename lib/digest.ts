@@ -47,6 +47,8 @@ export interface DigestItem {
   research: { url: string; title: string; publisher: string | null }[];
   itemId: number;
   read: boolean;
+  /** the team's "was this helpful?" answer, if any */
+  rating: "helpful" | "not_helpful" | null;
   isDemo: boolean;
 }
 
@@ -117,6 +119,10 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
       ? await db.select({ itemId: feedback.itemId }).from(feedback).where(and(inArray(feedback.itemId, itemIds), eq(feedback.action, "read")))
       : [];
     const readSet = new Set(readRows.map((r) => r.itemId));
+    const ratingRows = itemIds.length
+      ? await db.select({ itemId: feedback.itemId, action: feedback.action }).from(feedback).where(and(inArray(feedback.itemId, itemIds), inArray(feedback.action, ["helpful", "not_helpful"])))
+      : [];
+    const ratingOf = new Map(ratingRows.map((r) => [r.itemId, r.action as "helpful" | "not_helpful"]));
     const coIds = [...new Set(rows.map((r) => r.companyId).filter((x): x is number => x != null))];
     const kits = coIds.length ? await db.select().from(pitchKits).where(inArray(pitchKits.companyId, coIds)) : [];
     const kitBy = new Map(kits.map((k) => [k.companyId, k.data]));
@@ -145,6 +151,7 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
           research: researchBy.get(itemId) ?? [],
           itemId,
           read: readSet.has(itemId),
+          rating: ratingOf.get(itemId) ?? null,
           date: r.publishedAt ?? r.fetchedAt,
           whyItMatters: c ? r.whyItMatters : null,
           keyLabel: c ? r.keyLabel : null,
