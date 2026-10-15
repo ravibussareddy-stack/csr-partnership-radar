@@ -162,3 +162,12 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 |---|---|---|
 | The weekly report is a real PDF generated on request (`/api/report`, `@react-pdf/renderer`) from the cached page data, with public content only. | One click gives Ananya a file to keep or share; it reads the same data as the pages, so it never disagrees with them, and needs no AI call or storage. | Browser "print to PDF" of a page (an extra dialog, layout varies by browser); a PDF generated weekly in GitHub Actions (needs file storage and is stale between runs). |
 
+
+## Success metrics (Results page)
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| Success is measured by what the team records while working: 👍 / 👎 per card, "missed" reports with a link, and a "the Radar helped" tick (with contract value) on Relationships, plus an automatic lead time. | Each is one click inside work the team already does, so it gets used; together they cover precision (helpful), recall (missed), value (₹ supported) and speed (lead time). | A periodic survey (low response, recall bias); inferring success from clicks or time on page (doesn't say whether a lead was useful or won). |
+| 👍 / 👎 is a metric only; it does not change scoring. | "Not relevant" with a reason already trains scoring; mixing a softer rating into the weights would make scoring harder to explain. | Feeding ratings into the score (double-counting with "Not relevant"). |
+| A reported miss that the Radar already held is counted separately ("scoring gap") from one it never collected ("coverage gap"). | They need different fixes: re-weight scoring vs add a source or saved search. | One miss counter (hides which fix is needed). |
+| A new missed link goes through the normal message pipeline (page read in the intake run, Gemini analysis, deterministic score). | No AI call in Vercel; the miss lands on the Digest within minutes like any dropped message. | Fetching and analysing the page in the server action (breaks the no-LLM-in-Vercel rule, slow). |

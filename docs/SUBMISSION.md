@@ -70,6 +70,7 @@ Code changes made after the 8.0/10 reassessment. Production is re-scored with th
 - **Relationships** watch: renewal timing vs announcement cycles, spend trends, hiring, plus news and rule impact, each with its reasoning.
 - **Regulatory** page with Executed / Confirmed / Inferred labels and verbatim quotes only.
 - **Daily self-audit**: merges duplicate companies, removes wrong-page or low-quality sources, re-checks job links, runs the consistency rules, and reports on the Team page.
+- **Results** (`/results`, team-only): success measured as the team works: 👍 / 👎 per card (% helpful by tier), "Did the Radar miss something?" reports (coverage vs scoring gaps; the link is analysed and added), partnerships the Radar helped win with contract value supported, and median lead time from publication.
 
 ---
 
