@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNull, max, or } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
 import { classifications, companies, feedback, itemResearch, pitchKits, rawItems, searchRuns, signals, type PitchKit, type Quote, type SignalType, type Tier } from "@/lib/db/schema";
 import { sourceGroup, type SourceGroup } from "@/lib/sources";
+import { sameStory } from "@/lib/dedupe";
 
 export const DIGEST_WINDOW_DAYS = 7;
 
@@ -225,10 +226,13 @@ function mergeSameStory(items: DigestItem[]): DigestItem[] {
   // Real items first (by score), then demo / pasted copies, so a copy never becomes the primary card.
   const ordered = [...items.filter((i) => !i.isDemo), ...items.filter((i) => i.isDemo)];
   for (const it of ordered) {
+    const near = (o: DigestItem) => Math.abs(new Date(o.date).getTime() - new Date(it.date).getTime()) <= 3 * 86400_000;
+    // With a company: same company + same initiative. Without one (rule changes, unnamed employers):
+    // same signal type and headlines that are clearly the same story (lib/dedupe.ts).
     const twin =
       it.companyId != null
-        ? out.find((o) => o.companyId === it.companyId && Math.abs(new Date(o.date).getTime() - new Date(it.date).getTime()) <= 3 * 86400_000 && sameInitiative(o, it))
-        : undefined;
+        ? out.find((o) => o.companyId === it.companyId && near(o) && sameInitiative(o, it))
+        : out.find((o) => o.companyId == null && o.signalType === it.signalType && near(o) && [o.headline ?? o.title, o.title].some((a) => [it.headline ?? it.title, it.title].some((b) => sameStory(a, b))));
     if (twin) twin.alsoReported.push({ title: it.isDemo ? `${it.title} (demo copy)` : it.title, url: it.url, source: it.source });
     else out.push(it);
   }

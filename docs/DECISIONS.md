@@ -154,4 +154,5 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | Decision | Why | Rejected alternative |
 |---|---|---|
 | A policy change is capped at Watch ("rule change: context for outreach, not a company to call"), and the consistency test gains an 8th rule: a Call is never a rule change. | On 15 Oct a Karnataka policy item (no company named, analysis "context only") became Call this week at 71 points: the context, no-company and Call-eligibility checks all exempt policy items so rules aren't buried, which left nothing to stop one. A rule is context for outreach; it stays visible on the Digest (Watch) and the Regulatory page. | Removing the policy exemptions (rule changes with "context" would drop to Background and disappear from the Digest's main view). |
+| Digest cards with no named company (rule changes, unnamed employers) merge when they share a signal type and a headline that is clearly the same story, within 3 days. | One Karnataka policy story appeared as 4 cards on 15 Oct: the "one card per story" rule only applied when a company was named. | Merging on signal type alone (would merge unrelated rule changes). |
 
