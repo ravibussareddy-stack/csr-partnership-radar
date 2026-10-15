@@ -24,6 +24,8 @@ export function RelationshipForm({ initial, sectors, onDone }: { initial?: Relat
     status: initial?.status ?? "active",
     contactRole: initial?.contactRole ?? "",
     notes: initial?.notes ?? "",
+    radarHelped: initial?.radarHelped ?? false,
+    radarNote: initial?.radarNote ?? "",
   });
   const [districts, setDistricts] = useState((initial?.districts ?? []).join(", "));
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -41,7 +43,7 @@ export function RelationshipForm({ initial, sectors, onDone }: { initial?: Relat
           setMsg({ ok: r.ok, text: r.needsUnlock ? "Sign in first (People messages page)." : (r.message ?? "") });
           if (r.ok) {
             if (!initial) {
-              setF({ companyName: "", programme: "", sectors: [], status: "active", valueLakh: null, startDate: "", renewalDate: "", contactRole: "", notes: "" });
+              setF({ companyName: "", programme: "", sectors: [], status: "active", valueLakh: null, startDate: "", renewalDate: "", contactRole: "", notes: "", radarHelped: false, radarNote: "" });
               setDistricts("");
             }
             router.refresh();
@@ -66,6 +68,13 @@ export function RelationshipForm({ initial, sectors, onDone }: { initial?: Relat
         {sectors.map((s) => <button type="button" key={s.id} className={f.sectors?.includes(s.id) ? "chip on" : "chip"} aria-pressed={f.sectors?.includes(s.id)} onClick={() => toggleSector(s.id)}>{s.label}</button>)}
       </fieldset>
       <label>Notes<textarea rows={2} value={f.notes ?? ""} onChange={(e) => set("notes", e.target.value)} placeholder="e.g. Year 2 of 3; they want placement rates in the annual report" /></label>
+      <label className="check-row">
+        <input type="checkbox" checked={Boolean(f.radarHelped)} onChange={(e) => set("radarHelped", e.target.checked)} />
+        The Radar helped us find or win this partnership
+      </label>
+      {f.radarHelped && (
+        <label>How it helped<input value={f.radarNote ?? ""} onChange={(e) => set("radarNote", e.target.value)} placeholder="e.g. Call this week card on their skilling RFP led to the first meeting" /></label>
+      )}
       <div className="row">
         <button className="pill-link strong" disabled={pending}>{pending ? "Saving…" : initial ? "Save changes" : "Add relationship"}</button>
         {onDone && <button type="button" className="chip" onClick={onDone}>Cancel</button>}

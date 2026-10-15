@@ -102,6 +102,7 @@ function RelationshipCard({ r, sectorLabel, sectors }: { r: RelationshipView; se
       ) : (
         <p className="small muted">Not matched to CSR Portal records (spend and timing checks skipped). Try the company&rsquo;s registered name.</p>
       )}
+      {r.radarHelped && <p className="small"><span className="fact fact-good">Found with the Radar</span>{r.radarNote ? ` ${r.radarNote}` : ""}</p>}
       {r.notes && <p className="small">{r.notes}</p>}
       {r.alerts.length === 0 ? (
         <p className="small muted">{r.lastCheckedAt ? `No changes found (last checked ${dateFmt.format(new Date(r.lastCheckedAt))}).` : "First check pending (within a few minutes)."}</p>

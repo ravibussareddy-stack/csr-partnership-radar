@@ -21,6 +21,8 @@ export interface RelationshipView {
   status: "active" | "renewal_due" | "lapsed" | "prospect";
   contactRole: string | null;
   notes: string | null;
+  radarHelped: boolean;
+  radarNote: string | null;
   lastCheckedAt: string | null;
   portal: { fy: number; focusCr: number; puneCr: number; maharashtraCr: number; window: string | null; nextWindowStart: string | null } | null;
   alerts: { id: number; kind: string; level: AlertLevel; title: string; impact: string; reasoning: string; sourceUrl: string | null; createdAt: string }[];
