@@ -60,7 +60,8 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
     .where(
       and(
         eq(rawItems.prefilterPassed, true),
-        or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since))),
+        // A self-added lead is scored from the day it was added, even if announced earlier.
+        or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since)), and(eq(rawItems.source, "manual"), gte(rawItems.fetchedAt, since))),
       ),
     );
 

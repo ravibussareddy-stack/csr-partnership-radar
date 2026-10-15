@@ -105,7 +105,8 @@ export async function loadDigest(now = new Date()): Promise<DigestData> {
       .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
       .leftJoin(classifications, eq(classifications.contentHash, rawItems.contentHash))
       .leftJoin(companies, eq(companies.id, signals.companyId))
-      .where(or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since))))
+      // A self-added lead counts from the day it was added, even if announced earlier.
+      .where(or(gte(rawItems.publishedAt, since), and(isNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since)), and(eq(rawItems.source, "manual"), gte(rawItems.fetchedAt, since))))
       .orderBy(desc(signals.score));
     const [{ last }] = await db.select({ last: max(signals.updatedAt) }).from(signals);
     const itemIds = rows.map((r) => r.itemId);
