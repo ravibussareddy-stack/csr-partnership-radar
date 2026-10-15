@@ -5,7 +5,7 @@
  *  - Relationships the Radar helped find or win, and their contract value (value supported).
  *  - Lead time: days from an article's publication to the Radar finding it.
  */
-import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, notInArray, sql } from "drizzle-orm";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
 import { activity, feedback, rawItems, relationships, signals, teamMembers } from "@/lib/db/schema";
 
@@ -76,7 +76,8 @@ export async function loadResults(now = new Date()): Promise<ResultsData | null>
     .select({ pub: rawItems.publishedAt, found: rawItems.fetchedAt })
     .from(signals)
     .innerJoin(rawItems, eq(rawItems.id, signals.itemId))
-    .where(and(isNotNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since30), eq(rawItems.isDemo, false), sql`${rawItems.url} like 'http%'`));
+    // Missed reports and self-added leads are excluded: their dates are set by hand, not by the publisher.
+    .where(and(isNotNull(rawItems.publishedAt), gte(rawItems.fetchedAt, since30), eq(rawItems.isDemo, false), sql`${rawItems.url} like 'http%'`, notInArray(rawItems.source, ["pasted", "manual"])));
   const days = timed
     .map((t) => (t.found.getTime() - (t.pub as Date).getTime()) / DAY)
     .filter((d) => d >= -1 && d < 365)
