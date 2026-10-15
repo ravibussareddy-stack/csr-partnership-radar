@@ -71,3 +71,18 @@ export async function loadTeam(meId: number) {
   };
 }
 
+/** Every piece of dashboard feedback, newest first, with who sent it (the Feedback log page). */
+export async function loadFeedbackLog(): Promise<import("@/lib/feedback").FeedbackRow[]> {
+  const db = await getDb();
+  const [rows, members] = await Promise.all([
+    db.select().from(dashboardFeedback).orderBy(desc(dashboardFeedback.createdAt)).limit(1000),
+    db.select({ id: teamMembers.id, name: teamMembers.name }).from(teamMembers),
+  ]);
+  const names = new Map(members.map((m) => [m.id, m.name]));
+  return rows.map((f) => ({
+    id: f.id, page: f.page, kind: f.kind, body: f.body, status: f.status, route: f.route, resolution: f.resolution,
+    createdAt: f.createdAt.toISOString(), resolvedAt: f.resolvedAt?.toISOString() ?? null,
+    by: f.memberId ? (names.get(f.memberId) ?? "Someone") : "Someone",
+  }));
+}
+

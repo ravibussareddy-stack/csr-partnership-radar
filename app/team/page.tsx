@@ -8,6 +8,7 @@ import { InfoTip } from "@/app/components/InfoTip";
 import { Hero, PageBackdrop } from "@/app/components/illustrations";
 import { currentMember } from "@/lib/session";
 import { loadTeam } from "@/lib/team";
+import { statusLabel } from "@/lib/feedback";
 import { AddMember, MemberToggle, ReviewFeedback, SignOut } from "./TeamForms";
 
 const when = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
@@ -15,7 +16,6 @@ const mins = (s: number) => (s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 36
 const KIND_LABEL: Record<string, string> = {
   comment: "comments", question: "questions", read: "read", irrelevant: "not relevant", contact: "outreach updates", dashboard_feedback: "dashboard feedback", sector: "sector changes", team: "team changes", answer: "answers received",
 };
-const FB_STATUS: Record<string, string> = { new: "Waiting for Ananya", confirmed: "Confirmed · being triaged", declined: "Declined", applied: "Applied", routed: "Sent to developer / designer", failed: "Failed" };
 
 export default function Page() {
   return (
@@ -125,21 +125,22 @@ async function Body() {
       <section className="section" aria-labelledby="h-fb">
         <h2 id="h-fb" className="section-title">
           Dashboard feedback {waiting.length > 0 && <span className="badge-warn">{waiting.length} to review</span>}
-          <InfoTip text="Feedback from the box at the bottom of every page. Ananya confirms or declines it. Confirmed feedback is triaged by Gemini on the next intake run: if a settings change can handle it (keywords, saved searches, followed pages, scoring weights within ±30%, the text size of the whole site between 90% and 125%), it is applied and listed here; otherwise it is written up as a developer or designer request, listed here in full and emailed with a [CSR Radar] Dev / Design request subject (to DEV_NOTIFY_TO / DESIGN_NOTIFY_TO if set, else NOTIFY_TO)." />
+          <InfoTip text="Feedback from the box at the bottom of every page. Ananya confirms or declines it. Confirmed feedback is triaged by Gemini within a few minutes: if a settings change can handle it (keywords, saved searches, followed pages, scoring weights within ±30%, the text size of the whole site between 90% and 125%), it is applied and listed here; otherwise it is written up as a developer or designer request, listed here in full and emailed with a [CSR Radar] Dev / Design request subject (to DEV_NOTIFY_TO / DESIGN_NOTIFY_TO if set, else NOTIFY_TO)." />
         </h2>
         {feedback.length === 0 ? <p className="muted">No feedback yet. Use the box at the bottom of any page.</p> : (
           <ol className="fb-list">
-            {feedback.map((f) => (
+            {[...waiting, ...feedback.filter((f) => f.status !== "new").slice(0, 6)].map((f) => (
               <li key={f.id} className={`glass card-pad fb fb-${f.status}`}>
                 <p className="small"><span className={`fb-kind fb-${f.kind}`}>{f.kind === "pro" ? "👍 Works well" : f.kind === "con" ? "👎 Problem" : "💡 Idea"}</span> · {f.page} page · {f.by} · {when.format(new Date(f.createdAt))}</p>
                 <p>{f.body}</p>
-                <p className="small"><b>{FB_STATUS[f.status]}</b>{f.route ? ` · ${f.route}` : ""}</p>
+                <p className="small"><b>{statusLabel(f)}</b></p>
                 {f.resolution && <p className="small fb-resolution">{f.resolution}</p>}
                 {lead && f.status === "new" && <ReviewFeedback id={f.id} />}
               </li>
             ))}
           </ol>
         )}
+        {feedback.length > 0 && <p className="small"><Link href="/feedback">Full feedback log: everything received and what was done →</Link></p>}
       </section>
     </>
   );

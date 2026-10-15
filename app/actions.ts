@@ -239,7 +239,7 @@ export async function leaveSession(): Promise<void> {
 
 // ---------- dashboard feedback ----------
 
-const PAGES = new Set(["summary", "digest", "inbox", "calendar", "funding", "jobs", "community", "regulatory", "team", "sectors", "companies", "general"]);
+const PAGES = new Set(["summary", "digest", "inbox", "calendar", "funding", "jobs", "community", "regulatory", "team", "sectors", "companies", "feedback", "relationships", "questions", "general"]);
 
 export async function sendDashboardFeedback(page: string, kind: string, body: string): Promise<FeedbackResult> {
   const me = await currentMember();
@@ -251,7 +251,12 @@ export async function sendDashboardFeedback(page: string, kind: string, body: st
   await db.insert(dashboardFeedback).values({ memberId: me.id, page: PAGES.has(page) ? page : "general", kind: k, body: text, status: me.role === "lead" ? "confirmed" : "new" });
   await log(me.id, "dashboard_feedback", `Dashboard feedback (${k}, ${page}): “${text.slice(0, 120)}”`);
   if (me.role === "lead") await dispatchWorkflow("team.yml");
-  return { ok: true, message: me.role === "lead" ? "Thanks! Confirmed: it will be triaged on the next intake run." : "Thanks! Ananya will review it." };
+  return {
+    ok: true,
+    message: me.role === "lead"
+      ? "Thanks! Confirmed: the Radar acts on it within a few minutes. Follow it on the Feedback log."
+      : "Thanks! Ananya will review it on the Feedback log.",
+  };
 }
 
 export async function reviewDashboardFeedback(id: number, decision: "confirmed" | "declined"): Promise<FeedbackResult> {
@@ -285,7 +290,7 @@ export async function addSector(label: string, description: string, keywords: st
   await log(me.id, "sector", `Added the sector “${l}”`);
   await dispatchWorkflow("team.yml");
   updateTag(RADAR_TAG);
-  return { ok: true, message: `Added. The next intake run expands its keywords (English, Hindi, Marathi), maps it to the CSR Portal and adds Google searches; then new and recent articles are classified with it.` };
+  return { ok: true, message: `Added. Within a few minutes the Radar expands its keywords (English, Hindi, Marathi), maps it to the CSR Portal and adds Google searches; then new and recent articles are classified with it.` };
 }
 
 export async function removeSector(id: string): Promise<FeedbackResult> {
