@@ -8,6 +8,7 @@ import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustratio
 import { InfoTip } from "@/app/components/InfoTip";
 import { KeepUp } from "@/app/components/KeepUp";
 import { MissedForm } from "@/app/components/MissedForm";
+import { AddLeadForm } from "@/app/components/AddLeadForm";
 import { fmtCr } from "@/app/components/charts";
 import { getHomeInsights, getImpactStats, getSearches, getSectors } from "@/lib/data";
 import { SOURCE_GROUPS } from "@/lib/sources";
@@ -78,6 +79,7 @@ async function Home() {
           </p>
           <div className="hero-actions">
             <Link href="/inbox" className="pill-link strong"><Icon name="people" /> Drop in messages</Link>
+            <a href="#add-lead" className="pill-link">＋ Add a lead</a>
             <Link href="/calendar" className="pill-link"><Icon name="calendar" /> CSR calendar</Link>
           </div>
         </div>
@@ -85,6 +87,7 @@ async function Home() {
       </header>
 
 
+      <AddLeadForm />
       <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} searches={searches} />
       <MissedForm />
 

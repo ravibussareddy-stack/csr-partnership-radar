@@ -171,3 +171,10 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | 👍 / 👎 is a metric only; it does not change scoring. | "Not relevant" with a reason already trains scoring; mixing a softer rating into the weights would make scoring harder to explain. | Feeding ratings into the score (double-counting with "Not relevant"). |
 | A reported miss that the Radar already held is counted separately ("scoring gap") from one it never collected ("coverage gap"). | They need different fixes: re-weight scoring vs add a source or saved search. | One miss counter (hides which fix is needed). |
 | A new missed link goes through the normal message pipeline (page read in the intake run, Gemini analysis, deterministic score). | No AI call in Vercel; the miss lands on the Digest within minutes like any dropped message. | Fetching and analysing the page in the server action (breaks the no-LLM-in-Vercel rule, slow). |
+
+## Self-added leads
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| "Add a lead" stores the link and details as a `manual` item and lets the 10-minute intake run read, classify, research and score it; only that item is processed. | Same path as every other item (one scoring rule, Gemini only in GitHub Actions, no AI call in Vercel), and the card is ready within minutes without re-running the daily pipeline or the analytics. | Creating the card in the server action (an AI call in Vercel); hand-filled cards with no analysis (inconsistent with the rest of the Digest). |
+| Self-added leads skip the keyword pre-filter and always keep a card (Background with a stated reason if Gemini finds no CSR opportunity). | The team already judged it a lead; silently dropping it would lose trust. The tier stays deterministic. | Forcing a tier (Call this week) for anything self-added (bypasses the scoring rules). |

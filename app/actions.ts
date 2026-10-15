@@ -140,6 +140,96 @@ export async function reportMissed(link: string, company: string, note: string):
   return { ok: true, message: "Thanks. The page will be read, analysed and scored in a few minutes, and the miss is counted on the Results page." };
 }
 
+export interface LeadInput {
+  link: string;
+  company?: string;
+  headline?: string;
+  kind?: string;
+  details: string;
+  location?: string;
+  deadline?: string;
+  amount?: string;
+  announced?: string;
+}
+
+const LEAD_KINDS: Record<string, string> = {
+  open_call: "Open call / RFP for NGO partners",
+  funding: "Funding or CSR budget announcement",
+  new_programme: "New CSR programme",
+  partnership: "Partnership announced",
+  expansion: "Expanding to a new region",
+  hiring: "CSR hiring",
+  other: "Other",
+};
+
+/**
+ * "Add a lead" (Self added): a teammate pastes a link and the details they know. Stored as a `manual` item
+ * and handed to the 10-minute intake run: the page is read, Gemini analyses it (and researches it), and it
+ * is scored like any item, so it becomes a card under Self added. Nothing else is re-run.
+ */
+export async function addLead(input: LeadInput): Promise<FeedbackResult> {
+  const me = await currentMember();
+  if (!me) return { ok: false, needsUnlock: true, message: SIGN_IN };
+  let url: string;
+  try {
+    const u = new URL(input.link.trim());
+    if (!/^https?:$/.test(u.protocol)) throw new Error();
+    url = canonicalUrl(u.toString());
+  } catch {
+    return { ok: false, message: "Paste the full link, starting with https://" };
+  }
+  const details = input.details.trim().slice(0, 2000);
+  if (details.length < 10) return { ok: false, message: "Add a line or two on the lead (who, what, where)." };
+  const clean = (v: string | undefined, n: number) => v?.trim().slice(0, n) || "";
+  const co = clean(input.company, 120);
+  const kind = LEAD_KINDS[input.kind ?? ""] ?? "";
+  const announced = input.announced && !Number.isNaN(Date.parse(input.announced)) ? new Date(input.announced) : null;
+  const title = clean(input.headline, 200) || (co ? `${co}: ` : "") + details.split(/\n/)[0].slice(0, 120);
+  const lines = [
+    details,
+    clean(input.headline, 200) && `Headline: ${clean(input.headline, 200)}`,
+    kind && `Type of lead: ${kind}`,
+    co && `Company: ${co}`,
+    clean(input.location, 120) && `Location: ${clean(input.location, 120)}`,
+    clean(input.amount, 80) && `Amount: ${clean(input.amount, 80)}`,
+    clean(input.deadline, 80) && `Deadline: ${clean(input.deadline, 80)}`,
+    `Link: ${url}`,
+    `Added by ${me.name} as a lead.`,
+  ].filter(Boolean);
+  const body = lines.join("\n");
+  const db = await getDb();
+  const TIER: Record<string, string> = { call_this_week: "Call this week", watch: "Watch", background: "Background" };
+  const [known] = await db
+    .select({ id: rawItems.id, title: rawItems.title, body: rawItems.body, tier: signals.tier })
+    .from(rawItems)
+    .leftJoin(signals, eq(signals.itemId, rawItems.id))
+    .where(eq(rawItems.url, url));
+  if (known?.tier) {
+    await log(me.id, "lead", `Added a lead already on the Digest (${TIER[known.tier]}): ${known.title}`, known.id);
+    return { ok: true, message: `Already on the Digest as ${TIER[known.tier]}: “${known.title}”.` };
+  }
+  let id: number | null = null;
+  if (known) {
+    // Collected earlier but not judged a lead: re-analyse it with the teammate's details, as Self added.
+    const merged = `${body}\n\nEarlier text: ${known.body}`.slice(0, 8000);
+    await db
+      .update(rawItems)
+      .set({ source: "manual", channel: "self", title, body: merged, publishedAt: announced ?? new Date(), contentHash: contentHash(title, merged), prefilterPassed: null, classifyStatus: "pending", researchedAt: null })
+      .where(eq(rawItems.id, known.id));
+    id = known.id;
+  } else {
+    const [row] = await db
+      .insert(rawItems)
+      .values({ source: "manual", channel: "self", url, title, body, publishedAt: announced ?? new Date(), contentHash: contentHash(title, body) })
+      .onConflictDoNothing({ target: rawItems.url })
+      .returning({ id: rawItems.id });
+    id = row?.id ?? null;
+  }
+  await log(me.id, "lead", `Added a lead: ${title}`, id);
+  await dispatchWorkflow("intake.yml");
+  return { ok: true, message: "Added. Gemini will read the page and build the card in a few minutes; it appears on the Digest under Self added." };
+}
+
 export async function undoRead(itemId: number): Promise<FeedbackResult> {
   if (!(await hasSession())) return { ok: false, needsUnlock: true };
   const db = await getDb();

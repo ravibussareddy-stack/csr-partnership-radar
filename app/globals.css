@@ -577,6 +577,7 @@ a.cue-company:hover { color: var(--accent); }
 .src-personal { background: var(--call-bg); color: var(--call); }
 .src-search { background: var(--background-bg); color: var(--background-tier); }
 .src-linkedin { background: #dcebfa; color: #0a66c2; }
+.src-self { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .sector-dot { padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .badge-warn { padding: 2px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-text); font-weight: 700; }
 .cue-more summary { cursor: pointer; list-style: none; font-size: 0.82rem; font-weight: 700; color: var(--accent); padding: 6px 0 0; }
@@ -1018,8 +1019,8 @@ a.cue-company:hover { color: var(--accent); }
 .rel-alert details summary { cursor: pointer; color: var(--accent); }
 .rel-form { display: grid; gap: 10px; }
 .rel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
-.rel-form label { display: grid; gap: 4px; font-size: 0.85rem; }
-.rel-form input, .rel-form select, .rel-form textarea { font: inherit; font-size: 0.9rem; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--text); }
+.rel-form label, .missed-grid label { display: grid; gap: 4px; font-size: 0.85rem; }
+.rel-form input, .rel-form select, .rel-form textarea, .missed-grid input, .missed-grid select, .missed-grid textarea { font: inherit; font-size: 0.9rem; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--text); }
 .rel-form fieldset { border: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .rel-card .row, .rel-form .row, .rel-alert .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .search-inline select { font: inherit; font-size: 0.85rem; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--text); }
@@ -1160,3 +1161,4 @@ a.cue-company:hover { color: var(--accent); }
 .missed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; padding-top: 6px; }
 .missed-grid .wide, .missed-grid .row, .missed-grid p { grid-column: 1 / -1; }
 .results-stats { margin: 6px 0 4px; }
+.add-lead { margin: 0 0 16px; }

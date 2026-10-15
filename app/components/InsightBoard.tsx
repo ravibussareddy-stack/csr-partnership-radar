@@ -285,7 +285,7 @@ export function InsightBoard({
     <div className="board">
       <div className="filter-bar glass" role="search">
         <div className="chips" aria-label="Source">
-          <InfoTip text="Where each insight came from. News feeds: CSR news sites read automatically. Google search: your saved searches, job searches and Google Alerts. LinkedIn: your LinkedIn alert emails. Personal messages: anything pasted into the message drop or forwarded with [CSR-IN]." label="About sources" />
+          <InfoTip text="Where each insight came from. News feeds: CSR news sites read automatically. Google search: your saved searches, job searches and Google Alerts. LinkedIn: your LinkedIn alert emails. Personal messages: anything pasted into the message drop or forwarded with [CSR-IN]. Self added: leads the team entered with Add a lead." label="About sources" />
           <button className={group === "all" ? "chip on" : "chip"} onClick={() => setGroup("all")}>All sources <b>{real.length}</b></button>
           {groups.map((g) => (
             <button key={g.id} className={group === g.id ? "chip on" : "chip"} onClick={() => setGroup(g.id)} title={g.hint}>
