@@ -60,6 +60,7 @@ async function Overview() {
           <Greeting name="Ananya" />
           <p className="namaste-line">Namaste · Vanakkam · नमस्कार</p>
           <p className="lede small">This week at a glance. Each panel shows the top items; open it for the detail.</p>
+          <a className="pill-link strong report-dl" href="/api/report" download>Download weekly report (PDF)</a>
           </div>
         </div>
         <ul className="ov-stats">

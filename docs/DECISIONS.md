@@ -156,3 +156,9 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | A policy change is capped at Watch ("rule change: context for outreach, not a company to call"), and the consistency test gains an 8th rule: a Call is never a rule change. | On 15 Oct a Karnataka policy item (no company named, analysis "context only") became Call this week at 71 points: the context, no-company and Call-eligibility checks all exempt policy items so rules aren't buried, which left nothing to stop one. A rule is context for outreach; it stays visible on the Digest (Watch) and the Regulatory page. | Removing the policy exemptions (rule changes with "context" would drop to Background and disappear from the Digest's main view). |
 | Digest cards with no named company (rule changes, unnamed employers) merge when they share a signal type and a headline that is clearly the same story, within 3 days. | One Karnataka policy story appeared as 4 cards on 15 Oct: the "one card per story" rule only applied when a company was named. | Merging on signal type alone (would merge unrelated rule changes). |
 
+## Weekly PDF report
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| The weekly report is a real PDF generated on request (`/api/report`, `@react-pdf/renderer`) from the cached page data, with public content only. | One click gives Ananya a file to keep or share; it reads the same data as the pages, so it never disagrees with them, and needs no AI call or storage. | Browser "print to PDF" of a page (an extra dialog, layout varies by browser); a PDF generated weekly in GitHub Actions (needs file storage and is stale between runs). |
+
