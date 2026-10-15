@@ -1,7 +1,7 @@
-/** Exit quickly when nothing is waiting: pasted messages or team tasks (used by the 10-minute intake workflow). */
+/** Exit quickly when nothing is waiting: pasted messages, self-added leads or team tasks (used by the 10-minute intake workflow). */
 import "../env";
 import { appendFileSync } from "node:fs";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { closeDb, getDb } from "@/lib/db/client";
 import { comments, config, dashboardFeedback, rawItems, relationships } from "@/lib/db/schema";
 
@@ -10,7 +10,7 @@ async function main() {
   const [{ n }] = await db
     .select({ n: sql<number>`count(*)` })
     .from(rawItems)
-    .where(and(eq(rawItems.source, "pasted"), or(isNull(rawItems.prefilterPassed), eq(rawItems.classifyStatus, "pending"))));
+    .where(and(inArray(rawItems.source, ["pasted", "manual"]), or(isNull(rawItems.prefilterPassed), eq(rawItems.classifyStatus, "pending"))));
   const pending = Number(n);
   console.log(`intake: ${pending} pasted message(s) waiting`);
   // Team work queued from the app: open questions, sectors being set up, confirmed dashboard feedback.

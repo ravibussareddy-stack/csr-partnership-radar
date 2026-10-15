@@ -8,7 +8,7 @@
  *   --no-search  skip the saved Google searches (Gemini grounding)
  */
 import "../env";
-import { and, eq, gte, isNull, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, or, sql } from "drizzle-orm";
 import { loadConfig, seedConfig } from "@/lib/config";
 import { closeDb, getDb } from "@/lib/db/client";
 import { modelMetrics, rawItems } from "@/lib/db/schema";
@@ -69,12 +69,12 @@ async function main() {
     console.log(`search: ${sr.runs} searches, ${sr.found} sourced items, ${sr.inserted} new`);
   }
 
-  // 2c. "We missed this" reports (Results page): read the reported page, so the analysis works from the
-  // article itself rather than the teammate's one-line note. Runs in the 10-minute intake too.
+  // 2c. "We missed this" reports (Results page) and self-added leads ("Add a lead"): read the page, so the
+  // analysis works from the article itself rather than only the teammate's note. Runs in the 10-minute intake too.
   const missed = await db
     .select({ id: rawItems.id, url: rawItems.url, title: rawItems.title, body: rawItems.body })
     .from(rawItems)
-    .where(and(eq(rawItems.channel, "missed"), eq(rawItems.classifyStatus, "pending"), isNull(rawItems.prefilterPassed)));
+    .where(and(inArray(rawItems.channel, ["missed", "self"]), eq(rawItems.classifyStatus, "pending"), isNull(rawItems.prefilterPassed)));
   if (missed.length) {
     const pageFetcher = new PoliteFetcher();
     for (const m of missed) {
@@ -83,14 +83,15 @@ async function main() {
         if (!html) continue;
         const pageTitle = stripHtml(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").slice(0, 200);
         const text = truncate(stripHtml(html.replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, " ")), 4000);
-        const title = pageTitle || m.title;
+        // A headline the teammate typed ("Headline:" line) wins over the page's own title.
+        const title = /^Headline: /m.test(m.body) ? m.title : pageTitle || m.title;
         const body = `${m.body}\n\nPage text: ${text}`;
         await db.update(rawItems).set({ title, body, contentHash: contentHash(title, body) }).where(eq(rawItems.id, m.id));
       } catch (err) {
-        console.warn(`missed report ${m.id}: page not read (${(err as Error).message}); analysing the note only`);
+        console.warn(`missed report / self-added lead ${m.id}: page not read (${(err as Error).message}); analysing the note only`);
       }
     }
-    console.log(`missed reports: ${missed.length} page(s) read for analysis`);
+    console.log(`missed reports and self-added leads: ${missed.length} page(s) read for analysis`);
   }
 
   // 3. Pre-filter (new items, or the whole lookback window with --refilter)
@@ -107,7 +108,8 @@ async function main() {
   let passed = 0;
   const failed: { id: number; title: string; body: string }[] = [];
   for (const it of toFilter) {
-    const pf = prefilter(it, sources.get(it.source), cfg);
+    // A self-added lead was judged a lead by the team: it always goes to Gemini.
+    const pf = it.source === "manual" ? { passed: true, reason: "self added" } : prefilter(it, sources.get(it.source), cfg);
     if (pf.passed) passed++;
     else failed.push({ id: it.id, title: it.title, body: it.body });
     await db

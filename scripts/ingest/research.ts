@@ -11,7 +11,7 @@ import { GeminiError, GeminiPool } from "@/lib/gemini";
 import { canonicalUrl } from "@/lib/text";
 import { parseGrounded, resolveRedirect } from "./search";
 
-const RESEARCH_SOURCES = ["pasted", "email-intake", "linkedin-email"];
+const RESEARCH_SOURCES = ["pasted", "manual", "email-intake", "linkedin-email"];
 const MAX_PER_RUN = Number(process.env.RESEARCH_MAX_PER_RUN ?? 15);
 
 function researchPrompt(title: string, company: string, why: string): string {

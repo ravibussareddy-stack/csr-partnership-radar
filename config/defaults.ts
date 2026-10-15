@@ -324,6 +324,8 @@ export const DEFAULT_CONFIG: AppConfig = {
     { id: "linkedin-email", name: "LinkedIn (email notifications)", url: "imap://intake", type: "email", weight: 4, csrFocused: false, enabled: true },
     { id: "email-intake", name: "Forwarded to the intake inbox", url: "imap://intake", type: "email", weight: 6, csrFocused: true, enabled: true },
     { id: "pasted", name: "Pasted messages", url: "app://inbox", type: "email", weight: 6, csrFocused: true, enabled: true },
+    // "Add a lead" form on the Digest: a link plus details entered by the team.
+    { id: "manual", name: "Self added", url: "app://digest", type: "email", weight: 6, csrFocused: true, enabled: true },
     {
       id: "indiacsr",
       name: "India CSR",

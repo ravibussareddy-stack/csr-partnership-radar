@@ -66,7 +66,9 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
 
   for (const { item, cls } of rows) {
     if (rejectedItems.has(item.id) || ["generic", "dead", "expired"].includes(item.linkStatus ?? "")) continue;
-    if (cls && !cls.isSignal) {
+    // A self-added lead keeps its card (scored as no signal, so Background) and says why.
+    const selfAdded = item.source === "manual";
+    if (cls && !cls.isSignal && !selfAdded) {
       const del = await db.delete(signals).where(eq(signals.itemId, item.id)).returning({ id: signals.id });
       stats.removed += del.length;
       continue;
@@ -137,7 +139,7 @@ export async function scoreRecent(db: DB, cfg: AppConfig, now = new Date()): Pro
       signalType: r.signalType,
       score: r.score,
       tier: r.tier,
-      reason: r.reason,
+      reason: selfAdded && cls && !cls.isSignal ? `Self added; Gemini found no CSR opportunity in it · ${r.reason}` : r.reason,
       classified: r.classified,
       updatedAt: now,
     };
