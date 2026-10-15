@@ -3,6 +3,7 @@ import { Nunito, Outfit } from "next/font/google";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Ambient } from "./components/Ambient";
+import { DisplaySettings } from "./components/DisplaySettings";
 import { FeedbackBox } from "./components/FeedbackBox";
 import "./globals.css";
 
@@ -44,6 +45,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body>
+        <Suspense fallback={null}>
+          <DisplaySettings />
+        </Suspense>
         <div className="backdrop" aria-hidden="true">
           <span className="blob b1" />
           <span className="blob b2" />

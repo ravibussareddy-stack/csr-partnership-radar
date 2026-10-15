@@ -112,7 +112,7 @@ export const triageResponseSchema = {
       items: {
         type: "OBJECT",
         properties: {
-          op: { type: "STRING", enum: ["add_keyword", "remove_keyword", "add_search", "disable_search", "set_weight", "add_followed_page"] },
+          op: { type: "STRING", enum: ["add_keyword", "remove_keyword", "add_search", "disable_search", "set_weight", "add_followed_page", "set_display"] },
           target: { type: "STRING" },
           value: { type: "STRING" },
         },
@@ -135,9 +135,9 @@ export function buildTriagePrompt(fb: { page: string; kind: string; body: string
   return `You maintain "CSR Partnership Radar", a CSR intelligence dashboard for an NGO partnerships team. A team member left feedback that the team lead confirmed. Decide how to act on it.
 
 route:
-- "config": it can be fully handled by changing the Radar's settings below, without code, new API keys, paid services or human work. Then give ops.
+- "config": it can be fully handled by changing the Radar's settings below (including the site's text size), without code, new API keys, paid services or human work. Then give ops.
 - "developer": it needs code, data-pipeline, integration or infrastructure changes. Write request: a clear ticket for a developer (problem, expected behaviour, acceptance criteria).
-- "designer": it is about layout, visuals, wording, navigation or usability. Write request: a clear brief for a designer.
+- "designer": it is about layout, visuals, wording, navigation or usability that the settings cannot change. Write request: a clear brief for a designer.
 - "none": praise or nothing actionable. Write a one-line summary.
 
 Allowed ops (only these; be conservative, small changes):
@@ -146,6 +146,7 @@ Allowed ops (only these; be conservative, small changes):
 - add_search: target is "news", "jobs" or "policy"; value is a Google search query.
 - disable_search: target is a search id from the settings.
 - set_weight: target is one of "signalType.<type>", "sectorFit", "activelyPartneringBonus", "thresholds.callThisWeek", "thresholds.watch"; value is a number. Change by at most 30% from the current value.
+- set_display: target "fontScale" (text size across the whole site); value is the new size, either relative like "+2%" / "-5%" or absolute like "102%". Allowed range 90%–125%, at most 10 percentage points per change. Text that is too small or too large is a settings change, not a designer request.
 
 summary: one sentence saying what you did or why it went to the developer/designer.
 

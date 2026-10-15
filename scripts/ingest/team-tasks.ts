@@ -13,7 +13,8 @@
  *  4. Relationships added in the app get their first relationship-watch check right away.
  */
 import "../env";
-import nodemailer from "nodemailer";
+import { SUBJECT_TAG, transport } from "../notify/mail";
+import { DISPLAY_KEY, nextFontScale, readDisplay, type DisplaySettings } from "@/lib/display";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type { AppConfig } from "@/config/defaults";
 import { loadConfig } from "@/lib/config";
@@ -29,6 +30,7 @@ import {
   csrSpend,
   dashboardFeedback,
   itemResearch,
+  modelMetrics,
   rawItems,
   signals,
   teamMembers,
@@ -252,7 +254,8 @@ async function triageFeedback(db: DB, pool: GeminiPool) {
     .limit(10);
   for (const { f, by } of queue) {
     const cfg = await loadConfig(db);
-    const res = await pool.generateJson(buildTriagePrompt({ page: f.page, kind: f.kind, body: f.body, by: by ?? "a teammate" }, settingsText(cfg)), triageResponseSchema);
+    const [disp] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, DISPLAY_KEY));
+    const res = await pool.generateJson(buildTriagePrompt({ page: f.page, kind: f.kind, body: f.body, by: by ?? "a teammate" }, settingsText(cfg, readDisplay(disp?.data ?? null))), triageResponseSchema);
     const v = triageSchema.safeParse(JSON.parse(res.text));
     if (!v.success) continue;
     const t = v.data;
@@ -277,7 +280,7 @@ async function triageFeedback(db: DB, pool: GeminiPool) {
   }
 }
 
-function settingsText(cfg: AppConfig): string {
+function settingsText(cfg: AppConfig, display: DisplaySettings): string {
   const w = cfg.scoringWeights;
   return [
     `Sectors: ${cfg.sectors.map((s) => `${s.id} (${s.label}; keywords: ${s.keywords.slice(0, 12).join(", ")})`).join(" | ")}`,
@@ -285,10 +288,11 @@ function settingsText(cfg: AppConfig): string {
     `Followed pages: ${(cfg.keywords.followedPages ?? []).join(", ")}`,
     `Saved searches: ${cfg.searches.map((s) => `${s.id} [${s.kind ?? "news"}${s.enabled ? "" : ", disabled"}] "${s.query}"`).join(" | ")}`,
     `Weights: signalType ${JSON.stringify(w.signalType)}, sectorFit ${w.sectorFit}, activelyPartneringBonus ${w.activelyPartneringBonus}, thresholds ${JSON.stringify(w.thresholds)}`,
+    `Display: text size ${Math.round(display.fontScale * 100)}% (fontScale)`,
   ].join("\n");
 }
 
-async function applyOps(db: DB, cfg: AppConfig, ops: { op: string; target: string; value: string }[]): Promise<string[]> {
+export async function applyOps(db: DB, cfg: AppConfig, ops: { op: string; target: string; value: string }[]): Promise<string[]> {
   const [row] = await db.select().from(config).where(eq(config.id, 1));
   if (!row) return [];
   const keywords = structuredClone(row.keywords);
@@ -340,20 +344,35 @@ async function applyOps(db: DB, cfg: AppConfig, ops: { op: string; target: strin
       }
     }
   }
-  if (done.length) await db.update(config).set({ keywords, sectors, searches, scoringWeights: weights, updatedAt: new Date() }).where(eq(config.id, 1));
+  const configChanged = done.length > 0;
+  for (const { op, target, value } of ops) {
+    if (op !== "set_display" || target !== "fontScale") continue;
+    const [cur] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, DISPLAY_KEY));
+    const before = readDisplay(cur?.data ?? null).fontScale;
+    const after = nextFontScale(before, value);
+    if (after == null || after === before) continue;
+    await db
+      .insert(modelMetrics)
+      .values({ key: DISPLAY_KEY, data: { fontScale: after }, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: modelMetrics.key, set: { data: { fontScale: after }, updatedAt: new Date() } });
+    done.push(`text size ${Math.round(before * 100)}% → ${Math.round(after * 100)}%`);
+  }
+  if (configChanged) await db.update(config).set({ keywords, sectors, searches, scoringWeights: weights, updatedAt: new Date() }).where(eq(config.id, 1));
   return done;
 }
 
+/**
+ * Developer / designer requests go to DEV_NOTIFY_TO / DESIGN_NOTIFY_TO (repository variables), falling
+ * back to NOTIFY_TO. Each request is also listed, with its full text, on the Team page.
+ */
 async function sendRequest(route: string, f: typeof dashboardFeedback.$inferSelect, request: string, by: string | null): Promise<boolean> {
-  const to = process.env.NOTIFY_TO;
-  const user = process.env.NOTIFY_SMTP_USER || process.env.INTAKE_IMAP_USER;
-  const pass = process.env.NOTIFY_SMTP_PASSWORD || process.env.INTAKE_IMAP_PASSWORD;
-  if (!to || !user || !pass) return false;
-  const t = nodemailer.createTransport({ host: process.env.NOTIFY_SMTP_HOST ?? "smtp.gmail.com", port: 465, secure: true, auth: { user, pass } });
-  const subject = `[CSR Radar] ${route === "designer" ? "Design" : "Dev"} request · ${f.page} · #${f.id}`;
-  const text = `${request}\n\n---\nOriginal feedback (${f.kind}, ${f.page} page, from ${by ?? "a teammate"}, confirmed by the team lead):\n${f.body}`;
+  const to = (route === "designer" ? process.env.DESIGN_NOTIFY_TO : process.env.DEV_NOTIFY_TO) || process.env.NOTIFY_TO;
+  const tr = transport();
+  if (!to || !tr) return false;
+  const subject = `${SUBJECT_TAG} ${route === "designer" ? "Design" : "Dev"} request · ${f.page} · #${f.id}`;
+  const text = `${request}\n\n---\nOriginal feedback (${f.kind}, ${f.page} page, from ${by ?? "a teammate"}, confirmed by the team lead):\n${f.body}\n\nAll requests: ${process.env.SITE_URL ?? "https://csr-partnership-radar-two.vercel.app"}/team`;
   try {
-    await t.sendMail({ from: user, to, subject, text });
+    await tr.t.sendMail({ from: `CSR Radar <${tr.from}>`, to, subject, text });
     return true;
   } catch (err) {
     console.warn(`team feedback: email failed (${(err as Error).message})`);
@@ -361,9 +380,11 @@ async function sendRequest(route: string, f: typeof dashboardFeedback.$inferSele
   }
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(closeDb);
+if (process.argv[1]?.endsWith("team-tasks.ts")) {
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    .finally(closeDb);
+}

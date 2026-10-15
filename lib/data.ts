@@ -7,7 +7,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { count, eq, sql } from "drizzle-orm";
 import { DEFAULT_CONFIG } from "@/config/defaults";
 import { getDb, hasDatabaseUrl } from "@/lib/db/client";
-import { companyNews, companyStats, csrSpend, rawItems } from "@/lib/db/schema";
+import { companyNews, companyStats, csrSpend, modelMetrics, rawItems } from "@/lib/db/schema";
 import { loadDigest, loadRecentSearches } from "@/lib/digest";
 import {
   loadAnnouncementGrid,
@@ -319,3 +319,19 @@ export async function getPitchKit(companyId: number) {
   const [k] = await db.select().from(pitchKits).where(eq(pitchKits.companyId, companyId));
   return k ? { kit: k.data, at: k.createdAt.toISOString() } : null;
 }
+
+/** Display settings changed through dashboard feedback (text size). Defaults when there is no database. */
+export async function getDisplaySettings(): Promise<import("@/lib/display").DisplaySettings> {
+  "use cache";
+  tag();
+  const { DISPLAY_DEFAULTS, DISPLAY_KEY, readDisplay } = await import("@/lib/display");
+  if (!hasDatabaseUrl()) return DISPLAY_DEFAULTS;
+  try {
+    const db = await getDb();
+    const [row] = await db.select().from(modelMetrics).where(eq(modelMetrics.key, DISPLAY_KEY));
+    return row ? readDisplay(row.data) : DISPLAY_DEFAULTS;
+  } catch {
+    return DISPLAY_DEFAULTS;
+  }
+}
+
