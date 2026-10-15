@@ -14,7 +14,7 @@ const TIER: Record<string, string> = { call_this_week: "Call this week", watch: 
 function outcome(r: { status: string; passed: boolean | null; isSignal: boolean | null; tier: string | null }): string {
   if (r.passed === false) return "not CSR";
   if (r.status !== "classified") return STATUS[r.status] ?? r.status;
-  if (r.isSignal === false) return "read · not a CSR lead, no card";
+  if (r.isSignal === false) return "read · not a CSR lead, so not added to the Digest";
   if (r.tier) return `read · on the Digest as ${TIER[r.tier] ?? r.tier}`;
   return "read";
 }
