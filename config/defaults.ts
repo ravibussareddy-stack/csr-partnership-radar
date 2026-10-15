@@ -121,6 +121,8 @@ export interface AppConfig {
     hiringMaxTier: "call_this_week" | "watch" | "background";
     /** Highest tier for companies expanding into a region (future CSR funder, no budget yet). */
     expansionMaxTier: "call_this_week" | "watch" | "background";
+    /** A rule change is context for outreach, never a company to call (default "watch"). */
+    policyMaxTier?: "call_this_week" | "watch" | "background";
     /** Highest tier for activity only outside the priority geographies AND outside the focus sectors. */
     outOfRegionMaxTier?: "call_this_week" | "watch" | "background";
     /** Points when the activity is in a state bordering Maharashtra (easier to extend to Pune). */
@@ -415,6 +417,7 @@ export const DEFAULT_CONFIG: AppConfig = {
     unclassifiedMaxTier: "watch",
     hiringMaxTier: "watch",
     expansionMaxTier: "watch",
+    policyMaxTier: "watch",
     outsideSectorMaxTier: "watch",
     activelyPartneringBonus: 10,
     lookbackDays: 14,

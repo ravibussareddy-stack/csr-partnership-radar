@@ -203,6 +203,13 @@ export function scoreItem(input: ScoreInput, cfg: AppConfig, now: Date = new Dat
     tier = "background";
     parts.push("expansion outside Pune / Maharashtra → Background");
   }
+  // A rule change is never a company to call: at most Watch, whatever its points. It also appears on
+  // the Regulatory page. (The other Call checks skip policy items, so this cap is what stops one.)
+  const policyMax = w.policyMaxTier ?? "watch";
+  if (signalType === "policy_change" && TIER_RANK[tier] > TIER_RANK[policyMax]) {
+    tier = policyMax;
+    parts.push(`capped at ${TIER_LABELS[tier]} (rule change: context for outreach, not a company to call)`);
+  }
   if (signalType === "csr_hiring" && TIER_RANK[tier] > TIER_RANK[w.hiringMaxTier]) {
     tier = w.hiringMaxTier;
     parts.push(`capped at ${TIER_LABELS[tier]} (job post)`);

@@ -94,7 +94,7 @@ Resolved during the final check: the Monday email was sent and received (W42), a
 ## 5. How to verify
 
 ```bash
-npm run test:consistency     # 7 end-to-end rules against the live digest
+npm run test:consistency     # 8 end-to-end rules against the live digest (7 at the time of the 7.5 review, plus "a Call is never a rule change")
 npm run test:joblinks        # job-link classifier tests
 npm run test:paste           # message splitting tests
 npm run test:publishers      # publisher-as-funder guard tests

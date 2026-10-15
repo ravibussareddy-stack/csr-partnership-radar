@@ -149,3 +149,9 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | The site's text size is a setting the feedback triage may change (90%–125%, at most 10 points per change), stored in `model_metrics` and applied as one root `font-size` rule. | Testing "increase the font size by 2%" showed the triage could only route it to a designer: Gemini had no safe way to change anything on screen. A bounded, reversible size setting covers the most common readability request without code. | Letting Gemini edit CSS or code (unbounded, unreviewable); a new `config` column (needs a migration before Vercel reads it). |
 | Developer and designer requests go to `DEV_NOTIFY_TO` / `DESIGN_NOTIFY_TO`, falling back to `NOTIFY_TO`, and stay listed in full on the Team page. | Both went to the same inbox as every alert, so "the designer" was in practice Ananya. | A ticketing integration (another account and API key). |
 
+## Rule changes are never calls
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| A policy change is capped at Watch ("rule change: context for outreach, not a company to call"), and the consistency test gains an 8th rule: a Call is never a rule change. | On 15 Oct a Karnataka policy item (no company named, analysis "context only") became Call this week at 71 points: the context, no-company and Call-eligibility checks all exempt policy items so rules aren't buried, which left nothing to stop one. A rule is context for outreach; it stays visible on the Digest (Watch) and the Regulatory page. | Removing the policy exemptions (rule changes with "context" would drop to Background and disappear from the Digest's main view). |
+

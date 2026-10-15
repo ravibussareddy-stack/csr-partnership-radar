@@ -8,6 +8,7 @@
  *  5. A Call outside Pune/Maharashtra is backed by the company's CSR spend in Maharashtra.
  *  6. One card per story: no two Calls for the same company within 3 days.
  *  7. Every company link resolves (directly or via a merge redirect).
+ *  8. A Call is never a rule change (policy items are at most Watch).
  */
 import "../env";
 import { inArray, sql } from "drizzle-orm";
@@ -40,6 +41,12 @@ export async function runConsistency(db: DB): Promise<ConsistencyCheck[]> {
   const national = (g: string) => /^(india|pan[- ]india|nationwide|national|across india|all india|multiple states)$/i.test(g.trim());
 
   const out: ConsistencyCheck[] = [];
+  out.push({
+    id: "policy",
+    rule: "A Call is never a rule change (policy items are at most Watch)",
+    checked: calls.length,
+    violations: calls.filter((c) => c.signalType === "policy_change").map(label),
+  });
   out.push({
     id: "action",
     rule: "A Call agrees with its own analysis (recommended action is reach out now)",
