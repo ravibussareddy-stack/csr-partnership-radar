@@ -7,6 +7,7 @@ import { InsightBoard } from "@/app/components/InsightBoard";
 import { ClassroomScene, Icon, PageBackdrop } from "@/app/components/illustrations";
 import { InfoTip } from "@/app/components/InfoTip";
 import { KeepUp } from "@/app/components/KeepUp";
+import { MissedForm } from "@/app/components/MissedForm";
 import { fmtCr } from "@/app/components/charts";
 import { getHomeInsights, getImpactStats, getSearches, getSectors } from "@/lib/data";
 import { SOURCE_GROUPS } from "@/lib/sources";
@@ -85,6 +86,7 @@ async function Home() {
 
 
       <InsightBoard signals={signals} warm={warmCards} groups={SOURCE_GROUPS} sectors={SECTORS} searches={searches} />
+      <MissedForm />
 
     </>
   );

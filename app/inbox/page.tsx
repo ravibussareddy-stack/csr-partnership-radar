@@ -68,7 +68,7 @@ async function Drop() {
             {recent.map((r) => (
               <li key={r.id}>
                 <span>{r.title}</span>
-                <span>{r.channel ?? "other"} · {when.format(r.fetchedAt)} · {outcome(r)}</span>
+                <span>{r.channel === "missed" ? "missed report" : (r.channel ?? "other")} · {when.format(r.fetchedAt)} · {outcome(r)}</span>
               </li>
             ))}
           </ul>

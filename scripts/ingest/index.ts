@@ -13,6 +13,8 @@ import { loadConfig, seedConfig } from "@/lib/config";
 import { closeDb, getDb } from "@/lib/db/client";
 import { modelMetrics, rawItems } from "@/lib/db/schema";
 import { prefilter } from "@/lib/prefilter";
+import { stripHtml, truncate } from "@/lib/text";
+import { contentHash } from "@/lib/hash";
 import { classifyPending } from "./classify";
 import { PoliteFetcher } from "./robots";
 import { fetchRssSource } from "./rss";
@@ -65,6 +67,30 @@ async function main() {
   if (!args.has("--no-search") && !args.has("--no-fetch")) {
     const sr = await runSearches(db, cfg);
     console.log(`search: ${sr.runs} searches, ${sr.found} sourced items, ${sr.inserted} new`);
+  }
+
+  // 2c. "We missed this" reports (Results page): read the reported page, so the analysis works from the
+  // article itself rather than the teammate's one-line note. Runs in the 10-minute intake too.
+  const missed = await db
+    .select({ id: rawItems.id, url: rawItems.url, title: rawItems.title, body: rawItems.body })
+    .from(rawItems)
+    .where(and(eq(rawItems.channel, "missed"), eq(rawItems.classifyStatus, "pending"), isNull(rawItems.prefilterPassed)));
+  if (missed.length) {
+    const pageFetcher = new PoliteFetcher();
+    for (const m of missed) {
+      try {
+        const html = /^https?:\/\//.test(m.url) ? await pageFetcher.get(m.url) : null;
+        if (!html) continue;
+        const pageTitle = stripHtml(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").slice(0, 200);
+        const text = truncate(stripHtml(html.replace(/<(nav|header|footer|aside)[\s\S]*?<\/\1>/gi, " ")), 4000);
+        const title = pageTitle || m.title;
+        const body = `${m.body}\n\nPage text: ${text}`;
+        await db.update(rawItems).set({ title, body, contentHash: contentHash(title, body) }).where(eq(rawItems.id, m.id));
+      } catch (err) {
+        console.warn(`missed report ${m.id}: page not read (${(err as Error).message}); analysing the note only`);
+      }
+    }
+    console.log(`missed reports: ${missed.length} page(s) read for analysis`);
   }
 
   // 3. Pre-filter (new items, or the whole lookback window with --refilter)
