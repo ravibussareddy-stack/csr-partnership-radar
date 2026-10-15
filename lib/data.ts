@@ -172,9 +172,16 @@ export async function getRecentPasted() {
   cacheLife("minutes");
   if (!hasDatabaseUrl()) return [];
   const db = await getDb();
+  // With the outcome: whether Gemini judged it a CSR lead and, if so, its tier on the Digest.
+  const { classifications, signals } = await import("@/lib/db/schema");
   return db
-    .select({ id: rawItems.id, title: rawItems.title, channel: rawItems.channel, status: rawItems.classifyStatus, passed: rawItems.prefilterPassed, fetchedAt: rawItems.fetchedAt })
+    .select({
+      id: rawItems.id, title: rawItems.title, channel: rawItems.channel, status: rawItems.classifyStatus, passed: rawItems.prefilterPassed, fetchedAt: rawItems.fetchedAt,
+      isSignal: classifications.isSignal, tier: signals.tier,
+    })
     .from(rawItems)
+    .leftJoin(classifications, eq(classifications.contentHash, rawItems.contentHash))
+    .leftJoin(signals, eq(signals.itemId, rawItems.id))
     .where(eq(rawItems.source, "pasted"))
     .orderBy(sql`${rawItems.id} desc`)
     .limit(30);

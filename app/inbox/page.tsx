@@ -8,6 +8,16 @@ import { DropForm, UnlockForm } from "./forms";
 
 const when = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
 const STATUS: Record<string, string> = { pending: "queued", classified: "read", unclassified: "retrying", filtered_out: "not CSR" };
+const TIER: Record<string, string> = { call_this_week: "Call this week", watch: "Watch", background: "Background" };
+
+/** What became of a dropped message: queued, not a CSR lead, or its tier on the Digest. */
+function outcome(r: { status: string; passed: boolean | null; isSignal: boolean | null; tier: string | null }): string {
+  if (r.passed === false) return "not CSR";
+  if (r.status !== "classified") return STATUS[r.status] ?? r.status;
+  if (r.isSignal === false) return "read · not a CSR lead, no card";
+  if (r.tier) return `read · on the Digest as ${TIER[r.tier] ?? r.tier}`;
+  return "read";
+}
 
 export default function Page() {
   return (
@@ -58,7 +68,7 @@ async function Drop() {
             {recent.map((r) => (
               <li key={r.id}>
                 <span>{r.title}</span>
-                <span>{r.channel ?? "other"} · {when.format(r.fetchedAt)} · {r.passed === false ? "not CSR" : STATUS[r.status] ?? r.status}</span>
+                <span>{r.channel ?? "other"} · {when.format(r.fetchedAt)} · {outcome(r)}</span>
               </li>
             ))}
           </ul>
