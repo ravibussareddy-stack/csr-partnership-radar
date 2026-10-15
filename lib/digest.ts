@@ -184,6 +184,8 @@ export async function loadRecentSearches(now = new Date()): Promise<SearchRunSum
     const prev = latest.get(r.searchId);
     if (prev) {
       prev.runs++;
+      // Gemini doesn't return Google's search chip on every run: keep the newest one from the week.
+      prev.entryPointHtml ??= r.entryPointHtml;
       continue;
     }
     latest.set(r.searchId, { searchId: r.searchId, query: r.query, ranAt: r.ranAt, runs: 1, results: [], entryPointHtml: r.entryPointHtml });

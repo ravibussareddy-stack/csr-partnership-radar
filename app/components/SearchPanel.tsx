@@ -30,16 +30,21 @@ export function SearchPanel({ searches, passing, filtered }: { searches: SearchR
               <ul className="search-results">
                 {r.results.slice(0, 4).map((x) => (
                   <li key={x.url}>
-                    <a href={x.url} target="_blank" rel="noopener noreferrer">{x.title}</a>
+                    <a href={x.url} target="_blank" rel="noopener noreferrer">{x.title} <span aria-hidden="true">↗</span></a>
                     <span className="muted small">{x.company ? `${x.company} · ` : ""}{x.tier ? <span className={`tier-pill tier-${x.tier} mini-pill`}>{x.tier === "call_this_week" ? "Call" : x.tier === "watch" ? "Watch" : "Background"}</span> : "not CSR"}</span>
                   </li>
                 ))}
               </ul>
-              {r.entryPointHtml && (
+              {r.entryPointHtml ? (
                 <>
                   <SearchSuggestions html={r.entryPointHtml} label={`Google search suggestions for ${r.query}`} />
                   <p className="muted small gs-note">Google requires this chip on AI search results; it opens the same search on Google. The titles above open the articles.</p>
                 </>
+              ) : (
+                // Gemini returned no search chip this week: link the same search on Google directly.
+                <a className="small gs-link" href={`https://www.google.com/search?q=${encodeURIComponent(r.query)}`} target="_blank" rel="noopener noreferrer">
+                  Search “{r.query}” on Google ↗
+                </a>
               )}
             </article>
           ))}

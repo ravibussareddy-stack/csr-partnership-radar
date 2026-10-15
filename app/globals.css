@@ -744,8 +744,9 @@ a.cue-company:hover { color: var(--accent); }
 .search-q { font-family: var(--font-display), sans-serif; font-weight: 500; font-size: 1.02rem; min-height: calc(1.4em * 2); }
 .search-results { list-style: none; display: grid; gap: 8px; }
 .search-results li { display: grid; gap: 2px; font-size: 0.86rem; }
-.search-results a { color: var(--text); font-weight: 600; text-decoration: none; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.search-results a:hover { color: var(--accent); }
+.search-results a { color: var(--accent); font-weight: 600; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.search-results a:hover { text-decoration-color: var(--accent); }
+.gs-link { color: var(--accent); font-weight: 600; margin-top: auto; }
 .mini-pill { font-size: 0.66rem; padding: 1px 7px; margin-left: 0; }
 .search-suggestions { margin-top: auto; padding-top: 6px; overflow-x: auto; }
 
