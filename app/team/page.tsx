@@ -125,7 +125,7 @@ async function Body() {
       <section className="section" aria-labelledby="h-fb">
         <h2 id="h-fb" className="section-title">
           Dashboard feedback {waiting.length > 0 && <span className="badge-warn">{waiting.length} to review</span>}
-          <InfoTip text="Feedback from the box at the bottom of every page. Ananya confirms or declines it. Confirmed feedback is triaged by Gemini on the next intake run: if a settings change can handle it (keywords, saved searches, followed pages, scoring weights within ±30%), it is applied and listed here; otherwise it is written up as a developer or designer request and emailed with a [CSR Radar] Dev / Design request subject." />
+          <InfoTip text="Feedback from the box at the bottom of every page. Ananya confirms or declines it. Confirmed feedback is triaged by Gemini on the next intake run: if a settings change can handle it (keywords, saved searches, followed pages, scoring weights within ±30%, the text size of the whole site between 90% and 125%), it is applied and listed here; otherwise it is written up as a developer or designer request, listed here in full and emailed with a [CSR Radar] Dev / Design request subject (to DEV_NOTIFY_TO / DESIGN_NOTIFY_TO if set, else NOTIFY_TO)." />
         </h2>
         {feedback.length === 0 ? <p className="muted">No feedback yet. Use the box at the bottom of any page.</p> : (
           <ol className="fb-list">

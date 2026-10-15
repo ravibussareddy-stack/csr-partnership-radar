@@ -142,3 +142,10 @@ Each entry records what was decided, why, and what was rejected. Newest first wi
 | A watchdog emails only on problems: immediately on a failed / cancelled / timed-out daily, weekly or email run, and in a daily check (stale digest, Gemini stopped, time budget hit, failed feeds, failed 10-minute runs, missing Monday email). One email per problem per day. | The 14 Oct failure was silent; nobody knew until asked. Silence now means healthy. | Watching every 10-minute run with `workflow_run` (150 extra watchdog runs a day; the daily check covers them); GitHub's own failure emails (go to the repo owner only, without what to do). |
 | The day's digest and call alerts are published (cache refresh + alerts) right after scoring and the relationship watch, before the slow optional steps (pitch kits, community builder, job-link checks, audit), which now have their own step limits (10 / 10 / 5 / 8 min) and run again at the end. | The first run after the fix took 46 of its 60 minutes; pitch kits (7 min) and community builder (6.5 min) had no limit. A slow enrichment step can no longer delay or block the day's data. | Shorter job limit only. |
 
+## Dashboard feedback
+
+| Decision | Why | Rejected alternative |
+|---|---|---|
+| The site's text size is a setting the feedback triage may change (90%–125%, at most 10 points per change), stored in `model_metrics` and applied as one root `font-size` rule. | Testing "increase the font size by 2%" showed the triage could only route it to a designer: Gemini had no safe way to change anything on screen. A bounded, reversible size setting covers the most common readability request without code. | Letting Gemini edit CSS or code (unbounded, unreviewable); a new `config` column (needs a migration before Vercel reads it). |
+| Developer and designer requests go to `DEV_NOTIFY_TO` / `DESIGN_NOTIFY_TO`, falling back to `NOTIFY_TO`, and stay listed in full on the Team page. | Both went to the same inbox as every alert, so "the designer" was in practice Ananya. | A ticketing integration (another account and API key). |
+
