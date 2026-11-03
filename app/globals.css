@@ -730,10 +730,21 @@ a.cue-company:hover { color: var(--accent); }
 .cue-more { display: none; }
 
 /* breakdown popup */
-.cue-dialog { width: min(680px, calc(100vw - 28px)); max-height: min(86vh, 900px); margin: auto; padding: 0; border-radius: 28px; color: var(--text); background: var(--glass-strong); overflow: auto; }
+.cue-dialog { width: min(680px, calc(100vw - 28px)); max-height: min(86vh, 900px); margin: auto; padding: 0; border-radius: 28px; color: var(--text); background: var(--glass-strong); overflow-x: hidden; overflow-y: auto; }
 .cue-dialog::backdrop { background: rgba(15, 20, 30, 0.35); backdrop-filter: blur(6px); }
 .cue-dialog[open] { animation: rise 0.22s ease-out both; }
-.dialog-inner { display: grid; gap: 12px; padding: 22px 24px 24px; }
+/* One column that never grows past the dialog: a long company name, link or URL wraps instead of
+   widening the content (which made the dialog scroll sideways and crop the left edge). */
+.dialog-inner { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 22px 24px 24px; overflow-wrap: anywhere; }
+.dialog-inner > * { min-width: 0; }
+.dialog-inner .cue-who { flex: 1; }
+.dialog-inner .cue-company { white-space: normal; }
+.dialog-inner .cue-head { overflow-wrap: break-word; }
+/* Phones: the tier label moves under the name so a long company name keeps whole words. */
+@media (max-width: 560px) {
+  .dialog-inner .cue-head { flex-wrap: wrap; }
+  .dialog-inner .cue-head .tier-pill { order: 3; margin-left: 64px; }
+}
 .dialog-inner h4 { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .dialog-title { font-family: var(--font-display), sans-serif; font-weight: 500; font-size: 1.35rem; line-height: 1.25; }
 .big-co { font-size: 1.05rem; }
